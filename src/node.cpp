@@ -44,7 +44,7 @@ int main(int argc, char **argv)
     ROS_INFO("%s/type is not defined",nh.getNamespace().c_str());
     return -1;
   }
-  boost::shared_ptr<ik_solver::IkSolver> ik_solver = ik_loader.createInstance("ik_solver/RosdynIkSolver");
+  boost::shared_ptr<ik_solver::IkSolver> ik_solver = ik_loader.createInstance(plugin_name);
   ik_solver->config(nh);
   ros::spin();
   return 0;
