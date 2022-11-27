@@ -38,9 +38,14 @@ int main(int argc, char **argv)
   ros::NodeHandle nh("~");
   pluginlib::ClassLoader<ik_solver::IkSolver> ik_loader("ik_solver", "ik_solver::IkSolver");
 
+  std::string plugin_name;
+  if (!nh.getParam("type",plugin_name))
+  {
+    ROS_INFO("%s/type is not defined",nh.getNamespace().c_str());
+    return -1;
+  }
   boost::shared_ptr<ik_solver::IkSolver> ik_solver = ik_loader.createInstance("ik_solver/RosdynIkSolver");
   ik_solver->config(nh);
-  //ik_solver::RosdynIkSolver ikserver(nh);
   ros::spin();
   return 0;
 }
