@@ -11,66 +11,188 @@ import sys
 import math
 import numpy as np
 
-if __name__ == "__main__":
-    rospy.init_node('get_ik')
+def get_quaternion_from_euler(roll, pitch, yaw):
+  """
+  Convert an Euler angle to a quaternion.
+
+  Input
+    :param roll: The roll (rotation around x-axis) angle in radians.
+    :param pitch: The pitch (rotation around y-axis) angle in radians.
+    :param yaw: The yaw (rotation around z-axis) angle in radians.
+
+  Output
+    :return qx, qy, qz, qw: The orientation in quaternion [x,y,z,w] format
+  """
+  qx = np.sin(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) - np.cos(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+  qy = np.cos(roll/2) * np.sin(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.cos(pitch/2) * np.sin(yaw/2)
+  qz = np.cos(roll/2) * np.cos(pitch/2) * np.sin(yaw/2) - np.sin(roll/2) * np.sin(pitch/2) * np.cos(yaw/2)
+  qw = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+
+  return [qx, qy, qz, qw]
+
+def cb(req):
+    tf_name=req.tf_name
 
 
-    if len(sys.argv)<3:
-        rospy.logerr("usage: rosrun rosdyn_ik_solver [namespace] [tf_name]")
-        exit()
+    service = '/get_ik_array'
+    distance=req.distance
+    width=req.width
+    resolution=req.resolution
+    roll=req.roll
+    pitch=req.pitch
+    yaw=req.yaw
 
-    service_name=sys.argv[1]
-    tf_name=sys.argv[2]
+    ik_locations_srv = rospy.ServiceProxy(service, ik_solver_msgs.srv.GetIkArray)
+    ik_req = ik_solver_msgs.srv.GetIkArrayRequest()
+    poses=geometry_msgs.msg.PoseArray()
+    poses.header.frame_id = tf_name
+    ik_req.poses.header.frame_id = tf_name
+    ik_req.max_number_of_solutions=1
+    ik_req.stall_iterations=30
 
+    for distance_z in np.arange(0,distance,resolution):
 
-    state_pub = rospy.Publisher('/ik_solution',moveit_msgs.msg.DisplayRobotState,queue_size=10)
-    array_pub = rospy.Publisher('/poses',geometry_msgs.msg.PoseArray,queue_size=10)
-    service = '/'+service_name+'/get_ik_array'
-    r = rospy.Rate(500) # 10hz
+        width_z=width/distance*distance_z
 
-    try:
-        distance = rospy.get_param("~distance")
-    except ROSException:
-        rospy.loginfo("could not get distance, width, or resolution for node %s",rospy.get_name())
-
-    try:
-        ik_locations_srv = rospy.ServiceProxy(service, ik_solver_msgs.srv.GetIkArray)
-        req = ik_solver_msgs.srv.GetIkArrayRequest()
-        req.poses.header.frame_id = tf_name
-        req.max_number_of_solutions=32
-        req.stall_iterations=30
-        for t in np.arange(0,2,0.005):
+        for t in np.arange(-width_z*0.5,width_z*0.5,resolution):
             p=geometry_msgs.msg.Pose()
             p.orientation.w=1
-            p.position.x=0.15*math.sin(2*math.pi*t)+0.05*math.sin(2*math.pi*t*10)
-            p.position.y=                           0.05*math.cos(2*math.pi*t*10)
-            p.position.z=0.15*math.cos(2*math.pi*t)
-            req.poses.poses.append(p)
+            p.position.x=t
+            p.position.y=-width_z*0.5
+            p.position.z=distance_z
+            poses.poses.append(p)
 
-        for ip in range(0,100):
-            array_pub.publish(req.poses)
-            #rospy.loginfo(req.poses)
-            r.sleep()
+            p=geometry_msgs.msg.Pose()
+            p.orientation.w=1
+            p.position.x=t
+            p.position.y=width_z*0.5
+            p.position.z=distance_z
+            poses.poses.append(p)
 
-        resp = ik_locations_srv(req)
-        if len(resp.solutions)==0:
-            rospy.logerr("no ik solution")
-            exit()
+            p=geometry_msgs.msg.Pose()
+            p.orientation.w=1
+            p.position.x=-width_z*0.5
+            p.position.y=t
+            p.position.z=distance_z
+            poses.poses.append(p)
 
-        ik_sol=moveit_msgs.msg.DisplayRobotState()
-        ik_sol.state.joint_state.name=resp.joint_names
-        ik_sol.state.joint_state.velocity= [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        ik_sol.state.joint_state.effort= [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        idx=0
-        while not rospy.is_shutdown():
-            array_pub.publish(req.poses)
-            for sol in resp.solutions:
-                for conf in sol.configurations:
-                    ik_sol.state.joint_state.position=conf.configuration
-                    state_pub.publish(ik_sol)
-                    r.sleep()
-                    if (rospy.is_shutdown()):
-                        exit()
+            p=geometry_msgs.msg.Pose()
+            p.orientation.w=1
+            p.position.x=width_z*0.5
+            p.position.y=t
+            p.position.z=distance_z
+            poses.poses.append(p)
 
-    except rospy.ServiceException as e:
-        print("Service call failed: %s"%e)
+            p=geometry_msgs.msg.Pose()
+            p.orientation.w=1
+            p.position.x=t
+            p.position.y=t
+            p.position.z=distance_z
+            poses.poses.append(p)
+
+            p=geometry_msgs.msg.Pose()
+            p.orientation.w=1
+            p.position.x=-t
+            p.position.y=t
+            p.position.z=distance_z
+            poses.poses.append(p)
+
+    for p in poses.poses:
+        ik_req.poses.poses.append(p)
+
+        quat=get_quaternion_from_euler(roll, pitch, yaw)
+        p2=geometry_msgs.msg.Pose()
+        p2.position=p.position
+        p2.orientation.x=quat[0]
+        p2.orientation.y=quat[1]
+        p2.orientation.z=quat[2]
+        p2.orientation.w=quat[3]
+        ik_req.poses.poses.append(p2)
+        if yaw!=0:
+            quat=get_quaternion_from_euler(roll, pitch, -yaw)
+            p2=geometry_msgs.msg.Pose()
+            p2.position=p.position
+            p2.orientation.x=quat[0]
+            p2.orientation.y=quat[1]
+            p2.orientation.z=quat[2]
+            p2.orientation.w=quat[3]
+            ik_req.poses.poses.append(p2)
+
+        if pitch!=0:
+            quat=get_quaternion_from_euler(roll, -pitch, yaw)
+            p2=geometry_msgs.msg.Pose()
+            p2.position=p.position
+            p2.orientation.x=quat[0]
+            p2.orientation.y=quat[1]
+            p2.orientation.z=quat[2]
+            p2.orientation.w=quat[3]
+            ik_req.poses.poses.append(p2)
+
+            if yaw!=0:
+                quat=get_quaternion_from_euler(roll, -pitch, -yaw)
+                p2=geometry_msgs.msg.Pose()
+                p2.position=p.position
+                p2.orientation.x=quat[0]
+                p2.orientation.y=quat[1]
+                p2.orientation.z=quat[2]
+                p2.orientation.w=quat[3]
+                ik_req.poses.poses.append(p2)
+
+        if roll!=0:
+            quat=get_quaternion_from_euler(-roll, pitch, yaw)
+            p2=geometry_msgs.msg.Pose()
+            p2.position=p.position
+            p2.orientation.x=quat[0]
+            p2.orientation.y=quat[1]
+            p2.orientation.z=quat[2]
+            p2.orientation.w=quat[3]
+            ik_req.poses.poses.append(p2)
+            if yaw!=0:
+                quat=get_quaternion_from_euler(-roll, pitch, -yaw)
+                p2=geometry_msgs.msg.Pose()
+                p2.position=p.position
+                p2.orientation.x=quat[0]
+                p2.orientation.y=quat[1]
+                p2.orientation.z=quat[2]
+                p2.orientation.w=quat[3]
+                ik_req.poses.poses.append(p2)
+
+            if pitch!=0:
+                quat=get_quaternion_from_euler(-roll, -pitch, yaw)
+                p2=geometry_msgs.msg.Pose()
+                p2.position=p.position
+                p2.orientation.x=quat[0]
+                p2.orientation.y=quat[1]
+                p2.orientation.z=quat[2]
+                p2.orientation.w=quat[3]
+                ik_req.poses.poses.append(p2)
+
+                if yaw!=0:
+                    quat=get_quaternion_from_euler(-roll, -pitch, -yaw)
+                    p2=geometry_msgs.msg.Pose()
+                    p2.position=p.position
+                    p2.orientation.x=quat[0]
+                    p2.orientation.y=quat[1]
+                    p2.orientation.z=quat[2]
+                    p2.orientation.w=quat[3]
+                    ik_req.poses.poses.append(p2)
+
+    ik_res = ik_locations_srv(ik_req)
+    res=ik_solver_msgs.srv.NeighbourhoodPyramidIkResponse()
+    for s in ik_res.solutions:
+        print(s)
+        if len(s.configurations)==0:
+            res.number_of_unreachable_poses=res.number_of_unreachable_poses+1
+
+    res.poses=ik_req.poses
+    res.solutions=ik_res.solutions
+    res.joint_names=ik_res.joint_names
+    return res
+
+def pyramid_server():
+    rospy.init_node('pyramid_server')
+    s = rospy.Service('~/neighbourhood_ik', ik_solver_msgs.srv.NeighbourhoodPyramidIk, cb)
+    rospy.spin()
+
+if __name__ == "__main__":
+    pyramid_server()
