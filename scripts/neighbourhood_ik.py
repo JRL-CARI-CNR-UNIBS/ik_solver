@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
 
     if len(sys.argv)<3:
-        rospy.logerr("usage: rosrun ik_solver get_tf_ik_array.py [namespace] [tf_name]")
+        rospy.logerr("usage: rosrun rosdyn_ik_solver [namespace] [tf_name]")
         exit()
 
     service_name=sys.argv[1]
@@ -27,6 +27,12 @@ if __name__ == "__main__":
     array_pub = rospy.Publisher('/poses',geometry_msgs.msg.PoseArray,queue_size=10)
     service = '/'+service_name+'/get_ik_array'
     r = rospy.Rate(500) # 10hz
+
+    try:
+        distance = rospy.get_param("~distance")
+    except ROSException:
+        rospy.loginfo("could not get distance, width, or resolution for node %s",rospy.get_name())
+
     try:
         ik_locations_srv = rospy.ServiceProxy(service, ik_solver_msgs.srv.GetIkArray)
         req = ik_solver_msgs.srv.GetIkArrayRequest()

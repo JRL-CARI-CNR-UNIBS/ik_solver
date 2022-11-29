@@ -17,7 +17,7 @@ if __name__ == "__main__":
 
 
     if len(sys.argv)<3:
-        rospy.logerr("usage: rosrun rosdyn_ik_solver [namespace] [tf_name]")
+        rospy.logerr("usage: rosrun ik_solver get_ik_collision_check.py [namespace] [tf_name]")
         exit()
 
     service_name=sys.argv[1]
