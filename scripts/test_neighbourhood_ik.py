@@ -23,7 +23,7 @@ def pyramid_client():
     req.distance=0.1
     req.resolution=0.01
     req.roll=0.1
-    req.pitch=1
+    req.pitch=0.1
     req.tf_name="foo"
     req.max_number_of_solutions=1
     req.stall_iterations=100
