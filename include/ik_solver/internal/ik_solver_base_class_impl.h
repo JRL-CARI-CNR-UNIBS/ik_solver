@@ -52,6 +52,11 @@ inline bool IkSolver::config(const ros::NodeHandle& nh)
     ROS_ERROR("%s/tool_frame is not specified",nh_.getNamespace().c_str());
     return false;
   }
+  if (!nh_.getParam("desired_solutions",desired_solutions_))
+  {
+    ROS_DEBUG("%s/desired_solutions is not specified, use 8",nh_.getNamespace().c_str());
+    desired_solutions_=8;
+  }
 
   if (not getFlangeTool())
   {

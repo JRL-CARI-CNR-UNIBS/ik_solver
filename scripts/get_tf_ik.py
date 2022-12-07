@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
     state_pub = rospy.Publisher('/ik_solution',moveit_msgs.msg.DisplayRobotState,queue_size=10)
     service = '/'+service_name+'/get_ik'
-    r = rospy.Rate(10) # 10hz
+
     try:
         ik_locations_srv = rospy.ServiceProxy(service, ik_solver_msgs.srv.GetIk)
         req = ik_solver_msgs.srv.GetIkRequest()
@@ -39,6 +39,10 @@ if __name__ == "__main__":
         ik_sol.state.joint_state.effort= [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         idx=0
         rospy.loginfo("found %d solution",len(resp.solution.configurations))
+        for sol in resp.solution.configurations:
+            rospy.logdebug("- ",sol.configuration)
+
+        r = rospy.Rate(len(resp.solution.configurations)/10) # all solution in 10 seconds
         while not rospy.is_shutdown():
             ik_sol.state.joint_state.position=resp.solution.configurations[idx].configuration
             state_pub.publish(ik_sol)
