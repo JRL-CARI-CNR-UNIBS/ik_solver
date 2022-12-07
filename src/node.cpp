@@ -47,7 +47,7 @@ int main(int argc, char **argv)
   boost::shared_ptr<ik_solver::IkSolver> ik_solver = ik_loader.createInstance(plugin_name);
   if (!ik_solver->config(nh))
   {
-    ROS_ERROR("unable to configure %s",plugin_name.c_str());
+    ROS_ERROR("unable to configure %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
     return 0;
   }
   ros::spin();
