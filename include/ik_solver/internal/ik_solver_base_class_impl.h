@@ -33,6 +33,73 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace ik_solver
 {
 
+inline bool isPresent(const Eigen::VectorXd& q, const std::vector<Eigen::VectorXd>& vec)
+{
+  for (const Eigen::VectorXd& q2: vec)
+  {
+    if ( (q-q2).norm()<1e-6)
+      return true;
+  }
+  return false;
+}
+
+inline std::vector<Eigen::VectorXd> IkSolver::getMultiplicity(const std::vector<Eigen::VectorXd> &sol)
+{
+
+  std::vector<Eigen::VectorXd> multiturn;
+
+  for (const Eigen::VectorXd& q: sol)
+  {
+    std::vector<std::vector<double>> multiturn_ax(ub_.size());
+
+    for (unsigned int idx = 0; idx < ub_.size(); idx++)
+    {
+      multiturn_ax.at(idx).push_back(q(idx));
+
+      if (!revolute_.at(idx))
+        continue;
+
+      double tmp=q(idx);
+      while (true)
+      {
+        tmp+=2*M_PI;
+        if (tmp>ub_(idx))
+          break;
+        multiturn_ax.at(idx).push_back(tmp);
+      }
+      tmp=q(idx);
+      while (true)
+      {
+        tmp-=2*M_PI;
+        if (tmp<lb_(idx))
+          break;
+        multiturn_ax.at(idx).push_back(tmp);
+      }
+    }
+
+    if (!isPresent(q,multiturn))
+      multiturn.push_back(q);
+
+    for (unsigned int idx = 0; idx < ub_.size(); idx++)
+    {
+      size_t size_multiturn=multiturn.size();
+      for (size_t is=1;is<multiturn_ax.at(idx).size();is++)
+      {
+        for (size_t im=0;im<size_multiturn;im++)
+        {
+          Eigen::VectorXd new_q=multiturn.at(im);
+          new_q(idx)=multiturn_ax.at(idx).at(is);
+          if (!isPresent(new_q,multiturn))
+            multiturn.push_back(new_q);
+        }
+      }
+    }
+  }
+
+  return multiturn;
+
+}
+
 inline bool IkSolver::config(const ros::NodeHandle& nh)
 {
   nh_=nh;
@@ -74,7 +141,7 @@ inline bool IkSolver::config(const ros::NodeHandle& nh)
   }
   lb_.resize(joint_names_.size());
   ub_.resize(joint_names_.size());
-
+  revolute_.resize(joint_names_.size());
   std::map<std::string, urdf::JointSharedPtr> joint_models=model_.joints_;
   for (size_t iax=0;iax<joint_names_.size();iax++)
   {
@@ -86,6 +153,9 @@ inline bool IkSolver::config(const ros::NodeHandle& nh)
     const urdf::JointSharedPtr& jmodel=joint_models.at(joint_names_.at(iax));
     lb_(iax)=jmodel->limits->lower;
     ub_(iax)=jmodel->limits->upper;
+
+
+    revolute_.at(iax)=jmodel->type==jmodel->REVOLUTE;
   }
 
   server_=nh_.advertiseService("get_ik",    &IkSolver::computeIK,    this);

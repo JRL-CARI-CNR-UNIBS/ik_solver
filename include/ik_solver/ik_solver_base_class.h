@@ -39,6 +39,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace ik_solver
 {
+
+bool isPresent(const Eigen::VectorXd& q, const std::vector<Eigen::VectorXd>& vec);
 class IkSolver
 {
 public:
@@ -70,6 +72,7 @@ protected:
 
   Eigen::VectorXd ub_;
   Eigen::VectorXd lb_;
+  std::vector<bool> revolute_;
   int max_stall_iter_=1000;
   int max_iter_=1000000;
   int desired_solutions_=8;
@@ -88,6 +91,8 @@ protected:
 
   std::vector<Eigen::VectorXd> getSeeds(const std::vector<std::string>& seed_names,
                                         const std::vector<ik_solver_msgs::Configuration>& seeds);
+
+  std::vector<Eigen::VectorXd> getMultiplicity(const std::vector<Eigen::VectorXd> &sol);
 
 };
 }  //  namespace ik_solver
