@@ -46,10 +46,11 @@ inline bool isPresent(const Eigen::VectorXd& q, const std::vector<Eigen::VectorX
 inline std::vector<Eigen::VectorXd> IkSolver::getMultiplicity(const std::vector<Eigen::VectorXd> &sol)
 {
 
-  std::vector<Eigen::VectorXd> multiturn;
+  std::vector<Eigen::VectorXd> multiturn_global;
 
   for (const Eigen::VectorXd& q: sol)
   {
+    std::vector<Eigen::VectorXd> multiturn;
     std::vector<std::vector<double>> multiturn_ax(ub_.size());
 
     for (unsigned int idx = 0; idx < ub_.size(); idx++)
@@ -94,9 +95,13 @@ inline std::vector<Eigen::VectorXd> IkSolver::getMultiplicity(const std::vector<
         }
       }
     }
+
+    for (const Eigen::VectorXd& q2: multiturn)
+      if (not isPresent(q2,multiturn_global))
+        multiturn_global.push_back(q2);
   }
 
-  return multiturn;
+  return multiturn_global;
 
 }
 
