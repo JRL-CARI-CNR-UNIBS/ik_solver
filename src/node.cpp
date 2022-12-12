@@ -41,15 +41,18 @@ int main(int argc, char **argv)
   std::string plugin_name;
   if (!nh.getParam("type",plugin_name))
   {
-    ROS_INFO("%s/type is not defined",nh.getNamespace().c_str());
+    ROS_ERROR("%s/type is not defined",nh.getNamespace().c_str());
     return -1;
   }
+  ROS_DEBUG("Creating %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
   boost::shared_ptr<ik_solver::IkSolver> ik_solver = ik_loader.createInstance(plugin_name);
+  ROS_DEBUG("Configuring %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
   if (!ik_solver->config(nh))
   {
     ROS_ERROR("unable to configure %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
     return 0;
   }
+  ROS_DEBUG("%s (type %s) is ready to compute IK",nh.getNamespace().c_str(),plugin_name.c_str());
   ros::spin();
   return 0;
 }
