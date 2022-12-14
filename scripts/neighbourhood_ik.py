@@ -42,13 +42,15 @@ def cb(req):
     pitch=req.pitch
     yaw=req.yaw
 
+
+
     ik_locations_srv = rospy.ServiceProxy(service, ik_solver_msgs.srv.GetIkArray)
     ik_req = ik_solver_msgs.srv.GetIkArrayRequest()
     poses=geometry_msgs.msg.PoseArray()
     poses.header.frame_id = tf_name
     ik_req.poses.header.frame_id = tf_name
-    ik_req.max_number_of_solutions=1
-    ik_req.stall_iterations=30
+    ik_req.max_number_of_solutions=req.max_number_of_solutions
+    ik_req.stall_iterations=req.stall_iterations
 
     for distance_z in np.arange(0,distance,resolution):
 
@@ -179,10 +181,12 @@ def cb(req):
 
     ik_res = ik_locations_srv(ik_req)
     res=ik_solver_msgs.srv.NeighbourhoodPyramidIkResponse()
-    for s in ik_res.solutions:
-        print(s)
+    res.unreachable_poses.header.frame_id=tf_name
+
+    for s, p in zip(ik_res.solutions,ik_req.poses.poses):
         if len(s.configurations)==0:
             res.number_of_unreachable_poses=res.number_of_unreachable_poses+1
+            res.unreachable_poses.poses.append(p)
 
     res.poses=ik_req.poses
     res.solutions=ik_res.solutions

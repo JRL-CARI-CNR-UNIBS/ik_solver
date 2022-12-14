@@ -222,7 +222,7 @@ inline bool IkSolver::computeIKArray( ik_solver_msgs::GetIkArray::Request& req,
   int counter=0;
   for (const geometry_msgs::Pose& p: req.poses.poses)
   {
-    ROS_INFO("computing IK for pose %d of %zu",counter++,req.poses.poses.size());
+    ROS_DEBUG("computing IK for pose %d of %zu",counter++,req.poses.poses.size());
     Eigen::Affine3d T_poses_tool;
     tf::poseMsgToEigen(p,T_poses_tool);
 
