@@ -180,7 +180,6 @@ inline bool IkSolver::getFlangeTool()
 inline bool IkSolver::computeIK(ik_solver_msgs::GetIk::Request &req,
                                 ik_solver_msgs::GetIk::Response &res)
 {
-
   Eigen::Affine3d T_base_tool;
   if (not getTF(base_frame_, req.tf_name,T_base_tool))
     return false;
@@ -334,7 +333,8 @@ inline bool IkSolver::outOfBound(const Eigen::VectorXd& c)
   bool out_of_bound = false;
   for (int iax=0; iax<lb_.size(); iax++)
   {
-    if ( (c(iax)<lb_(iax)) || (c(iax)>ub_(iax)))
+
+    if ( (c(iax)<lb_(iax)) || (c(iax)>ub_(iax)) || (std::isnan(c(iax))))
     {
       out_of_bound=true;
       break;
