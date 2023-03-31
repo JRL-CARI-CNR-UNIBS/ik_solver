@@ -161,11 +161,28 @@ inline bool IkSolver::config(const ros::NodeHandle& nh)
 
 
     revolute_.at(iax)=jmodel->type==jmodel->REVOLUTE;
+
+    double value;
+    if (nh_.getParam("limits/"+joint_names_.at(iax)+"/upper",value))
+    {
+      ub_(iax)=std::min(ub_(iax),value);
+    }
+    if (nh_.getParam("limits/"+joint_names_.at(iax)+"/lower",value))
+    {
+      lb_(iax)=std::max(lb_(iax),value);
+    }
+    if (lb_(iax)>ub_(iax))
+    {
+      ROS_ERROR("%s: %s has wrong limits: lower=%f, upper=%f",nh_.getNamespace().c_str(),joint_names_.at(iax).c_str(),lb_(iax),ub_(iax));
+      return false;
+    }
   }
+
+
 
   server_=nh_.advertiseService("get_ik",    &IkSolver::computeIK,    this);
   server_array_=nh_.advertiseService("get_ik_array",    &IkSolver::computeIKArray,    this);
-
+  fk_server_array_=nh_.advertiseService("get_fk_array",    &IkSolver::computeFKArray,    this);
   return customConfig();
 }
 
@@ -246,6 +263,51 @@ inline bool IkSolver::computeIKArray( ik_solver_msgs::GetIkArray::Request& req,
   return true;
 }
 
+inline bool IkSolver::computeFKArray( ik_solver_msgs::GetFkArray::Request& req,
+                                      ik_solver_msgs::GetFkArray::Response& res)
+{
+  Eigen::VectorXd q(joint_names_.size());
+  std::vector<int> order(joint_names_.size());
+
+  for (int idx=0;idx<joint_names_.size();idx++)
+  {
+    bool found=false;
+    for (int iax=0;iax<req.joint_names.size();iax++)
+    {
+      if (!req.joint_names.at(iax).compare(joint_names_.at(idx)))
+      {
+        found=true;
+        ROS_INFO("%s at  position %d",req.joint_names.at(iax).c_str(),iax);
+        order.at(idx)=iax;
+        break;
+      }
+    }
+    if (!found)
+    {
+      ROS_ERROR("IkSolver::computeFKArray joint names are not correct");
+      return false;
+    }
+  }
+
+  for (const ik_solver_msgs::Configuration& s: req.configurations)
+  {
+
+    for (int idx=0;idx<joint_names_.size();idx++)
+      q(idx)=s.configuration.at(order.at(idx));
+    Eigen::Affine3d fk=getFK(q);
+    geometry_msgs::Pose p;
+    tf::poseEigenToMsg(fk,p);
+    res.poses.poses.push_back(p);
+  }
+  return true;
+}
+
+Eigen::Affine3d IkSolver::getFK(const Eigen::VectorXd& s)
+{
+  Eigen::Affine3d I;
+  I.setIdentity();
+  return I;
+}
 
 inline bool IkSolver::getTF(const  std::string& a_name,
                             const  std::string& b_name,
