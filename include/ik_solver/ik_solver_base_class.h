@@ -62,6 +62,10 @@ public:
                                              const int& desired_solutions,
                                              const int& max_stall_iterations)=0;
 
+
+  // FK base to flange
+  virtual Eigen::Affine3d getFK(const Eigen::VectorXd& s);
+
 protected:
   ros::NodeHandle nh_;
   ros::ServiceServer server_;
@@ -99,8 +103,6 @@ protected:
 
   std::vector<Eigen::VectorXd> getMultiplicity(const std::vector<Eigen::VectorXd> &sol);
 
-  // FK base to flange
-  virtual Eigen::Affine3d getFK(const Eigen::VectorXd& s);
 };
 }  //  namespace ik_solver
 
