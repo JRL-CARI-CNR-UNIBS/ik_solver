@@ -266,6 +266,17 @@ inline bool IkSolver::computeIKArray( ik_solver_msgs::GetIkArray::Request& req,
 inline bool IkSolver::computeFKArray( ik_solver_msgs::GetFkArray::Request& req,
                                       ik_solver_msgs::GetFkArray::Response& res)
 {
+  Eigen::Affine3d T_tool_tip;
+  if (req.tip_frame.empty())
+    T_tool_tip.setIdentity();
+  else if (!getTF(tool_frame_,req.tip_frame,T_tool_tip))
+  {
+    ROS_ERROR("IkSolver::computeFKArray: error on computing TF from tool_name=%s, tip_frame=%s",
+              tool_frame_.c_str(),
+              req.tip_frame.c_str());
+    return false;
+  }
+
   Eigen::Affine3d T_poses_base;
   Eigen::Affine3d T_flange_tool=T_tool_flange_.inverse();
   if (not getTF(req.reference_frame, base_frame_,T_poses_base))
@@ -299,7 +310,7 @@ inline bool IkSolver::computeFKArray( ik_solver_msgs::GetFkArray::Request& req,
 
     for (int idx=0;idx<joint_names_.size();idx++)
       q(idx)=s.configuration.at(order.at(idx));
-    Eigen::Affine3d fk=T_poses_base*getFK(q)*T_flange_tool;
+    Eigen::Affine3d fk=T_poses_base*getFK(q)*T_flange_tool*T_tool_tip;
     geometry_msgs::Pose p;
     tf::poseEigenToMsg(fk,p);
     res.poses.poses.push_back(p);
