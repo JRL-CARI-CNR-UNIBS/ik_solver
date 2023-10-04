@@ -309,7 +309,7 @@ inline bool IkSolver::computeFKArray( ik_solver_msgs::GetFkArray::Request& req,
       if (!req.joint_names.at(iax).compare(joint_names_.at(idx)))
       {
         found=true;
-        ROS_INFO("%s at  position %d",req.joint_names.at(iax).c_str(),iax);
+        //ROS_INFO("%s at  position %d",req.joint_names.at(iax).c_str(),iax);
         order.at(idx)=iax;
         break;
       }
