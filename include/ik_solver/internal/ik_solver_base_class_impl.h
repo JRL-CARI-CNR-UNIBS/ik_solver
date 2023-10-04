@@ -47,15 +47,18 @@ inline bool isPresent(const Eigen::VectorXd& q, const std::vector<Eigen::VectorX
 bool IkSolver::getBounds( ik_solver_msgs::GetBound::Request& req,
                           ik_solver_msgs::GetBound::Response& res)
 {
-  res.joint_names=joint_names_;
+  res.joint_names.resize(joint_names_.size());
   res.lower_bound.resize(lb_.size());
   res.upper_bound.resize(ub_.size());
 
   for (size_t iax=0;iax<lb_.size();iax++)
   {
+    res.joint_names.at(iax)=joint_names_.at(iax);
     res.lower_bound.at(iax)=lb_(iax);
     res.upper_bound.at(iax)=ub_(iax);
   }
+  return true;
+
 }
 
 inline std::vector<Eigen::VectorXd> IkSolver::getMultiplicity(const std::vector<Eigen::VectorXd> &sol)
