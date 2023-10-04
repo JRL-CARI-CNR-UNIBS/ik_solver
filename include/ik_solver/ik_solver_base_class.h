@@ -34,6 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ik_solver_msgs/GetIk.h>
 #include <ik_solver_msgs/GetIkArray.h>
 #include <ik_solver_msgs/GetFkArray.h>
+#include <ik_solver_msgs/GetBound.h>
 #include <tf_conversions/tf_eigen.h>
 #include <eigen_conversions/eigen_msg.h>
 #include <urdf/model.h>
@@ -57,6 +58,9 @@ public:
   bool computeFKArray( ik_solver_msgs::GetFkArray::Request& req,
                        ik_solver_msgs::GetFkArray::Response& res);
 
+  bool getBounds( ik_solver_msgs::GetBound::Request& req,
+                  ik_solver_msgs::GetBound::Response& res);
+
   virtual std::vector<Eigen::VectorXd> getIk(const Eigen::Affine3d& T_base_flange,
                                              const std::vector<Eigen::VectorXd> & seeds,
                                              const int& desired_solutions,
@@ -71,6 +75,7 @@ protected:
   ros::ServiceServer server_;
   ros::ServiceServer server_array_;
   ros::ServiceServer fk_server_array_;
+  ros::ServiceServer bound_server_array_;
 
   Eigen::Affine3d T_tool_flange_;
   tf::TransformListener listener_;
