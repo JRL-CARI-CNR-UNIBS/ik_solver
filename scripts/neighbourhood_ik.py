@@ -1,14 +1,8 @@
 #!/usr/bin/env python3
 import rospy
-import rosservice
-import moveit_msgs.msg
 import geometry_msgs.msg
 import ik_solver_msgs.srv
-import actionlib
-import random
-import time
-import sys
-import math
+import ik_solver_msgs.msg
 import numpy as np
 
 def get_quaternion_from_euler(roll, pitch, yaw):
@@ -30,9 +24,9 @@ def get_quaternion_from_euler(roll, pitch, yaw):
 
   return [qx, qy, qz, qw]
 
-def cb(req):
-    tf_name=req.tf_name
+def cb(req : ik_solver_msgs.srv.NeighbourhoodPyramidIkRequest) -> ik_solver_msgs.srv.NeighbourhoodPyramidIkResponse:
 
+    tf_name=req.tf_name
 
     service = '/get_ik_array'
     distance=req.distance
@@ -43,15 +37,11 @@ def cb(req):
     yaw=req.yaw
 
 
-
+    rospy.wait_for_service(service, timeout=30)
     ik_locations_srv = rospy.ServiceProxy(service, ik_solver_msgs.srv.GetIkArray)
-    ik_req = ik_solver_msgs.srv.GetIkArrayRequest()
-    poses=geometry_msgs.msg.PoseArray()
-    poses.header.frame_id = tf_name
-    ik_req.poses.header.frame_id = tf_name
-    ik_req.max_number_of_solutions=req.max_number_of_solutions
-    ik_req.stall_iterations=req.stall_iterations
 
+    poses = geometry_msgs.msg.PoseArray()
+    poses.header.frame_id = tf_name 
     for distance_z in np.arange(0,distance,resolution):
 
         width_z=width/distance*distance_z
@@ -99,8 +89,15 @@ def cb(req):
             p.position.z=distance_z
             poses.poses.append(p)
 
+
+    ik_req = ik_solver_msgs.srv.GetIkArrayRequest()
+    ik_req.frame_id = tf_name
+    ik_req.max_number_of_solutions=req.max_number_of_solutions
+    ik_req.stall_iterations=req.stall_iterations
     for p in poses.poses:
-        ik_req.poses.poses.append(p)
+        target = ik_solver_msgs.msg.IkTarget()
+        target.pose = p
+        ik_req.targets.append(target)
 
         quat=get_quaternion_from_euler(roll, pitch, yaw)
         p2=geometry_msgs.msg.Pose()
@@ -109,7 +106,9 @@ def cb(req):
         p2.orientation.y=quat[1]
         p2.orientation.z=quat[2]
         p2.orientation.w=quat[3]
-        ik_req.poses.poses.append(p2)
+        target.pose = p2
+        ik_req.targets.append(target)
+
         if yaw!=0:
             quat=get_quaternion_from_euler(roll, pitch, -yaw)
             p2=geometry_msgs.msg.Pose()
@@ -118,7 +117,8 @@ def cb(req):
             p2.orientation.y=quat[1]
             p2.orientation.z=quat[2]
             p2.orientation.w=quat[3]
-            ik_req.poses.poses.append(p2)
+            target.pose = p2
+            ik_req.targets.append(target)
 
         if pitch!=0:
             quat=get_quaternion_from_euler(roll, -pitch, yaw)
@@ -128,7 +128,8 @@ def cb(req):
             p2.orientation.y=quat[1]
             p2.orientation.z=quat[2]
             p2.orientation.w=quat[3]
-            ik_req.poses.poses.append(p2)
+            target.pose = p2
+            ik_req.targets.append(target)
 
             if yaw!=0:
                 quat=get_quaternion_from_euler(roll, -pitch, -yaw)
@@ -138,7 +139,8 @@ def cb(req):
                 p2.orientation.y=quat[1]
                 p2.orientation.z=quat[2]
                 p2.orientation.w=quat[3]
-                ik_req.poses.poses.append(p2)
+                target.pose = p2
+                ik_req.targets.append(target)
 
         if roll!=0:
             quat=get_quaternion_from_euler(-roll, pitch, yaw)
@@ -148,7 +150,9 @@ def cb(req):
             p2.orientation.y=quat[1]
             p2.orientation.z=quat[2]
             p2.orientation.w=quat[3]
-            ik_req.poses.poses.append(p2)
+            target.pose = p2
+            ik_req.targets.append(target)
+
             if yaw!=0:
                 quat=get_quaternion_from_euler(-roll, pitch, -yaw)
                 p2=geometry_msgs.msg.Pose()
@@ -157,7 +161,8 @@ def cb(req):
                 p2.orientation.y=quat[1]
                 p2.orientation.z=quat[2]
                 p2.orientation.w=quat[3]
-                ik_req.poses.poses.append(p2)
+                target.pose = p2
+                ik_req.targets.append(target)
 
             if pitch!=0:
                 quat=get_quaternion_from_euler(-roll, -pitch, yaw)
@@ -167,7 +172,8 @@ def cb(req):
                 p2.orientation.y=quat[1]
                 p2.orientation.z=quat[2]
                 p2.orientation.w=quat[3]
-                ik_req.poses.poses.append(p2)
+                target.pose = p2
+                ik_req.targets.append(target)
 
                 if yaw!=0:
                     quat=get_quaternion_from_euler(-roll, -pitch, -yaw)
@@ -177,9 +183,11 @@ def cb(req):
                     p2.orientation.y=quat[1]
                     p2.orientation.z=quat[2]
                     p2.orientation.w=quat[3]
-                    ik_req.poses.poses.append(p2)
+                    target.pose = p2
+                    ik_req.targets.append(target)
 
     ik_res = ik_locations_srv(ik_req)
+    
     res=ik_solver_msgs.srv.NeighbourhoodPyramidIkResponse()
     res.unreachable_poses.header.frame_id=tf_name
 

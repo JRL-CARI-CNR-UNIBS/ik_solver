@@ -26,47 +26,46 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
+#include <ik_solver/internal/parallel_computing.h>
 #include <ik_solver/ik_solver_base_class.h>
 
+#include <chrono>
+#include <mutex>
+#include "ros/node_handle.h"
+using namespace std::chrono_literals;
 
 namespace ik_solver
 {
-
 inline bool isPresent(const Eigen::VectorXd& q, const std::vector<Eigen::VectorXd>& vec)
 {
-  for (const Eigen::VectorXd& q2: vec)
+  for (const Eigen::VectorXd& q2 : vec)
   {
-    if ( (q-q2).norm()<1e-6)
+    if ((q - q2).norm() < 1e-6)
       return true;
   }
   return false;
 }
 
-
-bool IkSolver::getBounds( ik_solver_msgs::GetBound::Request& req,
-                          ik_solver_msgs::GetBound::Response& res)
+bool IkSolver::getBounds(ik_solver_msgs::GetBound::Request& req, ik_solver_msgs::GetBound::Response& res)
 {
   res.joint_names.resize(joint_names_.size());
   res.lower_bound.resize(lb_.size());
   res.upper_bound.resize(ub_.size());
 
-  for (size_t iax=0;iax<lb_.size();iax++)
+  for (size_t iax = 0; iax < lb_.size(); iax++)
   {
-    res.joint_names.at(iax)=joint_names_.at(iax);
-    res.lower_bound.at(iax)=lb_(iax);
-    res.upper_bound.at(iax)=ub_(iax);
+    res.joint_names.at(iax) = joint_names_.at(iax);
+    res.lower_bound.at(iax) = lb_(iax);
+    res.upper_bound.at(iax) = ub_(iax);
   }
   return true;
-
 }
 
-inline std::vector<Eigen::VectorXd> IkSolver::getMultiplicity(const std::vector<Eigen::VectorXd> &sol)
+inline std::vector<Eigen::VectorXd> IkSolver::getMultiplicity(const std::vector<Eigen::VectorXd>& sol)
 {
-
   std::vector<Eigen::VectorXd> multiturn_global;
 
-  for (const Eigen::VectorXd& q: sol)
+  for (const Eigen::VectorXd& q : sol)
   {
     std::vector<Eigen::VectorXd> multiturn;
     std::vector<std::vector<double>> multiturn_ax(ub_.size());
@@ -78,242 +77,321 @@ inline std::vector<Eigen::VectorXd> IkSolver::getMultiplicity(const std::vector<
       if (!revolute_.at(idx))
         continue;
 
-      double tmp=q(idx);
+      double tmp = q(idx);
       while (true)
       {
-        tmp+=2*M_PI;
-        if (tmp>ub_(idx))
+        tmp += 2 * M_PI;
+        if (tmp > ub_(idx))
           break;
         multiturn_ax.at(idx).push_back(tmp);
       }
-      tmp=q(idx);
+      tmp = q(idx);
       while (true)
       {
-        tmp-=2*M_PI;
-        if (tmp<lb_(idx))
+        tmp -= 2 * M_PI;
+        if (tmp < lb_(idx))
           break;
         multiturn_ax.at(idx).push_back(tmp);
       }
     }
 
-    if (!isPresent(q,multiturn))
+    if (!isPresent(q, multiturn))
       multiturn.push_back(q);
 
     for (unsigned int idx = 0; idx < ub_.size(); idx++)
     {
-      size_t size_multiturn=multiturn.size();
-      for (size_t is=1;is<multiturn_ax.at(idx).size();is++)
+      size_t size_multiturn = multiturn.size();
+      for (size_t is = 1; is < multiturn_ax.at(idx).size(); is++)
       {
-        for (size_t im=0;im<size_multiturn;im++)
+        for (size_t im = 0; im < size_multiturn; im++)
         {
-          Eigen::VectorXd new_q=multiturn.at(im);
-          new_q(idx)=multiturn_ax.at(idx).at(is);
-          if (!isPresent(new_q,multiturn))
+          Eigen::VectorXd new_q = multiturn.at(im);
+          new_q(idx) = multiturn_ax.at(idx).at(is);
+          if (!isPresent(new_q, multiturn))
             multiturn.push_back(new_q);
         }
       }
     }
 
-    for (const Eigen::VectorXd& q2: multiturn)
-      if (not isPresent(q2,multiturn_global))
+    for (const Eigen::VectorXd& q2 : multiturn)
+      if (not isPresent(q2, multiturn_global))
         multiturn_global.push_back(q2);
   }
 
   return multiturn_global;
-
 }
 
-inline bool IkSolver::config(const ros::NodeHandle& nh)
+inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& params_ns)
 {
-  nh_=nh;
+  bool is_private = params_ns.empty() ? false : params_ns[0]=='~';
+  bool is_global =  params_ns.empty() ? false : params_ns[0]=='/';
+  bool is_relative = params_ns.empty() ? true : params_ns[0]== (!is_private && !is_global);
 
-  if (!nh_.getParam("base_frame",base_frame_))
+  if( is_private )
   {
-    ROS_ERROR("%s/base_frame is not specified",nh_.getNamespace().c_str());
+    std::string _params_ns = params_ns; 
+    _params_ns[0] = '/';
+    params_ns_ = ros::NodeHandle("~").getNamespace() + _params_ns;
+  }
+  else if( is_global )
+  {
+    params_ns_ = params_ns;
+  }
+  else
+  {
+    params_ns_ = nh.getNamespace() +"/"+ params_ns;
+  }
+
+  params_ns_ = params_ns_.back() == '/' ? params_ns_ : params_ns_+"/";
+  nh_ = nh;
+
+  std::string pn = params_ns_+"base_frame";
+  if (!ros::param::get(pn, base_frame_))
+  {
+    ROS_ERROR("%s is not specified", pn.c_str());
     return false;
   }
-  if (!nh_.getParam("flange_frame",flange_frame_))
+  pn = params_ns_+"flange_frame";
+  if (!ros::param::get(pn, flange_frame_))
   {
-    ROS_ERROR("%s/flange_frame is not specified",nh_.getNamespace().c_str());
+    ROS_ERROR("%s is not specified", pn.c_str());
     return false;
   }
-  if (!nh_.getParam("tool_frame",tool_frame_))
+
+  pn = params_ns_+"tool_frame";
+  if (!ros::param::get(pn, tool_frame_))
   {
-    ROS_ERROR("%s/tool_frame is not specified",nh_.getNamespace().c_str());
+    ROS_ERROR("%s is not specified", pn.c_str());
     return false;
   }
-  if (!nh_.getParam("desired_solutions",desired_solutions_))
+  pn = params_ns_+"desired_solutions";
+  if (!ros::param::get(pn, desired_solutions_))
   {
-    ROS_DEBUG("%s/desired_solutions is not specified, use 8",nh_.getNamespace().c_str());
-    desired_solutions_=8;
+    ROS_DEBUG("%s is not specified, use 8", pn.c_str());
+    desired_solutions_ = 8;
   }
 
   if (not getFlangeTool())
   {
-    ROS_ERROR("%s: no TF from flange and tool",nh_.getNamespace().c_str());
+    ROS_ERROR("%s: no TF from flange and tool", params_ns_.c_str());
     return false;
   }
 
-
   model_.initParam("robot_description");
 
-  if (!nh_.getParam("joint_names",joint_names_))
+  pn = params_ns_+"joint_names";
+  if (!ros::param::get(pn, joint_names_))
   {
-    ROS_ERROR("%s/joint_names is not specified",nh_.getNamespace().c_str());
+    ROS_ERROR("%s is not specified", pn.c_str());
     return false;
   }
   lb_.resize(joint_names_.size());
   ub_.resize(joint_names_.size());
   revolute_.resize(joint_names_.size());
-  std::map<std::string, urdf::JointSharedPtr> joint_models=model_.joints_;
-  for (size_t iax=0;iax<joint_names_.size();iax++)
+  std::map<std::string, urdf::JointSharedPtr> joint_models = model_.joints_;
+  for (size_t iax = 0; iax < joint_names_.size(); iax++)
   {
-    if (joint_models.count(joint_names_.at(iax))==0)
+    if (joint_models.count(joint_names_.at(iax)) == 0)
     {
-      ROS_ERROR("%s: %s is not a valid joint name",nh_.getNamespace().c_str(),joint_names_.at(iax).c_str());
+      ROS_ERROR("%s: %s is not a valid joint name", params_ns_.c_str(), joint_names_.at(iax).c_str());
       return false;
     }
-    const urdf::JointSharedPtr& jmodel=joint_models.at(joint_names_.at(iax));
-    lb_(iax)=jmodel->limits->lower;
-    ub_(iax)=jmodel->limits->upper;
+    const urdf::JointSharedPtr& jmodel = joint_models.at(joint_names_.at(iax));
+    lb_(iax) = jmodel->limits->lower;
+    ub_(iax) = jmodel->limits->upper;
 
-
-    revolute_.at(iax)=jmodel->type==jmodel->REVOLUTE;
+    revolute_.at(iax) = jmodel->type == jmodel->REVOLUTE;
 
     double value;
-    if (nh_.getParam("limits/"+joint_names_.at(iax)+"/upper",value))
+    if (ros::param::get(params_ns_+"limits/" + joint_names_.at(iax) + "/upper", value))
     {
-      ub_(iax)=std::min(ub_(iax),value);
+      ub_(iax) = std::min(ub_(iax), value);
     }
-    if (nh_.getParam("limits/"+joint_names_.at(iax)+"/lower",value))
+    if (ros::param::get(params_ns_+"limits/" + joint_names_.at(iax) + "/lower", value))
     {
-      lb_(iax)=std::max(lb_(iax),value);
+      lb_(iax) = std::max(lb_(iax), value);
     }
-    if (lb_(iax)>ub_(iax))
+    if (lb_(iax) > ub_(iax))
     {
-      ROS_ERROR("%s: %s has wrong limits: lower=%f, upper=%f",nh_.getNamespace().c_str(),joint_names_.at(iax).c_str(),lb_(iax),ub_(iax));
+      ROS_ERROR("%s: %s has wrong limits: lower=%f, upper=%f", params_ns_.c_str(), joint_names_.at(iax).c_str(),
+                lb_(iax), ub_(iax));
       return false;
     }
   }
 
-
-
-  server_ = nh_.advertiseService("get_ik",    &IkSolver::computeIK,    this);
-  server_array_ = nh_.advertiseService("get_ik_array",    &IkSolver::computeIKArray,    this);
-  fk_server_array_ = nh_.advertiseService("get_fk_array",    &IkSolver::computeFKArray,    this);
-  bound_server_array_ = nh_.advertiseService("get_bounds",&IkSolver::getBounds, this);
+  server_ = nh_.advertiseService("get_ik", &IkSolver::computeIK, this);
+  server_array_ = nh_.advertiseService("get_ik_array", &IkSolver::computeIKArray, this);
+  fk_server_array_ = nh_.advertiseService("get_fk_array", &IkSolver::computeFKArray, this);
+  bound_server_array_ = nh_.advertiseService("get_bounds", &IkSolver::getBounds, this);
   return customConfig();
 }
 
 inline bool IkSolver::getFlangeTool()
 {
-  return getTF( tool_frame_,
-                flange_frame_,
-                T_tool_flange_);
+  return getTF(tool_frame_, flange_frame_, T_tool_flange_);
 }
 
-
-inline bool IkSolver::computeIK(ik_solver_msgs::GetIk::Request &req,
-                                ik_solver_msgs::GetIk::Response &res)
+inline bool IkSolver::computeIK(ik_solver_msgs::GetIk::Request& req, ik_solver_msgs::GetIk::Response& res)
 {
   Eigen::Affine3d T_base_tool;
-  if (not getTF(base_frame_, req.tf_name,T_base_tool))
+  if (not getTF(base_frame_, req.tf_name, T_base_tool))
     return false;
 
-  Eigen::Affine3d T_base_flange=T_base_tool*T_tool_flange_;
+  Eigen::Affine3d T_base_flange = T_base_tool * T_tool_flange_;
 
-  std::vector<Eigen::VectorXd> seeds=getSeeds(req.seed_joint_names,req.seeds);
+  std::vector<Eigen::VectorXd> seeds = getSeeds(req.seed_joint_names, req.seeds);
 
-  int desired_solutions=(req.max_number_of_solutions>0)?req.max_number_of_solutions:desired_solutions_;
-  int max_stall_iterations=(req.stall_iterations>0)?req.stall_iterations:max_stall_iter_;
-  std::vector<Eigen::VectorXd> solutions=getIk(T_base_flange,seeds,desired_solutions,max_stall_iterations);
+  int desired_solutions = (req.max_number_of_solutions > 0) ? req.max_number_of_solutions : desired_solutions_;
+  int max_stall_iterations = (req.stall_iterations > 0) ? req.stall_iterations : max_stall_iter_;
+  std::vector<Eigen::VectorXd> solutions = getIk(T_base_flange, seeds, desired_solutions, max_stall_iterations);
 
-  for (Eigen::VectorXd& s: solutions)
+  for (Eigen::VectorXd& s : solutions)
   {
     ik_solver_msgs::Configuration sol;
     sol.configuration.resize(s.size());
-    for (long idx=0;idx<s.size();idx++)
-      sol.configuration.at(idx)=s(idx);
+    for (long idx = 0; idx < s.size(); idx++)
+      sol.configuration.at(idx) = s(idx);
     res.solution.configurations.push_back(sol);
   }
-  res.joint_names=joint_names_;
+  res.joint_names = joint_names_;
 
   return true;
 }
 
-inline bool IkSolver::computeIKArray( ik_solver_msgs::GetIkArray::Request& req,
-                                      ik_solver_msgs::GetIkArray::Response& res)
+inline bool IkSolver::computeIKArray(ik_solver_msgs::GetIkArray::Request& req,
+                                     ik_solver_msgs::GetIkArray::Response& res)
 {
   Eigen::Affine3d T_base_poses;
-  if (not getTF(base_frame_, req.poses.header.frame_id,T_base_poses))
+  if (not getTF(base_frame_, req.frame_id, T_base_poses))
     return false;
 
-
-  std::vector<Eigen::VectorXd> seeds=getSeeds(req.seed_joint_names,req.seeds);
-
-  int desired_solutions=(req.max_number_of_solutions>0)?req.max_number_of_solutions:desired_solutions_;
-  int max_stall_iterations=(req.stall_iterations>0)?req.stall_iterations:max_stall_iter_;
-
-  int counter=0;
-  for (const geometry_msgs::Pose& p: req.poses.poses)
+  std::vector<std::vector<Eigen::VectorXd>> vseeds;
+  for (size_t i = 0; i < req.targets.size(); i++)
   {
-    ROS_DEBUG("computing IK for pose %d of %zu",counter++,req.poses.poses.size());
-    Eigen::Affine3d T_poses_tool;
-    tf::poseMsgToEigen(p,T_poses_tool);
-
-    Eigen::Affine3d T_base_flange=T_base_poses*T_poses_tool*T_tool_flange_;
-
-    std::vector<Eigen::VectorXd> solutions=getIk(T_base_flange,seeds,desired_solutions,max_stall_iterations);
-
-    ik_solver_msgs::IkSolution ik_sol;
-    for (Eigen::VectorXd& s: solutions)
-    {
-      ik_solver_msgs::Configuration sol;
-      sol.configuration.resize(s.size());
-      for (long idx=0;idx<s.size();idx++)
-        sol.configuration.at(idx)=s(idx);
-      ik_sol.configurations.push_back(sol);
-    }
-    res.solutions.push_back(ik_sol);
-    seeds=solutions;
+    vseeds.push_back(getSeeds(req.seed_joint_names, req.targets.at(i).seeds));
   }
-  res.joint_names=joint_names_;
+
+  int desired_solutions = (req.max_number_of_solutions > 0) ? req.max_number_of_solutions : desired_solutions_;
+  int max_stall_iterations = (req.stall_iterations > 0) ? req.stall_iterations : max_stall_iter_;
+
+  int counter = 0;
+  if (req.parallelize)
+  {
+    // ============================================================================
+    // Thread Function
+    // NOTE: The seed is the last available, not the one of the previous execution.
+    auto ik_mt = [this](bool& stop, const size_t& i, const geometry_msgs::Pose& p, const Eigen::Affine3d& T_base_poses,
+                        const Eigen::Affine3d& T_tool_flange, const std::vector<Eigen::VectorXd>& seeds,
+                        const int& desired_solutions, const int& max_stall_iterations) -> ik_solver_msgs::IkSolution {
+      Eigen::Affine3d T_poses_tool;
+      tf::poseMsgToEigen(p, T_poses_tool);
+      Eigen::Affine3d T_base_flange = T_base_poses * T_poses_tool * T_tool_flange;
+
+      std::vector<Eigen::VectorXd> solutions =
+          this->getIkSafeMT(stop, i, T_base_flange, seeds, desired_solutions, max_stall_iterations);
+      ik_solver_msgs::IkSolution ik_sol;
+      for (Eigen::VectorXd& s : solutions)
+      {
+        ik_solver_msgs::Configuration sol;
+        sol.configuration.resize(s.size());
+        for (long idx = 0; idx < s.size(); idx++)
+        {
+          sol.configuration.at(idx) = s(idx);
+        }
+        ik_sol.configurations.push_back(sol);
+      }
+      return ik_sol;
+    };
+    // ============================================================================
+
+    // ============================================================================
+    // The Pool size N is critical: larger should be better in term of performances.
+    // However, the seed is tghe same for the first N nodes of the first Pool, then
+    // while the threads finish, the seed is updated.
+    bool stop;
+    std::vector<std::future<ik_solver_msgs::IkSolution>> ik_sols;
+    ik_solver::tasks ik_pool;
+    for (size_t i = 0; i < req.targets.size(); i++)
+    {
+      const size_t ii = i;
+      auto f = std::bind(ik_mt, stop, ii, req.targets.at(i).pose, T_base_poses, T_tool_flange_, vseeds.at(i),
+                         desired_solutions, max_stall_iterations);
+      ik_sols.push_back(ik_pool.queue(f));
+    }
+    ik_pool.start(IkSolver::MAX_NUM_THREADS);  // TO DO
+    ik_pool.finish();
+    std::for_each(ik_sols.begin(), ik_sols.end(),
+                  [&](std::future<ik_solver_msgs::IkSolution>& ik_sol) { res.solutions.push_back(ik_sol.get()); });
+  }
+  else
+  {
+    for (size_t i = 0; i < req.targets.size(); i++)
+    {
+      const geometry_msgs::Pose& p = req.targets.at(i).pose;
+
+      ROS_DEBUG("computing IK for pose %d of %zu", counter++, req.targets.size());
+      Eigen::Affine3d T_poses_tool;
+      tf::poseMsgToEigen(p, T_poses_tool);
+
+      Eigen::Affine3d T_base_flange = T_base_poses * T_poses_tool * T_tool_flange_;
+
+      std::vector<Eigen::VectorXd> solutions =
+          getIk(T_base_flange, vseeds.at(i), desired_solutions, max_stall_iterations);
+
+      ik_solver_msgs::IkSolution ik_sol;
+      for (Eigen::VectorXd& s : solutions)
+      {
+        ik_solver_msgs::Configuration sol;
+        sol.configuration.resize(s.size());
+        for (long idx = 0; idx < s.size(); idx++)
+        {
+          sol.configuration.at(idx) = s(idx);
+        }
+        ik_sol.configurations.push_back(sol);
+      }
+      res.solutions.push_back(ik_sol);
+      if (req.exploit_solutions_as_seed && i < (req.targets.size() - 1))
+      {
+        vseeds.at(i + 1) = solutions;
+      }
+    }
+  }
+  res.joint_names = joint_names_;
 
   return true;
 }
 
-inline bool IkSolver::computeFKArray( ik_solver_msgs::GetFkArray::Request& req,
-                                      ik_solver_msgs::GetFkArray::Response& res)
+inline bool IkSolver::computeFKArray(ik_solver_msgs::GetFkArray::Request& req,
+                                     ik_solver_msgs::GetFkArray::Response& res)
 {
   Eigen::Affine3d T_tool_tip;
   if (req.tip_frame.empty())
     T_tool_tip.setIdentity();
-  else if (!getTF(tool_frame_,req.tip_frame,T_tool_tip))
+  else if (!getTF(tool_frame_, req.tip_frame, T_tool_tip))
   {
-    ROS_ERROR("IkSolver::computeFKArray: error on computing TF from tool_name=%s, tip_frame=%s",
-              tool_frame_.c_str(),
+    ROS_ERROR("IkSolver::computeFKArray: error on computing TF from tool_name=%s, tip_frame=%s", tool_frame_.c_str(),
               req.tip_frame.c_str());
     return false;
   }
 
   Eigen::Affine3d T_poses_base;
-  Eigen::Affine3d T_flange_tool=T_tool_flange_.inverse();
-  if (not getTF(req.reference_frame, base_frame_,T_poses_base))
+  Eigen::Affine3d T_flange_tool = T_tool_flange_.inverse();
+  if (not getTF(req.reference_frame, base_frame_, T_poses_base))
     return false;
-  res.poses.header.frame_id=req.reference_frame;
+  res.poses.header.frame_id = req.reference_frame;
   Eigen::VectorXd q(joint_names_.size());
   std::vector<int> order(joint_names_.size());
 
-  for (int idx=0;idx<joint_names_.size();idx++)
+  for (int idx = 0; idx < joint_names_.size(); idx++)
   {
-    bool found=false;
-    for (int iax=0;iax<req.joint_names.size();iax++)
+    bool found = false;
+    for (int iax = 0; iax < req.joint_names.size(); iax++)
     {
       if (!req.joint_names.at(iax).compare(joint_names_.at(idx)))
       {
-        found=true;
-        //ROS_INFO("%s at  position %d",req.joint_names.at(iax).c_str(),iax);
-        order.at(idx)=iax;
+        found = true;
+        // ROS_INFO("%s at  position %d",req.joint_names.at(iax).c_str(),iax);
+        order.at(idx) = iax;
         break;
       }
     }
@@ -324,14 +402,13 @@ inline bool IkSolver::computeFKArray( ik_solver_msgs::GetFkArray::Request& req,
     }
   }
 
-  for (const ik_solver_msgs::Configuration& s: req.configurations)
+  for (const ik_solver_msgs::Configuration& s : req.configurations)
   {
-
-    for (int idx=0;idx<joint_names_.size();idx++)
-      q(idx)=s.configuration.at(order.at(idx));
-    Eigen::Affine3d fk=T_poses_base*getFK(q)*T_flange_tool*T_tool_tip;
+    for (int idx = 0; idx < joint_names_.size(); idx++)
+      q(idx) = s.configuration.at(order.at(idx));
+    Eigen::Affine3d fk = T_poses_base * getFK(q) * T_flange_tool * T_tool_tip;
     geometry_msgs::Pose p;
-    tf::poseEigenToMsg(fk,p);
+    tf::poseEigenToMsg(fk, p);
     res.poses.poses.push_back(p);
   }
   return true;
@@ -344,21 +421,14 @@ Eigen::Affine3d IkSolver::getFK(const Eigen::VectorXd& s)
   return I;
 }
 
-inline bool IkSolver::getTF(const  std::string& a_name,
-                            const  std::string& b_name,
-                            Eigen::Affine3d& T_ab)
+inline bool IkSolver::getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab)
 {
   tf::StampedTransform location_transform;
   ros::Time t0 = ros::Time(0);
   std::string tf_error;
-  if (!listener_.waitForTransform(a_name,
-                                  b_name,
-                                  t0,
-                                  ros::Duration(10),
-                                  ros::Duration(0.01),
-                                  &tf_error))
+  if (!listener_.waitForTransform(a_name, b_name, t0, ros::Duration(10), ros::Duration(0.01), &tf_error))
   {
-    ROS_WARN("Unable to find a transform from %s to %s, tf error=%s", a_name.c_str(), b_name.c_str(),tf_error.c_str());
+    ROS_WARN("Unable to find a transform from %s to %s, tf error=%s", a_name.c_str(), b_name.c_str(), tf_error.c_str());
     return false;
   }
 
@@ -368,11 +438,11 @@ inline bool IkSolver::getTF(const  std::string& a_name,
   }
   catch (...)
   {
-    ROS_WARN("Unable to find a transform from %s to %s, tf error=%s", a_name.c_str(), b_name.c_str(),tf_error.c_str());
+    ROS_WARN("Unable to find a transform from %s to %s, tf error=%s", a_name.c_str(), b_name.c_str(), tf_error.c_str());
     return false;
   }
 
-  tf::poseTFToEigen(location_transform,T_ab);
+  tf::poseTFToEigen(location_transform, T_ab);
   return true;
 }
 
@@ -382,19 +452,18 @@ inline std::vector<Eigen::VectorXd> IkSolver::getSeeds(const std::vector<std::st
   std::vector<Eigen::VectorXd> seeds_eigen;
   std::vector<Eigen::VectorXd> solutions;
 
-  bool seed_ok=true;
-  if (seeds.size()>0)
+  bool seed_ok = true;
+  if (seeds.size() > 0)
   {
-
-    if (joint_names_.size()!= seed_names.size())
-      seed_ok=false;
+    if (joint_names_.size() != seed_names.size())
+      seed_ok = false;
     else
     {
-      for (size_t ij=0;ij<joint_names_.size();ij++)
+      for (size_t ij = 0; ij < joint_names_.size(); ij++)
       {
-        if (joint_names_.at(ij).compare(seed_names.at(ij))) // compare return true if different
+        if (joint_names_.at(ij).compare(seed_names.at(ij)))  // compare return true if different
         {
-          seed_ok=false;
+          seed_ok = false;
           break;
         }
       }
@@ -407,38 +476,34 @@ inline std::vector<Eigen::VectorXd> IkSolver::getSeeds(const std::vector<std::st
   }
   else
   {
-    for (const ik_solver_msgs::Configuration& seed: seeds)
+    for (const ik_solver_msgs::Configuration& seed : seeds)
     {
       Eigen::VectorXd s(lb_.size());
-      if (s.size()!=(long)seed.configuration.size())
+      if (s.size() != (long)seed.configuration.size())
       {
-        ROS_WARN("seed dimensions are wrong, given %zu, expected %zu. Skip it",seed.configuration.size(),s.size());
+        ROS_WARN("seed dimensions are wrong, given %zu, expected %zu. Skip it", seed.configuration.size(), s.size());
         continue;
       }
-      for (size_t idx=0;idx<seed.configuration.size();idx++)
-        s(idx)=seed.configuration.at(idx);
+      for (size_t idx = 0; idx < seed.configuration.size(); idx++)
+        s(idx) = seed.configuration.at(idx);
       seeds_eigen.push_back(s);
     }
   }
   return seeds_eigen;
 }
 
-
-
 inline bool IkSolver::outOfBound(const Eigen::VectorXd& c)
 {
   bool out_of_bound = false;
-  for (int iax=0; iax<lb_.size(); iax++)
+  for (int iax = 0; iax < lb_.size(); iax++)
   {
-
-    if ( (c(iax)<lb_(iax)) || (c(iax)>ub_(iax)) || (std::isnan(c(iax))))
+    if ((c(iax) < lb_(iax)) || (c(iax) > ub_(iax)) || (std::isnan(c(iax))))
     {
-      out_of_bound=true;
+      out_of_bound = true;
       break;
     }
   }
   return out_of_bound;
 }
 
-
-}   // end namespace ik_solver
+}  // end namespace ik_solver

@@ -27,10 +27,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #pragma once
+#include <mutex>
 
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
 #include <Eigen/Geometry>
+#include <string>
 #include <ik_solver_msgs/GetIk.h>
 #include <ik_solver_msgs/GetIkArray.h>
 #include <ik_solver_msgs/GetFkArray.h>
@@ -41,22 +43,23 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace ik_solver
 {
-
 bool isPresent(const Eigen::VectorXd& q, const std::vector<Eigen::VectorXd>& vec);
+
 class IkSolver
 {
 public:
+  constexpr static const size_t MAX_NUM_THREADS = 16;
 
-  bool config(const ros::NodeHandle& nh);
+  bool config(const ros::NodeHandle& nh, const std::string& param_ns="");
 
   bool computeIK(ik_solver_msgs::GetIk::Request& req,
                  ik_solver_msgs::GetIk::Response& res);
 
-  bool computeIKArray( ik_solver_msgs::GetIkArray::Request& req,
-                       ik_solver_msgs::GetIkArray::Response& res);
+  bool computeIKArray(ik_solver_msgs::GetIkArray::Request& req,
+                      ik_solver_msgs::GetIkArray::Response& res);
 
-  bool computeFKArray( ik_solver_msgs::GetFkArray::Request& req,
-                       ik_solver_msgs::GetFkArray::Response& res);
+  bool computeFKArray(ik_solver_msgs::GetFkArray::Request& req,
+                      ik_solver_msgs::GetFkArray::Response& res);
 
   bool getBounds( ik_solver_msgs::GetBound::Request& req,
                   ik_solver_msgs::GetBound::Response& res);
@@ -64,13 +67,19 @@ public:
   virtual std::vector<Eigen::VectorXd> getIk(const Eigen::Affine3d& T_base_flange,
                                              const std::vector<Eigen::VectorXd> & seeds,
                                              const int& desired_solutions,
-                                             const int& max_stall_iterations)=0;
+                                             const int& max_stall_iterations) = 0;
 
+  virtual std::vector<Eigen::VectorXd> getIkSafeMT(bool& stop, const size_t& thread_id,
+                                                   const Eigen::Affine3d& T_base_flange,
+                                                   const std::vector<Eigen::VectorXd>& seeds,
+                                                   const int& desired_solutions, const int& max_stall_iterations) = 0;
 
   // FK base to flange
   virtual Eigen::Affine3d getFK(const Eigen::VectorXd& s);
 
 protected:
+
+  std::string params_ns_;
   ros::NodeHandle nh_;
   ros::ServiceServer server_;
   ros::ServiceServer server_array_;
@@ -87,29 +96,29 @@ protected:
   Eigen::VectorXd ub_;
   Eigen::VectorXd lb_;
   std::vector<bool> revolute_;
-  int max_stall_iter_=1000;
-  int max_iter_=1000000;
-  int desired_solutions_=8;
+  int max_stall_iter_ = 999;
+  int max_iter_ = 1000000;
+  int desired_solutions_ = 8;
 
   urdf::Model model_;
 
+  std::mutex mtx_;
+
   bool getFlangeTool();
 
-  virtual bool customConfig()=0;
+  virtual bool customConfig() = 0;
 
   bool outOfBound(const Eigen::VectorXd& c);
 
-  bool getTF(const  std::string& a_name,
-             const  std::string& b_name,
+  bool getTF(const std::string& a_name,
+             const std::string& b_name,
              Eigen::Affine3d& T_ab);
 
   std::vector<Eigen::VectorXd> getSeeds(const std::vector<std::string>& seed_names,
                                         const std::vector<ik_solver_msgs::Configuration>& seeds);
 
-  std::vector<Eigen::VectorXd> getMultiplicity(const std::vector<Eigen::VectorXd> &sol);
-
+  std::vector<Eigen::VectorXd> getMultiplicity(const std::vector<Eigen::VectorXd>& sol);
 };
 }  //  namespace ik_solver
-
 
 #include <ik_solver/internal/ik_solver_base_class_impl.h>
