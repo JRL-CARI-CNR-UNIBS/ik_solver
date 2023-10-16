@@ -26,16 +26,50 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <ik_solver/internal/parallel_computing.h>
+#include <geometry_msgs/Pose.h>
+#include <sstream>
+#include <string>
+
+#include <thread_pool_ros_package/ThreadPool.h>
 #include <ik_solver/ik_solver_base_class.h>
 
 #include <chrono>
 #include <mutex>
+#include "Eigen/src/Geometry/Transform.h"
 #include "ros/node_handle.h"
+
 using namespace std::chrono_literals;
 
 namespace ik_solver
 {
+
+inline std::string to_string(const Eigen::MatrixXd& mat){
+    std::stringstream ss;
+    if(mat.rows()<mat.cols())
+    {
+      ss << mat.transpose();
+    }
+    return ss.str();
+}
+
+inline std::string to_string(const Eigen::Affine3d& mat){
+    return to_string(mat.matrix());
+}
+
+inline std::string to_string(const geometry_msgs::Pose& mat){
+    std::stringstream ss;
+    ss << mat;
+    ss.str().replace("\n",", ");
+    return ss.str();
+}
+
+inline std::string to_string(const std::vector<Eigen::VectorXd>& seeds)
+{
+  std::string ret; 
+  for(const auto & s : seeds) { ret += to_string(s) + ", "; }
+  return ret;
+}
+
 inline bool isPresent(const Eigen::VectorXd& q, const std::vector<Eigen::VectorXd>& vec)
 {
   for (const Eigen::VectorXd& q2 : vec)
@@ -280,15 +314,21 @@ inline bool IkSolver::computeIKArray(ik_solver_msgs::GetIkArray::Request& req,
     // ============================================================================
     // Thread Function
     // NOTE: The seed is the last available, not the one of the previous execution.
-    auto ik_mt = [this](bool& stop, const size_t& i, const geometry_msgs::Pose& p, const Eigen::Affine3d& T_base_poses,
-                        const Eigen::Affine3d& T_tool_flange, const std::vector<Eigen::VectorXd>& seeds,
-                        const int& desired_solutions, const int& max_stall_iterations) -> ik_solver_msgs::IkSolution {
+    auto ik_mt = [this](bool& stop, geometry_msgs::Pose p, Eigen::Affine3d T_base_poses,
+                        Eigen::Affine3d T_tool_flange, std::vector<Eigen::VectorXd> seeds,
+                        int desired_solutions, int max_stall_iterations) -> ik_solver_msgs::IkSolution {
       Eigen::Affine3d T_poses_tool;
       tf::poseMsgToEigen(p, T_poses_tool);
       Eigen::Affine3d T_base_flange = T_base_poses * T_poses_tool * T_tool_flange;
 
       std::vector<Eigen::VectorXd> solutions =
-          this->getIkSafeMT(stop, i, T_base_flange, seeds, desired_solutions, max_stall_iterations);
+          this->getIkSafeMT(stop, T_base_flange, seeds, desired_solutions, max_stall_iterations);
+
+      if(solutions.size()==0)
+      {
+        ROS_INFO_STREAM("No IK solutions with inputs: Pose: " << to_string(p) << " Tbf: " << to_string(T_base_flange) << " seeds: " << to_string(seeds) );
+
+      }
       ik_solver_msgs::IkSolution ik_sol;
       for (Eigen::VectorXd& s : solutions)
       {
@@ -310,18 +350,20 @@ inline bool IkSolver::computeIKArray(ik_solver_msgs::GetIkArray::Request& req,
     // while the threads finish, the seed is updated.
     bool stop;
     std::vector<std::future<ik_solver_msgs::IkSolution>> ik_sols;
-    ik_solver::tasks ik_pool;
+    thread_pool::ThreadPool ik_pool(1);
+    ik_pool.init(); // create the threads;
+
     for (size_t i = 0; i < req.targets.size(); i++)
     {
-      const size_t ii = i;
-      auto f = std::bind(ik_mt, stop, ii, req.targets.at(i).pose, T_base_poses, T_tool_flange_, vseeds.at(i),
-                         desired_solutions, max_stall_iterations);
-      ik_sols.push_back(ik_pool.queue(f));
+      ik_sols.push_back(
+        ik_pool.submit(ik_mt, std::ref(stop), req.targets.at(i).pose, T_base_poses, T_tool_flange_, vseeds.at(i),
+                         desired_solutions, max_stall_iterations)
+      );
     }
-    ik_pool.start(IkSolver::MAX_NUM_THREADS);  // TO DO
-    ik_pool.finish();
     std::for_each(ik_sols.begin(), ik_sols.end(),
-                  [&](std::future<ik_solver_msgs::IkSolution>& ik_sol) { res.solutions.push_back(ik_sol.get()); });
+      [&](std::future<ik_solver_msgs::IkSolution>& ik_sol) { res.solutions.push_back(ik_sol.get()); });
+
+    ik_pool.shutdown();
   }
   else
   {

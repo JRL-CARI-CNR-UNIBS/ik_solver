@@ -27,6 +27,7 @@
   <exec_depend>roscpp</exec_depend>
   <exec_depend>tf_conversions</exec_depend>
   <exec_depend>urdf</exec_depend>
+  <depend>thread_pool_ros_package</depend>
 
 
   <export>

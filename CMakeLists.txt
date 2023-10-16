@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   tf_conversions
   urdf
+  thread_pool_ros_package
 )
 
 find_package(Eigen3 REQUIRED COMPONENTS Geometry Core)

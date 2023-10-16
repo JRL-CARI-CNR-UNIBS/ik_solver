@@ -50,6 +50,8 @@ class IkSolver
 public:
   constexpr static const size_t MAX_NUM_THREADS = 16;
 
+  using IkConfigurations = std::vector<Eigen::VectorXd>;
+
   bool config(const ros::NodeHandle& nh, const std::string& param_ns="");
 
   bool computeIK(ik_solver_msgs::GetIk::Request& req,
@@ -64,14 +66,13 @@ public:
   bool getBounds( ik_solver_msgs::GetBound::Request& req,
                   ik_solver_msgs::GetBound::Response& res);
 
-  virtual std::vector<Eigen::VectorXd> getIk(const Eigen::Affine3d& T_base_flange,
-                                             const std::vector<Eigen::VectorXd> & seeds,
+  virtual IkConfigurations getIk(const Eigen::Affine3d& T_base_flange,
+                                             const IkConfigurations& seeds,
                                              const int& desired_solutions,
                                              const int& max_stall_iterations) = 0;
 
-  virtual std::vector<Eigen::VectorXd> getIkSafeMT(bool& stop, const size_t& thread_id,
-                                                   const Eigen::Affine3d& T_base_flange,
-                                                   const std::vector<Eigen::VectorXd>& seeds,
+  virtual IkConfigurations getIkSafeMT(bool& stop, const Eigen::Affine3d& T_base_flange,
+                                                   const IkConfigurations& seeds,
                                                    const int& desired_solutions, const int& max_stall_iterations) = 0;
 
   // FK base to flange
