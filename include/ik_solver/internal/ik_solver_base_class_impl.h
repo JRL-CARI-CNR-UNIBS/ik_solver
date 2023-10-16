@@ -287,7 +287,9 @@ inline bool IkSolver::computeFKArray( ik_solver_msgs::GetFkArray::Request& req,
 {
   Eigen::Affine3d T_tool_tip;
   if (req.tip_frame.empty())
+  {
     T_tool_tip.setIdentity();
+  }
   else if (!getTF(tool_frame_,req.tip_frame,T_tool_tip))
   {
     ROS_ERROR("IkSolver::computeFKArray: error on computing TF from tool_name=%s, tip_frame=%s",
