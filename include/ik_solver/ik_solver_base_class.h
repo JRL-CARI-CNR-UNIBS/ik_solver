@@ -26,7 +26,8 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
+#ifndef IK_SOLVER__IKSOLVER_BASE_CLASS_H
+#define IK_SOLVER__IKSOLVER_BASE_CLASS_H
 
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
@@ -113,3 +114,5 @@ protected:
 
 
 #include <ik_solver/internal/ik_solver_base_class_impl.h>
+
+#endif  // IK_SOLVER__IKSOLVER_BASE_CLASS_H
