@@ -41,7 +41,7 @@ def cb(req : ik_solver_msgs.srv.NeighbourhoodPyramidIkRequest) -> ik_solver_msgs
     ik_locations_srv = rospy.ServiceProxy(service, ik_solver_msgs.srv.GetIkArray)
 
     poses = geometry_msgs.msg.PoseArray()
-    poses.header.frame_id = tf_name 
+    poses.header.frame_id = tf_name
     for distance_z in np.arange(0,distance,resolution):
 
         width_z=width/distance*distance_z
@@ -88,7 +88,6 @@ def cb(req : ik_solver_msgs.srv.NeighbourhoodPyramidIkRequest) -> ik_solver_msgs
             p.position.y=t
             p.position.z=distance_z
             poses.poses.append(p)
-
 
     ik_req = ik_solver_msgs.srv.GetIkArrayRequest()
     ik_req.frame_id = tf_name

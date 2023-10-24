@@ -26,13 +26,16 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
+#ifndef IK_SOLVER__IKSOLVER_BASE_CLASS_H
+#define IK_SOLVER__IKSOLVER_BASE_CLASS_H
+
 #include <mutex>
+#include <string>
 
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
 #include <Eigen/Geometry>
-#include <string>
+
 #include <ik_solver_msgs/GetIk.h>
 #include <ik_solver_msgs/GetIkArray.h>
 #include <ik_solver_msgs/GetFkArray.h>
@@ -43,6 +46,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace ik_solver
 {
+
 bool isPresent(const Eigen::VectorXd& q, const std::vector<Eigen::VectorXd>& vec);
 
 class IkSolver
@@ -79,8 +83,9 @@ public:
   virtual Eigen::Affine3d getFK(const Eigen::VectorXd& s);
 
 protected:
-
   std::string params_ns_;
+  std::mutex mtx_;
+
   ros::NodeHandle nh_;
   ros::ServiceServer server_;
   ros::ServiceServer server_array_;
@@ -103,8 +108,6 @@ protected:
 
   urdf::Model model_;
 
-  std::mutex mtx_;
-
   bool getFlangeTool();
 
   virtual bool customConfig() = 0;
@@ -122,4 +125,7 @@ protected:
 };
 }  //  namespace ik_solver
 
+
 #include <ik_solver/internal/ik_solver_base_class_impl.h>
+
+#endif  // IK_SOLVER__IKSOLVER_BASE_CLASS_H

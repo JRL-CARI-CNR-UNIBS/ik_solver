@@ -26,24 +26,41 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <geometry_msgs/Pose.h>
+#ifndef IK_SOLVER__INTERNAL__IKSOLVER_BASE_CLASS_IMPL_H
+#define IK_SOLVER__INTERNAL__IKSOLVER_BASE_CLASS_IMPL_H
+
 #include <sstream>
 #include <string>
-
-#include <thread_pool_ros_package/ThreadPool.h>
-#include <ik_solver/ik_solver_base_class.h>
-
 #include <chrono>
 #include <mutex>
-#include "Eigen/src/Geometry/Transform.h"
-#include "ros/node_handle.h"
+#include <vector>
+#include <Eigen/Core>
+#include <cstdio>
+#include <ik_solver_msgs/GetBound.h>
+
+#include <geometry_msgs/Pose.h>
+
+#include <ik_solver/ik_solver_base_class.h>
 
 using namespace std::chrono_literals;
 
 namespace ik_solver
 {
 
-inline std::string to_string(const Eigen::MatrixXd& mat){
+constexpr const char * PBSTR = "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||";
+constexpr const size_t PBWIDTH = 60;
+
+inline void printProgress(double percentage, const char* hdr, const char* msg)
+{
+  int val = (int)(percentage * 100);
+  int lpad = (int)(percentage * PBWIDTH);
+  int rpad = PBWIDTH - lpad;
+  printf("\r[%s]%3d%% Ik Solver [%.*s%*s] %s", hdr, val, lpad, PBSTR, rpad, "", msg);
+  fflush(stdout);
+}
+
+inline std::string to_string(const Eigen::MatrixXd& mat)
+{
     std::stringstream ss;
     if(mat.rows()<mat.cols())
     {
@@ -52,11 +69,13 @@ inline std::string to_string(const Eigen::MatrixXd& mat){
     return ss.str();
 }
 
-inline std::string to_string(const Eigen::Affine3d& mat){
+inline std::string to_string(const Eigen::Affine3d& mat)
+{
     return to_string(mat.matrix());
 }
 
-inline std::string to_string(const geometry_msgs::Pose& mat){
+inline std::string to_string(const geometry_msgs::Pose& mat)
+{
     std::stringstream ss;
     ss << mat;
     ss.str().replace("\n",", ");
@@ -297,9 +316,11 @@ inline bool IkSolver::computeIKArray(ik_solver_msgs::GetIkArray::Request& req,
 {
   Eigen::Affine3d T_base_poses;
   if (not getTF(base_frame_, req.frame_id, T_base_poses))
+  {
     return false;
+  }
 
-  std::vector<std::vector<Eigen::VectorXd>> vseeds;
+  std::vector<IkConfigurations> vseeds;
   for (size_t i = 0; i < req.targets.size(); i++)
   {
     vseeds.push_back(getSeeds(req.seed_joint_names, req.targets.at(i).seeds));
@@ -310,6 +331,54 @@ inline bool IkSolver::computeIKArray(ik_solver_msgs::GetIkArray::Request& req,
 
   int counter = 0;
   if (req.parallelize)
+  {
+    for (size_t i = 0; i < req.targets.size(); i++)
+    {
+      const geometry_msgs::Pose& p = req.targets.at(i).pose;
+
+      ROS_DEBUG("computing IK for pose %d of %zu", i, req.targets.size());
+      Eigen::Affine3d T_poses_tool;
+      tf::poseMsgToEigen(p, T_poses_tool);
+
+      Eigen::Affine3d T_base_flange = T_base_poses * T_poses_tool * T_tool_flange_;
+
+      std::vector<Eigen::VectorXd> solutions =
+          getIk(T_base_flange, vseeds.at(i), desired_solutions, max_stall_iterations);
+
+      ik_solver_msgs::IkSolution ik_sol;
+      for (Eigen::VectorXd& s : solutions)
+      {
+        ik_solver_msgs::Configuration sol;
+        sol.configuration.resize(s.size());
+        for (long idx = 0; idx < s.size(); idx++)
+        {
+          sol.configuration.at(idx) = s(idx);
+        }
+        ik_sol.configurations.push_back(sol);
+      }
+      res.solutions.push_back(ik_sol);
+      if(solutions.size())
+      {
+        if (req.exploit_solutions_as_seed && i < (req.targets.size() - 1))
+        {
+          vseeds.at(i + 1) = solutions;
+        }
+      }
+      else
+      {
+        failed_poses_counter++;
+      }
+
+      char buffer[128]={0};  // maximum expected length of the float
+      std::string nl = (i == req.poses.poses.size()-1 ? "\n" : "");
+      std::snprintf(buffer, 128, "OK/FAILED/TOT %03zu/%03zu/%03zu (Last IK sols %02zu, des. %d, stall it. %d)%s",
+        i+1 - failed_poses_counter, failed_poses_counter, req.poses.poses.size(), 
+        solutions.size(),desired_solutions, max_stall_iterations, nl.c_str());
+    
+      printProgress(double(i+1) / double(req.poses.poses.size()), req.poses.header.frame_id.c_str(), buffer);
+    }
+  }
+  else
   {
     // ============================================================================
     // Thread Function
@@ -365,39 +434,6 @@ inline bool IkSolver::computeIKArray(ik_solver_msgs::GetIkArray::Request& req,
 
     ik_pool.shutdown();
   }
-  else
-  {
-    for (size_t i = 0; i < req.targets.size(); i++)
-    {
-      const geometry_msgs::Pose& p = req.targets.at(i).pose;
-
-      ROS_DEBUG("computing IK for pose %d of %zu", counter++, req.targets.size());
-      Eigen::Affine3d T_poses_tool;
-      tf::poseMsgToEigen(p, T_poses_tool);
-
-      Eigen::Affine3d T_base_flange = T_base_poses * T_poses_tool * T_tool_flange_;
-
-      std::vector<Eigen::VectorXd> solutions =
-          getIk(T_base_flange, vseeds.at(i), desired_solutions, max_stall_iterations);
-
-      ik_solver_msgs::IkSolution ik_sol;
-      for (Eigen::VectorXd& s : solutions)
-      {
-        ik_solver_msgs::Configuration sol;
-        sol.configuration.resize(s.size());
-        for (long idx = 0; idx < s.size(); idx++)
-        {
-          sol.configuration.at(idx) = s(idx);
-        }
-        ik_sol.configurations.push_back(sol);
-      }
-      res.solutions.push_back(ik_sol);
-      if (req.exploit_solutions_as_seed && i < (req.targets.size() - 1))
-      {
-        vseeds.at(i + 1) = solutions;
-      }
-    }
-  }
   res.joint_names = joint_names_;
 
   return true;
@@ -408,7 +444,9 @@ inline bool IkSolver::computeFKArray(ik_solver_msgs::GetFkArray::Request& req,
 {
   Eigen::Affine3d T_tool_tip;
   if (req.tip_frame.empty())
+  {
     T_tool_tip.setIdentity();
+  }
   else if (!getTF(tool_frame_, req.tip_frame, T_tool_tip))
   {
     ROS_ERROR("IkSolver::computeFKArray: error on computing TF from tool_name=%s, tip_frame=%s", tool_frame_.c_str(),
@@ -549,3 +587,5 @@ inline bool IkSolver::outOfBound(const Eigen::VectorXd& c)
 }
 
 }  // end namespace ik_solver
+
+#endif // IK_SOLVER__INTERNAL__IKSOLVER_BASE_CLASS_IMPL_H
