@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <mutex>
 #include <string>
+#include <thread>
 
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
@@ -47,37 +48,32 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace ik_solver
 {
 
+using IkConfigurations = std::vector<Eigen::VectorXd>;
+
 bool isPresent(const Eigen::VectorXd& q, const std::vector<Eigen::VectorXd>& vec);
 
 class IkSolver
 {
 public:
-  constexpr static const size_t MAX_NUM_THREADS = 16;
+  const unsigned int MAX_NUM_THREADS = std::thread::hardware_concurrency();
 
-  using IkConfigurations = std::vector<Eigen::VectorXd>;
 
-  bool config(const ros::NodeHandle& nh, const std::string& param_ns="");
 
-  bool computeIK(ik_solver_msgs::GetIk::Request& req,
-                 ik_solver_msgs::GetIk::Response& res);
+  bool config(const ros::NodeHandle& nh, const std::string& param_ns = "");
 
-  bool computeIKArray(ik_solver_msgs::GetIkArray::Request& req,
-                      ik_solver_msgs::GetIkArray::Response& res);
+  bool computeIK(ik_solver_msgs::GetIk::Request& req, ik_solver_msgs::GetIk::Response& res);
 
-  bool computeFKArray(ik_solver_msgs::GetFkArray::Request& req,
-                      ik_solver_msgs::GetFkArray::Response& res);
+  bool computeIKArray(ik_solver_msgs::GetIkArray::Request& req, ik_solver_msgs::GetIkArray::Response& res);
 
-  bool getBounds( ik_solver_msgs::GetBound::Request& req,
-                  ik_solver_msgs::GetBound::Response& res);
+  bool computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_solver_msgs::GetFkArray::Response& res);
 
-  virtual IkConfigurations getIk(const Eigen::Affine3d& T_base_flange,
-                                             const IkConfigurations& seeds,
-                                             const int& desired_solutions,
-                                             const int& max_stall_iterations) = 0;
+  bool getBounds(ik_solver_msgs::GetBound::Request& req, ik_solver_msgs::GetBound::Response& res);
 
-  virtual IkConfigurations getIkSafeMT(bool& stop, const Eigen::Affine3d& T_base_flange,
-                                                   const IkConfigurations& seeds,
-                                                   const int& desired_solutions, const int& max_stall_iterations) = 0;
+  virtual IkConfigurations getIk(const Eigen::Affine3d& T_base_flange, const IkConfigurations& seeds,
+                                 const int& desired_solutions, const int& max_stall_iterations) = 0;
+
+  virtual IkConfigurations getIkSafeMT(bool& stop, const Eigen::Affine3d& T_base_flange, const IkConfigurations& seeds,
+                                       const int& desired_solutions, const int& max_stall_iterations) = 0;
 
   // FK base to flange
   virtual Eigen::Affine3d getFK(const Eigen::VectorXd& s);
@@ -114,17 +110,19 @@ protected:
 
   bool outOfBound(const Eigen::VectorXd& c);
 
-  bool getTF(const std::string& a_name,
-             const std::string& b_name,
-             Eigen::Affine3d& T_ab);
+  bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab);
 
   std::vector<Eigen::VectorXd> getSeeds(const std::vector<std::string>& seed_names,
                                         const std::vector<ik_solver_msgs::Configuration>& seeds);
 
   std::vector<Eigen::VectorXd> getMultiplicity(const std::vector<Eigen::VectorXd>& sol);
+
+  std::vector< ::ik_solver_msgs::IkSolution> computeIKArrayMT(const Eigen::Affine3d& T_base_poses,
+                                                              const std::vector<geometry_msgs::Pose>& poses,
+                                                              const std::vector<IkConfigurations>& seeds,
+                                                              size_t desired_solutions, size_t max_stall_iterations);
 };
 }  //  namespace ik_solver
-
 
 #include <ik_solver/internal/ik_solver_base_class_impl.h>
 

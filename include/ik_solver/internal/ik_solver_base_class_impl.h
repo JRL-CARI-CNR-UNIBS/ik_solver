@@ -30,15 +30,20 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define IK_SOLVER__INTERNAL__IKSOLVER_BASE_CLASS_IMPL_H
 
 #include <sstream>
+#include <algorithm>
 #include <string>
 #include <chrono>
 #include <mutex>
 #include <vector>
+#include <regex>
+
 #include <Eigen/Core>
 #include <cstdio>
 #include <ik_solver_msgs/GetBound.h>
 
 #include <geometry_msgs/Pose.h>
+#include <future>
+#include <thread_pool_ros_package/ThreadPool.h>
 
 #include <ik_solver/ik_solver_base_class.h>
 
@@ -46,8 +51,7 @@ using namespace std::chrono_literals;
 
 namespace ik_solver
 {
-
-constexpr const char * PBSTR = "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||";
+constexpr const char* PBSTR = "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||";
 constexpr const size_t PBWIDTH = 60;
 
 inline void printProgress(double percentage, const char* hdr, const char* msg)
@@ -61,31 +65,35 @@ inline void printProgress(double percentage, const char* hdr, const char* msg)
 
 inline std::string to_string(const Eigen::MatrixXd& mat)
 {
-    std::stringstream ss;
-    if(mat.rows()<mat.cols())
-    {
-      ss << mat.transpose();
-    }
-    return ss.str();
+  std::stringstream ss;
+  if (mat.rows() < mat.cols())
+  {
+    ss << mat.transpose();
+  }
+  return ss.str();
 }
 
 inline std::string to_string(const Eigen::Affine3d& mat)
 {
-    return to_string(mat.matrix());
+  return to_string(mat.matrix());
 }
 
 inline std::string to_string(const geometry_msgs::Pose& mat)
 {
-    std::stringstream ss;
-    ss << mat;
-    ss.str().replace("\n",", ");
-    return ss.str();
+  std::stringstream ss;
+  ss << mat;
+  std::string s = ss.str();
+  std::regex_replace(s, std::regex("\\r\\n|\\r|\\n"), ", ");
+  return s;
 }
 
 inline std::string to_string(const std::vector<Eigen::VectorXd>& seeds)
 {
-  std::string ret; 
-  for(const auto & s : seeds) { ret += to_string(s) + ", "; }
+  std::string ret;
+  for (const auto& s : seeds)
+  {
+    ret += to_string(s) + ", ";
+  }
   return ret;
 }
 
@@ -176,48 +184,48 @@ inline std::vector<Eigen::VectorXd> IkSolver::getMultiplicity(const std::vector<
 
 inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& params_ns)
 {
-  bool is_private = params_ns.empty() ? false : params_ns[0]=='~';
-  bool is_global =  params_ns.empty() ? false : params_ns[0]=='/';
-  bool is_relative = params_ns.empty() ? true : params_ns[0]== (!is_private && !is_global);
+  bool is_private = params_ns.empty() ? false : params_ns[0] == '~';
+  bool is_global = params_ns.empty() ? false : params_ns[0] == '/';
+  bool is_relative = params_ns.empty() ? true : params_ns[0] == (!is_private && !is_global);
 
-  if( is_private )
+  if (is_private)
   {
-    std::string _params_ns = params_ns; 
+    std::string _params_ns = params_ns;
     _params_ns[0] = '/';
     params_ns_ = ros::NodeHandle("~").getNamespace() + _params_ns;
   }
-  else if( is_global )
+  else if (is_global)
   {
     params_ns_ = params_ns;
   }
   else
   {
-    params_ns_ = nh.getNamespace() +"/"+ params_ns;
+    params_ns_ = nh.getNamespace() + "/" + params_ns;
   }
 
-  params_ns_ = params_ns_.back() == '/' ? params_ns_ : params_ns_+"/";
+  params_ns_ = params_ns_.back() == '/' ? params_ns_ : params_ns_ + "/";
   nh_ = nh;
 
-  std::string pn = params_ns_+"base_frame";
+  std::string pn = params_ns_ + "base_frame";
   if (!ros::param::get(pn, base_frame_))
   {
     ROS_ERROR("%s is not specified", pn.c_str());
     return false;
   }
-  pn = params_ns_+"flange_frame";
+  pn = params_ns_ + "flange_frame";
   if (!ros::param::get(pn, flange_frame_))
   {
     ROS_ERROR("%s is not specified", pn.c_str());
     return false;
   }
 
-  pn = params_ns_+"tool_frame";
+  pn = params_ns_ + "tool_frame";
   if (!ros::param::get(pn, tool_frame_))
   {
     ROS_ERROR("%s is not specified", pn.c_str());
     return false;
   }
-  pn = params_ns_+"desired_solutions";
+  pn = params_ns_ + "desired_solutions";
   if (!ros::param::get(pn, desired_solutions_))
   {
     ROS_DEBUG("%s is not specified, use 8", pn.c_str());
@@ -232,7 +240,7 @@ inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& param
 
   model_.initParam("robot_description");
 
-  pn = params_ns_+"joint_names";
+  pn = params_ns_ + "joint_names";
   if (!ros::param::get(pn, joint_names_))
   {
     ROS_ERROR("%s is not specified", pn.c_str());
@@ -256,11 +264,11 @@ inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& param
     revolute_.at(iax) = jmodel->type == jmodel->REVOLUTE;
 
     double value;
-    if (ros::param::get(params_ns_+"limits/" + joint_names_.at(iax) + "/upper", value))
+    if (ros::param::get(params_ns_ + "limits/" + joint_names_.at(iax) + "/upper", value))
     {
       ub_(iax) = std::min(ub_(iax), value);
     }
-    if (ros::param::get(params_ns_+"limits/" + joint_names_.at(iax) + "/lower", value))
+    if (ros::param::get(params_ns_ + "limits/" + joint_names_.at(iax) + "/lower", value))
     {
       lb_(iax) = std::max(lb_(iax), value);
     }
@@ -315,30 +323,32 @@ inline bool IkSolver::computeIKArray(ik_solver_msgs::GetIkArray::Request& req,
                                      ik_solver_msgs::GetIkArray::Response& res)
 {
   Eigen::Affine3d T_base_poses;
-  if (not getTF(base_frame_, req.frame_id, T_base_poses))
+  if (!getTF(base_frame_, req.frame_id, T_base_poses))
   {
     return false;
   }
 
+  //===============================
+  std::vector<geometry_msgs::Pose> poses;
   std::vector<IkConfigurations> vseeds;
-  for (size_t i = 0; i < req.targets.size(); i++)
+  for (const auto & t : req.targets)
   {
-    vseeds.push_back(getSeeds(req.seed_joint_names, req.targets.at(i).seeds));
+    poses.push_back(t.pose);
+    vseeds.push_back(getSeeds(req.seed_joint_names, t.seeds));
   }
 
   int desired_solutions = (req.max_number_of_solutions > 0) ? req.max_number_of_solutions : desired_solutions_;
   int max_stall_iterations = (req.stall_iterations > 0) ? req.stall_iterations : max_stall_iter_;
+  //===============================
 
-  int counter = 0;
-  if (req.parallelize)
+  size_t failed_poses_counter = 0;
+  if (!req.parallelize)
   {
     for (size_t i = 0; i < req.targets.size(); i++)
     {
-      const geometry_msgs::Pose& p = req.targets.at(i).pose;
-
-      ROS_DEBUG("computing IK for pose %d of %zu", i, req.targets.size());
+      ROS_DEBUG("computing IK for pose %zu of %zu", i, req.targets.size());
       Eigen::Affine3d T_poses_tool;
-      tf::poseMsgToEigen(p, T_poses_tool);
+      tf::poseMsgToEigen(poses.at(i), T_poses_tool);
 
       Eigen::Affine3d T_base_flange = T_base_poses * T_poses_tool * T_tool_flange_;
 
@@ -357,7 +367,7 @@ inline bool IkSolver::computeIKArray(ik_solver_msgs::GetIkArray::Request& req,
         ik_sol.configurations.push_back(sol);
       }
       res.solutions.push_back(ik_sol);
-      if(solutions.size())
+      if (solutions.size())
       {
         if (req.exploit_solutions_as_seed && i < (req.targets.size() - 1))
         {
@@ -369,74 +379,78 @@ inline bool IkSolver::computeIKArray(ik_solver_msgs::GetIkArray::Request& req,
         failed_poses_counter++;
       }
 
-      char buffer[128]={0};  // maximum expected length of the float
-      std::string nl = (i == req.poses.poses.size()-1 ? "\n" : "");
+      char buffer[128] = { 0 };  // maximum expected length of the float
+      std::string nl = (i == req.targets.size() - 1 ? "\n" : "");
       std::snprintf(buffer, 128, "OK/FAILED/TOT %03zu/%03zu/%03zu (Last IK sols %02zu, des. %d, stall it. %d)%s",
-        i+1 - failed_poses_counter, failed_poses_counter, req.poses.poses.size(), 
-        solutions.size(),desired_solutions, max_stall_iterations, nl.c_str());
-    
-      printProgress(double(i+1) / double(req.poses.poses.size()), req.poses.header.frame_id.c_str(), buffer);
+                    i + 1 - failed_poses_counter, failed_poses_counter, req.targets.size(), solutions.size(),
+                    desired_solutions, max_stall_iterations, nl.c_str());
+
+      printProgress(double(i + 1) / double(req.targets.size()), req.frame_id.c_str(), buffer);
     }
   }
   else
   {
-    // ============================================================================
-    // Thread Function
-    // NOTE: The seed is the last available, not the one of the previous execution.
-    auto ik_mt = [this](bool& stop, geometry_msgs::Pose p, Eigen::Affine3d T_base_poses,
-                        Eigen::Affine3d T_tool_flange, std::vector<Eigen::VectorXd> seeds,
-                        int desired_solutions, int max_stall_iterations) -> ik_solver_msgs::IkSolution {
-      Eigen::Affine3d T_poses_tool;
-      tf::poseMsgToEigen(p, T_poses_tool);
-      Eigen::Affine3d T_base_flange = T_base_poses * T_poses_tool * T_tool_flange;
-
-      std::vector<Eigen::VectorXd> solutions =
-          this->getIkSafeMT(stop, T_base_flange, seeds, desired_solutions, max_stall_iterations);
-
-      if(solutions.size()==0)
-      {
-        ROS_INFO_STREAM("No IK solutions with inputs: Pose: " << to_string(p) << " Tbf: " << to_string(T_base_flange) << " seeds: " << to_string(seeds) );
-
-      }
-      ik_solver_msgs::IkSolution ik_sol;
-      for (Eigen::VectorXd& s : solutions)
-      {
-        ik_solver_msgs::Configuration sol;
-        sol.configuration.resize(s.size());
-        for (long idx = 0; idx < s.size(); idx++)
-        {
-          sol.configuration.at(idx) = s(idx);
-        }
-        ik_sol.configurations.push_back(sol);
-      }
-      return ik_sol;
-    };
-    // ============================================================================
-
-    // ============================================================================
-    // The Pool size N is critical: larger should be better in term of performances.
-    // However, the seed is tghe same for the first N nodes of the first Pool, then
-    // while the threads finish, the seed is updated.
-    bool stop;
-    std::vector<std::future<ik_solver_msgs::IkSolution>> ik_sols;
-    thread_pool::ThreadPool ik_pool(1);
-    ik_pool.init(); // create the threads;
-
-    for (size_t i = 0; i < req.targets.size(); i++)
-    {
-      ik_sols.push_back(
-        ik_pool.submit(ik_mt, std::ref(stop), req.targets.at(i).pose, T_base_poses, T_tool_flange_, vseeds.at(i),
-                         desired_solutions, max_stall_iterations)
-      );
-    }
-    std::for_each(ik_sols.begin(), ik_sols.end(),
-      [&](std::future<ik_solver_msgs::IkSolution>& ik_sol) { res.solutions.push_back(ik_sol.get()); });
-
-    ik_pool.shutdown();
+    res.solutions = computeIKArrayMT(T_base_poses, poses, vseeds, desired_solutions, max_stall_iterations);
   }
   res.joint_names = joint_names_;
 
   return true;
+}
+
+inline std::vector<::ik_solver_msgs::IkSolution> IkSolver::computeIKArrayMT(
+    const Eigen::Affine3d& T_base_poses, const std::vector<geometry_msgs::Pose>& poses,
+    const std::vector<IkConfigurations>& vseeds, size_t desired_solutions, size_t max_stall_iterations)
+{
+  std::vector<::ik_solver_msgs::IkSolution> ret;
+  // ============================================================================
+  // Thread Function
+  auto ik_mt = [this](geometry_msgs::Pose p, Eigen::Affine3d T_base_poses, Eigen::Affine3d T_tool_flange,
+                      IkConfigurations seeds, int desired_solutions,
+                      int max_stall_iterations) -> ik_solver_msgs::IkSolution {
+    bool stop = false;
+    Eigen::Affine3d T_poses_tool;
+    tf::poseMsgToEigen(p, T_poses_tool);
+    Eigen::Affine3d T_base_flange = T_base_poses * T_poses_tool * T_tool_flange;
+
+    IkConfigurations solutions =
+        this->getIkSafeMT(stop, T_base_flange, seeds, desired_solutions, max_stall_iterations);
+
+    if (solutions.size() == 0)
+    {
+      ROS_INFO_STREAM("No IK solutions with inputs: Pose: " << to_string(p) << " Tbf: " << to_string(T_base_flange)
+                                                            << " seeds: " << to_string(seeds));
+    }
+    ik_solver_msgs::IkSolution ik_sol;
+    for (Eigen::VectorXd& s : solutions)
+    {
+      ik_solver_msgs::Configuration sol;
+      sol.configuration.resize(s.size());
+      for (long idx = 0; idx < s.size(); idx++)
+      {
+        sol.configuration.at(idx) = s(idx);
+      }
+      ik_sol.configurations.push_back(sol);
+    }
+    return ik_sol;
+  };
+  // Thread Function - END
+  // ============================================================================
+
+  std::vector<std::future<ik_solver_msgs::IkSolution>> ik_sols;
+  thread_pool::ThreadPool ik_pool(IkSolver::MAX_NUM_THREADS);
+
+  ik_pool.init();  // create the threads;
+
+  for (size_t i=0;i<poses.size();i++)
+  {
+    ik_sols.push_back(ik_pool.submit(ik_mt, poses.at(i), T_base_poses, T_tool_flange_, vseeds.at(i),
+                                     desired_solutions, max_stall_iterations));
+  }
+  std::for_each(ik_sols.begin(), ik_sols.end(),
+                [&](std::future<ik_solver_msgs::IkSolution>& ik_sol) { ret.push_back(ik_sol.get()); });
+
+  ik_pool.shutdown();
+  return ret;
 }
 
 inline bool IkSolver::computeFKArray(ik_solver_msgs::GetFkArray::Request& req,
@@ -588,4 +602,4 @@ inline bool IkSolver::outOfBound(const Eigen::VectorXd& c)
 
 }  // end namespace ik_solver
 
-#endif // IK_SOLVER__INTERNAL__IKSOLVER_BASE_CLASS_IMPL_H
+#endif  // IK_SOLVER__INTERNAL__IKSOLVER_BASE_CLASS_IMPL_H
