@@ -26,11 +26,13 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
+#include <array>
+#include <string>
 #include <ros/ros.h>
+#include <pluginlib/class_loader.h>
 #include <ik_solver/ik_solver_base_class.h>
 
-#include <pluginlib/class_loader.h>
+#include <ik_solver/internal/services.h>
 
 int main(int argc, char **argv)
 {
@@ -44,15 +46,26 @@ int main(int argc, char **argv)
     ROS_ERROR("%s/type is not defined",nh.getNamespace().c_str());
     return -1;
   }
+
+  ik_solver::IkSolversPool  ik_solvers;
   ROS_DEBUG("Creating %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
-  boost::shared_ptr<ik_solver::IkSolver> ik_solver = ik_loader.createInstance(plugin_name);
-  ROS_DEBUG("Configuring %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
-  if (!ik_solver->config(nh))
+  for(std::size_t i=0;i<ik_solver::MAX_NUM_PARALLEL_IK_SOLVER;i++ )
   {
-    ROS_ERROR("unable to configure %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
-    return 0;
+    ik_solvers.at(i) = ik_loader.createInstance(plugin_name);
+    ROS_DEBUG("Configuring %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
+    if (!ik_solvers.at(i)->config(nh))
+    {
+      ROS_ERROR("unable to configure %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
+      return 0;
+    }
   }
   ROS_DEBUG("%s (type %s) is ready to compute IK",nh.getNamespace().c_str(),plugin_name.c_str());
+  // ==============================================
+
+  ik_solver::IkServices services(nh, ik_solvers);
+
+  // ==============================================
+
   ros::spin();
   return 0;
 }

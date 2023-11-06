@@ -33,7 +33,14 @@ if __name__ == "__main__":
     try:
         ik_locations_srv = rospy.ServiceProxy('/'+service_name+'/get_ik', ik_solver_msgs.srv.GetIk)
         req = ik_solver_msgs.srv.GetIkRequest()
-        req.tf_name = tf_name
+        req.target.pose.header.frame_id = tf_name
+        req.target.pose.pose.position.x = 0.0
+        req.target.pose.pose.position.y = 0.0
+        req.target.pose.pose.position.z = 0.0
+        req.target.pose.pose.orientation.x = 0.0
+        req.target.pose.pose.orientation.y = 0.0
+        req.target.pose.pose.orientation.z = 0.0
+        req.target.pose.pose.orientation.w = 1.0
         resp = ik_locations_srv(req)
         if len(resp.solution.configurations)==0:
             rospy.logerr("no ik solution")

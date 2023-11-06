@@ -16,14 +16,14 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   tf_conversions
   urdf
-  thread_pool_ros_package
 )
 
 find_package(Eigen3 REQUIRED COMPONENTS Geometry Core)
 
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS eigen_conversions ik_solver_msgs pluginlib roscpp tf_conversions urdf thread_pool_ros_package
+  LIBRARIES ${PROJECT_NAME} 
+  CATKIN_DEPENDS eigen_conversions ik_solver_msgs pluginlib roscpp tf_conversions urdf
   DEPENDS EIGEN3
 )
 
@@ -35,9 +35,17 @@ include_directories(
 )
 
 
- add_executable(${PROJECT_NAME}_node src/node.cpp)
- add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+include(ProcessorCount)
+ProcessorCount(N)
 
- target_link_libraries(${PROJECT_NAME}_node
-   ${catkin_LIBRARIES}
- )
+add_library(${PROJECT_NAME} src/internal/services.cpp src/internal/utils.cpp src/internal/types.cpp)
+target_compile_definitions(${PROJECT_NAME} PRIVATE _MAX_NUM_PARALLEL_IK_SOLVER=${N})
+add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
+
+add_executable(${PROJECT_NAME}_node src/node.cpp src/internal/services.cpp src/internal/utils.cpp src/internal/types.cpp)
+target_compile_definitions(${PROJECT_NAME} PRIVATE _MAX_NUM_PARALLEL_IK_SOLVER=${N})
+add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
+
+target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} ${PROJECT_NAME})

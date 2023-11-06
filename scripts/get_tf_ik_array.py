@@ -30,7 +30,6 @@ if __name__ == "__main__":
     try:
         ik_locations_srv = rospy.ServiceProxy(service, ik_solver_msgs.srv.GetIkArray)
         req = ik_solver_msgs.srv.GetIkArrayRequest()
-        req.poses.header.frame_id = tf_name
         req.max_number_of_solutions=32
         req.stall_iterations=30
         for t in np.arange(0,2,0.005):
@@ -39,7 +38,17 @@ if __name__ == "__main__":
             p.position.x=0.15*math.sin(2*math.pi*t)+0.05*math.sin(2*math.pi*t*10)
             p.position.y=                           0.05*math.cos(2*math.pi*t*10)
             p.position.z=0.15*math.cos(2*math.pi*t)
-            req.poses.poses.append(p)
+            target = ik_solver_msgs.msg.IkTarget()
+            target.pose.header.frame_id = tf_name
+            target.pose.pose.position.x = 0.0
+            target.pose.pose.position.y = 0.0
+            target.pose.pose.position.z = 0.0
+            target.pose.pose.orientation.x = 0.0
+            target.pose.pose.orientation.y = 0.0
+            target.pose.pose.orientation.z = 0.0
+            target.pose.pose.orientation.w = 1.0
+
+            req.targets.append(target)
 
         for ip in range(0,100):
             array_pub.publish(req.poses)

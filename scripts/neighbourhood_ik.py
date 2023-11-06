@@ -40,6 +40,17 @@ def cb(req : ik_solver_msgs.srv.NeighbourhoodPyramidIkRequest) -> ik_solver_msgs
     rospy.wait_for_service(service, timeout=30)
     ik_locations_srv = rospy.ServiceProxy(service, ik_solver_msgs.srv.GetIkArray)
 
+    target = ik_solver_msgs.msg.IkTarget()
+    target.pose.header.frame_id = tf_name
+    target.pose.pose.position.x = 0.0
+    target.pose.pose.position.y = 0.0
+    target.pose.pose.position.z = 0.0
+    target.pose.pose.orientation.x = 0.0
+    target.pose.pose.orientation.y = 0.0
+    target.pose.pose.orientation.z = 0.0
+    target.pose.pose.orientation.w = 1.0
+
+
     poses = geometry_msgs.msg.PoseArray()
     poses.header.frame_id = tf_name
     for distance_z in np.arange(0,distance,resolution):
@@ -90,11 +101,9 @@ def cb(req : ik_solver_msgs.srv.NeighbourhoodPyramidIkRequest) -> ik_solver_msgs
             poses.poses.append(p)
 
     ik_req = ik_solver_msgs.srv.GetIkArrayRequest()
-    ik_req.frame_id = tf_name
     ik_req.max_number_of_solutions=req.max_number_of_solutions
     ik_req.stall_iterations=req.stall_iterations
     for p in poses.poses:
-        target = ik_solver_msgs.msg.IkTarget()
         target.pose = p
         ik_req.targets.append(target)
 
@@ -186,7 +195,7 @@ def cb(req : ik_solver_msgs.srv.NeighbourhoodPyramidIkRequest) -> ik_solver_msgs
                     ik_req.targets.append(target)
 
     ik_res = ik_locations_srv(ik_req)
-    
+
     res=ik_solver_msgs.srv.NeighbourhoodPyramidIkResponse()
     res.unreachable_poses.header.frame_id=tf_name
 
