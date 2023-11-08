@@ -87,7 +87,6 @@ IkServices::IkServices(ros::NodeHandle& nh, IkSolversPool& ik_solvers) : nh_(nh)
   fk_server_ = nh.advertiseService("get_fk", &IkServices::computeFK, this);
   fk_server_array_ = nh.advertiseService("get_fk_array", &IkServices::computeFKArray, this);
   bound_server_array_ = nh.advertiseService("get_bounds", &IkServices::getBounds, this);
-  bound_server_array_ = nh.advertiseService("get_bounds", &IkServices::getBounds, this);
   reconfigure_= nh.advertiseService("reconfigure", &IkServices::reconfigure, this);
 }
 
