@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   tf_conversions
   urdf
+  std_srvs
 )
 
 find_package(Eigen3 REQUIRED COMPONENTS Geometry Core)
@@ -38,13 +39,18 @@ include_directories(
 include(ProcessorCount)
 ProcessorCount(N)
 
+if(${N} GREATER 3)
+  math(EXPR MAX_NUM_PARALLEL_IK_SOLVER ${N}-2)
+else()
+  SET(MAX_NUM_PARALLEL_IK_SOLVER 0)
+endif()
+
 add_library(${PROJECT_NAME} src/internal/services.cpp src/internal/utils.cpp src/internal/types.cpp)
-target_compile_definitions(${PROJECT_NAME} PRIVATE _MAX_NUM_PARALLEL_IK_SOLVER=${N})
+target_compile_definitions(${PROJECT_NAME} PUBLIC _MAX_NUM_PARALLEL_IK_SOLVER=${MAX_NUM_PARALLEL_IK_SOLVER})
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 
 add_executable(${PROJECT_NAME}_node src/node.cpp src/internal/services.cpp src/internal/utils.cpp src/internal/types.cpp)
-target_compile_definitions(${PROJECT_NAME} PRIVATE _MAX_NUM_PARALLEL_IK_SOLVER=${N})
 add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 

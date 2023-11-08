@@ -80,13 +80,15 @@ ik_solver::Configurations computeIkFunction(ik_solver::IkSolver* solver,
  * @param nh
  * @param ik_solvers
  */
-IkServices::IkServices(ros::NodeHandle& nh, IkSolversPool& ik_solvers) : ik_solvers_(ik_solvers)
+IkServices::IkServices(ros::NodeHandle& nh, IkSolversPool& ik_solvers) : nh_(nh), ik_solvers_(ik_solvers)
 {
   ik_server_ = nh.advertiseService("get_ik", &IkServices::computeIK, this);
   ik_server_array_ = nh.advertiseService("get_ik_array", &IkServices::computeIKArray, this);
   fk_server_ = nh.advertiseService("get_fk", &IkServices::computeFK, this);
   fk_server_array_ = nh.advertiseService("get_fk_array", &IkServices::computeFKArray, this);
   bound_server_array_ = nh.advertiseService("get_bounds", &IkServices::getBounds, this);
+  bound_server_array_ = nh.advertiseService("get_bounds", &IkServices::getBounds, this);
+  reconfigure_= nh.advertiseService("reconfigure", &IkServices::reconfigure, this);
 }
 
 /**
@@ -501,6 +503,27 @@ bool IkServices::getBounds(ik_solver_msgs::GetBound::Request& req, ik_solver_msg
     res.joint_names.at(iax) = config().joint_names().at(iax);
     res.lower_bound.at(iax) = config().lb()(iax);
     res.upper_bound.at(iax) = config().ub()(iax);
+  }
+  return true;
+}
+
+/**
+ * @brief 
+ * 
+ * @param req 
+ * @param res 
+ * @return true 
+ * @return false 
+ */
+bool IkServices::reconfigure(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res)
+{
+  for(std::size_t i=0;i<ik_solver::MAX_NUM_PARALLEL_IK_SOLVER;i++ )
+  {
+    if (!ik_solvers_.at(i)->config(nh_))
+    {
+      ROS_ERROR("Unable to re-configure %s",nh_.getNamespace().c_str());
+      return 0;
+    }
   }
   return true;
 }

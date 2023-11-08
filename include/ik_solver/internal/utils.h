@@ -131,6 +131,7 @@ template <typename T>
 inline double norm(const T& vv)
 {
   assert(0);
+  return 0;
 }
 
 template <typename T>
@@ -285,7 +286,9 @@ inline double norm(const Eigen::VectorXd& vv)
 template <typename T>
 inline double& at(T& vv, size_t i)
 {
+  static double r; 
   assert(0);
+  return r;
 }
 
 template <>

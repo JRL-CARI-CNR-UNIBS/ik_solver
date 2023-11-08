@@ -33,10 +33,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include <array>
 #include <Eigen/Geometry>
+#include "ros/node_handle.h"
+#include "std_srvs/TriggerRequest.h"
 #include <ros/ros.h>
 
 #include <ik_solver/internal/wsq.h>
-
+#include <std_srvs/Trigger.h>
 #include <ik_solver_msgs/GetIk.h>
 #include <ik_solver_msgs/GetFk.h>
 #include <ik_solver_msgs/GetIkArray.h>
@@ -67,8 +69,13 @@ inline const std::size_t& get_max_stall_iterations(const IkArgs& args)
 }
 
 // std::shared_ptr<ik_solver::ThreadPool> ik_pool;
-#ifndef _MAX_NUM_PARALLEL_IK_SOLVER
-#define _MAX_NUM_PARALLEL_IK_SOLVER 16
+#if defined(_MAX_NUM_PARALLEL_IK_SOLVER) && (_MAX_NUM_PARALLEL_IK_SOLVER!=0)
+  #define STR_HELPER(x) #x
+  #define STR(x) STR_HELPER(x)
+  #pragma message "IK SOLVER _MAX_NUM_PARALLEL_IK_SOLVER: " STR(_MAX_NUM_PARALLEL_IK_SOLVER)
+  #define NUM_MAX_AXES MAX_NUM_AXES
+#else
+  #define _MAX_NUM_PARALLEL_IK_SOLVER 10
 #endif
 
 constexpr static const size_t MAX_NUM_PARALLEL_IK_SOLVER = _MAX_NUM_PARALLEL_IK_SOLVER;
@@ -78,11 +85,13 @@ using IkSolversPool = std::array<boost::shared_ptr<ik_solver::IkSolver>, ik_solv
 class IkServices
 {
 private:
+  ros::NodeHandle nh_;
   ros::ServiceServer ik_server_;
   ros::ServiceServer ik_server_array_;
   ros::ServiceServer fk_server_;
   ros::ServiceServer fk_server_array_;
   ros::ServiceServer bound_server_array_;
+  ros::ServiceServer reconfigure_;
 
   const IkSolver& config() const;
 
@@ -122,6 +131,8 @@ public:
   bool computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_solver_msgs::GetFkArray::Response& res);
 
   bool getBounds(ik_solver_msgs::GetBound::Request& req, ik_solver_msgs::GetBound::Response& res);
+
+  bool reconfigure(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res);
 };
 
 }  // namespace ik_solver
