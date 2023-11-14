@@ -28,6 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <cinttypes>
 #include <future>
+#include <iterator>
 #include <optional>
 #include <Eigen/Geometry>
 #include "Eigen/src/Geometry/Transform.h"
@@ -64,10 +65,11 @@ ik_solver::Configurations computeIkFunction(ik_solver::IkSolver* solver,
                                             const Eigen::Affine3d& T_b_f,
                                             const ik_solver::Configurations& seeds, 
                                             const int& desired_solutions,
+                                            const int& min_stall_iterations,
                                             const int& max_stall_iterations)
 {
   ik_solver::Configurations solutions;
-  solutions = solver->getIk(T_b_f, seeds, desired_solutions, max_stall_iterations);
+  solutions = solver->getIk(T_b_f, seeds, desired_solutions,min_stall_iterations, max_stall_iterations);
   return solutions;
 }
 
@@ -119,9 +121,10 @@ bool IkServices::computeIK(ik_solver_msgs::GetIk::Request& req, ik_solver_msgs::
   Configurations seeds = ik_solver::getSeeds(config().joint_names(), req.seed_joint_names, req.target.seeds);
 
   int desired_solutions = (req.max_number_of_solutions > 0) ? req.max_number_of_solutions : config().desired_solutions();
+  int min_stall_iterations = (req.stall_iterations > 0) ? req.stall_iterations : config().min_stall_iterations();
   int max_stall_iterations = (req.stall_iterations > 0) ? req.stall_iterations : config().max_stall_iterations();
 
-  Configurations solutions = computeIkFunction(ik_solvers_.front().get(), T_b_f, seeds, desired_solutions, max_stall_iterations);
+  Configurations solutions = computeIkFunction(ik_solvers_.front().get(), T_b_f, seeds, desired_solutions, min_stall_iterations, max_stall_iterations);
 
   res.solution << solutions;
 
@@ -179,15 +182,19 @@ bool IkServices::computeIKArray(ik_solver_msgs::GetIkArray::Request& req, ik_sol
 
   //===============================
   uint8_t parallelize = req.parallelize != ik_solver_msgs::GetIkArray::Request::PARALLELIZE_DEFAULT ? req.parallelize : config().parallelize();
+
+  int update_recursively_seeds = ik_solver_msgs::GetIkArray::Request::UPDATE_RECURSIVELY_SEEDS_FORCE;
+  ros::param::get(config().param_namespace()+"/update_recursively_seeds", update_recursively_seeds);
+  update_recursively_seeds = req.update_recursively_seeds != ik_solver_msgs::GetIkArray::Request::UPDATE_RECURSIVELY_SEEDS_DEFAULT ? req.update_recursively_seeds : update_recursively_seeds;
   if (parallelize != ik_solver_msgs::GetIkArray::Request::PARALLELIZE_FORCE)
   {
-    res.solutions = ik_solver::cast(computeIKArrayST(v_T_b_f,vseeds, config().desired_solutions(),
-                                                     config().max_stall_iterations(), req.exploit_solutions_as_seed));
+    res.solutions = ik_solver::cast(computeIKArrayST(v_T_b_f,vseeds, config().desired_solutions(), config().min_stall_iterations(), 
+                                                     config().max_stall_iterations(), req.update_recursively_seeds));
   }
   else
   {
     res.solutions = ik_solver::cast(
-        computeIKArrayMT(v_T_b_f, vseeds, config().desired_solutions(), config().max_stall_iterations()));
+        computeIKArrayMT(v_T_b_f, vseeds, config().desired_solutions(), config().min_stall_iterations(), config().max_stall_iterations()));
   }
   res.joint_names = config().joint_names();
 
@@ -198,37 +205,36 @@ bool IkServices::computeIKArray(ik_solver_msgs::GetIkArray::Request& req, ik_sol
 std::vector<ik_solver::Configurations>
 IkServices::computeIKArrayST(const std::vector<Eigen::Affine3d>& v_T_b_f,
                              const std::vector<ik_solver::Configurations>& vseeds, size_t desired_solutions,
-                             size_t max_stall_iterations, bool exploit_solutions_as_seed)
+                             int min_stall_iterations, int max_stall_iterations, uint8_t update_recursively_seeds)
 {
-  std::vector<ik_solver::Configurations> ret;
+  std::vector<ik_solver::Configurations> ret(v_T_b_f.size());
   std::vector<ik_solver::Configurations> seeds = vseeds;
 
   size_t failed_poses_counter = 0;
   for (size_t i = 0; i < v_T_b_f.size(); i++)
   {
-    ROS_DEBUG("computing IK for pose %zu of %zu", i, v_T_b_f.size());
-
     ik_solver::Configurations ik_sol = computeIkFunction(ik_solvers_.front().get(), v_T_b_f.at(i),
-                                                            seeds.at(i), desired_solutions, max_stall_iterations);
+                                                            seeds.at(i), desired_solutions, min_stall_iterations, max_stall_iterations);
 
     if (ik_sol.size())
     {
-      ret.push_back(ik_sol);
-      if (exploit_solutions_as_seed && i < (v_T_b_f.size() - 1))
+      ret.at(i) = ik_sol;
+      if (update_recursively_seeds && i < (v_T_b_f.size() - 1))
       {
-        seeds.at(i + 1) = ik_sol;
+        seeds.at(i + 1).insert(seeds.at(i + 1).begin(), ik_sol.begin(), ik_sol.end());
       }
     }
     else
     {
       failed_poses_counter++;
+      ret.at(i).clear();
     }
 
     std::string nl = (i == v_T_b_f.size() - 1 ? "\n" : "");
     ik_solver::printProgress(double(i + 1) / double(v_T_b_f.size()),
-                             "IK ST - OK/FAILED/TOT %03zu/%03zu/%03zu (Last IK sols %02zu, des. %zu, stall it. %zu)%s",
+                             "IK ST - OK/FAILED/TOT %03zu/%03zu/%03zu (Last IK sols %02zu, des. %zu, stall it. %d - %d)%s",
                              i + 1 - failed_poses_counter, failed_poses_counter, v_T_b_f.size(), ik_sol.size(),
-                             desired_solutions, max_stall_iterations, nl.c_str());
+                             desired_solutions, min_stall_iterations, max_stall_iterations, nl.c_str());
   }
   return ret;
 }
@@ -237,18 +243,20 @@ IkServices::computeIKArrayST(const std::vector<Eigen::Affine3d>& v_T_b_f,
 //========================================================================================
 std::vector<ik_solver::Configurations> IkServices::computeIKArrayMT(
     const std::vector<Eigen::Affine3d>& v_T_b_f,
-    const std::vector<ik_solver::Configurations>& vseeds, size_t desired_solutions, size_t max_stall_iterations)
+    const std::vector<ik_solver::Configurations>& vseeds, size_t desired_solutions, int min_stall_iterations, int max_stall_iterations)
 {
-  std::vector<ik_solver::Configurations> ret;
+  assert(v_T_b_f.size());
+  std::vector<ik_solver::Configurations> ret(v_T_b_f.size());
   ik_solver::SafeQueue<std::size_t> ik_args_queue;
   std::vector<IkArgs> ik_args(v_T_b_f.size());
-  std::vector<std::promise<ik_solver::Configurations>> ik_sol_promises(v_T_b_f.size());
-  std::vector<std::future<ik_solver::Configurations>> ik_sol_futures(v_T_b_f.size());
+  std::vector<std::promise< ik_solver::Configurations> > ik_sol_promises(v_T_b_f.size());
+  std::vector<std::future<  ik_solver::Configurations> > ik_sol_futures(v_T_b_f.size());
+  std::vector<bool> ik_sol_futures_got(v_T_b_f.size(),false);
 
   for (size_t i = 0; i < v_T_b_f.size(); i++)
   {
     ik_args_queue.enqueue(i);
-    ik_args.at(i) = std::make_tuple(v_T_b_f.at(i), vseeds.at(i), desired_solutions, max_stall_iterations);
+    ik_args.at(i) = std::make_tuple(v_T_b_f.at(i), vseeds.at(i), desired_solutions, min_stall_iterations, max_stall_iterations);
     ik_sol_futures.at(i) = ik_sol_promises.at(i).get_future();
   }
 
@@ -266,6 +274,7 @@ std::vector<ik_solver::Configurations> IkServices::computeIKArrayMT(
                                         get_T_base_flange(args),
                                         get_seeds(args), 
                                         get_desired_solutions(args), 
+                                        get_min_stall_iterations(args),
                                         get_max_stall_iterations(args));
           ik_sol_promises.at(item_index).set_value(sols);
         }
@@ -276,28 +285,32 @@ std::vector<ik_solver::Configurations> IkServices::computeIKArrayMT(
   }
 
   size_t failed_poses_counter = 0;
-  while (ret.size() + failed_poses_counter != v_T_b_f.size())
+  size_t ok_poses_counter = 0;
+  while (ok_poses_counter + failed_poses_counter != v_T_b_f.size())
   {
     std::chrono::milliseconds span(1000);
     for (auto it = ik_sol_futures.begin(); it != ik_sol_futures.end();)
     {
-      if (it->wait_for(span) == std::future_status::ready)
+      std::size_t item_index = std::distance(ik_sol_futures.begin(), it);
+      if (!ik_sol_futures_got.at(item_index) && it->wait_for(span) == std::future_status::ready)
       {
         auto ik_sol = it->get();
         if (ik_sol.size())
         {
-          ret.push_back(ik_sol);
+          ok_poses_counter++;
+          ret.at(item_index) = ik_sol;
         }
         else
         {
           failed_poses_counter++;
         }
-        it = ik_sol_futures.erase(it);
+        ik_sol_futures_got.at(item_index) = true;
+        //it = ik_sol_futures.erase(it);
 
-        ik_solver::printProgress(double(ret.size() + failed_poses_counter) / double(v_T_b_f.size()),
-                                 "IK MT - OK/FAILED/TOT %03zu/%03zu/%03zu (Last IK sols %02zu, des. %zu, stall it. %zu)",
-                                 ret.size(), failed_poses_counter, v_T_b_f.size(), ik_sol.size(), desired_solutions,
-                                 max_stall_iterations);
+        ik_solver::printProgress(double(ok_poses_counter + failed_poses_counter) / double(v_T_b_f.size()),
+                                "IK MT - OK/FAILED/TOT %03zu/%03zu/%03zu (Last IK sols %02zu, des. %zu, stall it. %d - %d)",
+                                ok_poses_counter, failed_poses_counter, v_T_b_f.size(), ik_sol.size(), desired_solutions,
+                                min_stall_iterations, max_stall_iterations);
       }
       else
       {

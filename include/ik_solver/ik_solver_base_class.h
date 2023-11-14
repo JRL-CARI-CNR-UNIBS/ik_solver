@@ -29,6 +29,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef IK_SOLVER__IKSOLVER_BASE_CLASS_H
 #define IK_SOLVER__IKSOLVER_BASE_CLASS_H
 
+#include <boost/smart_ptr/shared_ptr.hpp>
+#include <memory>
 #include <string>
 
 #include <ros/ros.h>
@@ -45,11 +47,18 @@ namespace ik_solver
 class IkSolver
 {
 public:
-  virtual bool config(const ros::NodeHandle& nh, const std::string& param_ns = "") final;
+
+  IkSolver() = default;
+  IkSolver(const IkSolver&) = delete;
+  IkSolver(const IkSolver&&) = delete;
+  IkSolver(IkSolver&&) = delete;
+  virtual ~IkSolver() = default;
+
+  virtual bool config(const ros::NodeHandle& nh, const std::string& param_ns = "");
   
   // FK flange to base
   virtual Configurations getIk(const Eigen::Affine3d& T_base_flange, const Configurations& seeds,
-                                 const int& desired_solutions, const int& max_stall_iterations) = 0;
+                                 const int& desired_solutions = -1, const int& min_stall_iterations = -1, const int& max_stall_iterations = -1) = 0;
 
   // FK base to flange
   virtual Eigen::Affine3d getFK(const Configuration& s) = 0;
@@ -65,9 +74,12 @@ public:
   const Configuration& ub() const { return ub_; }
   const std::vector<bool>& revolute() const { return revolute_;}
 
+  const int& min_stall_iterations() const { return min_stall_iter_; }
   const int& max_stall_iterations() const { return max_stall_iter_; }
   const int& desired_solutions() const { return desired_solutions_; }
   const int& parallelize() const { return parallelize_; }
+
+  const std::string param_namespace() const {return params_ns_;}
 
 protected:
   std::string params_ns_;
@@ -83,18 +95,20 @@ protected:
   Configuration ub_;
   Configuration lb_;
   std::vector<bool> revolute_;
+  int min_stall_iter_ = 998;
   int max_stall_iter_ = 999;
   int max_iter_ = 1000000;
   int desired_solutions_ = 8;
   int parallelize_ = 0;
+  int exploit_solutions_as_seed_ = 0;
   
   urdf::Model model_;
 
   bool getFlangeTool();
 
-  virtual bool customConfig() = 0;
-
 };
+
+
 }  //  namespace ik_solver
 
 #include <ik_solver/internal/ik_solver_base_class_impl.h>

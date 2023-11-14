@@ -49,7 +49,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace ik_solver
 {
-using IkArgs = std::tuple<Eigen::Affine3d, ik_solver::Configurations, std::size_t, std::size_t>;
+using IkArgs = std::tuple<Eigen::Affine3d, ik_solver::Configurations, std::size_t, int, int>;
 
 inline const Eigen::Affine3d& get_T_base_flange(const IkArgs& args)
 {
@@ -63,9 +63,13 @@ inline const std::size_t& get_desired_solutions(const IkArgs& args)
 {
   return std::get<2>(args);
 }
-inline const std::size_t& get_max_stall_iterations(const IkArgs& args)
+inline const int& get_min_stall_iterations(const IkArgs& args)
 {
   return std::get<3>(args);
+}
+inline const int& get_max_stall_iterations(const IkArgs& args)
+{
+  return std::get<4>(args);
 }
 
 // std::shared_ptr<ik_solver::ThreadPool> ik_pool;
@@ -96,7 +100,7 @@ private:
   const IkSolver& config() const;
 
   IkSolversPool& ik_solvers_;
-
+  
   bool computeTransformations(const std::string& tip_frame, 
                               const std::string& reference_frame,
                               Eigen::Affine3d& T_poses_base, 
@@ -106,12 +110,12 @@ private:
 
   std::vector<ik_solver::Configurations> computeIKArrayMT(const std::vector<Eigen::Affine3d>& v_T_b_f,
                                                           const std::vector<ik_solver::Configurations>& vseeds,
-                                                          size_t desired_solutions, size_t max_stall_iterations);
+                                                          size_t desired_solutions, int min_stall_iterations, int max_stall_iterations);
 
   std::vector<ik_solver::Configurations> computeIKArrayST(const std::vector<Eigen::Affine3d>& v_T_b_f,
                                                           const std::vector<ik_solver::Configurations>& vseeds,
-                                                          size_t desired_solutions, size_t max_stall_iterations,
-                                                          bool exploit_solutions_as_seed);
+                                                          size_t desired_solutions, int min_stall_iterations, int max_stall_iterations,
+                                                          uint8_t update_recursively_seeds);
 
 public:
   IkServices() = delete;

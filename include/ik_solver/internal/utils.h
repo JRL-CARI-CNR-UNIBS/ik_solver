@@ -183,7 +183,7 @@ inline bool check_and_get(std::map<std::string, std::tuple<T*, bool, T>>& params
       else
       {
         val = std::get<2>(param.second);
-        ROS_WARN("%s is not specified. Default value %s", param.first.c_str(), std::to_string(val).c_str());
+        ROS_DEBUG("%s is not specified. Default value %s", param.first.c_str(), std::to_string(val).c_str());
       }
     }
     *std::get<0>(param.second) = val;

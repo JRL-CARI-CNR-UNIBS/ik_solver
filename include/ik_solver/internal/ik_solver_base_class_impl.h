@@ -81,7 +81,8 @@ inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& param
 
   std::map<std::string, std::pair<int*, int>> iparams{
     { params_ns_ + "desired_solutions", { &desired_solutions_, desired_solutions_ } },
-    { params_ns_ + "stall_iterations", { &max_stall_iter_, max_stall_iter_ } },
+    { params_ns_ + "min_stall_iterations", { &min_stall_iter_, min_stall_iter_ } },
+    { params_ns_ + "max_stall_iterations", { &max_stall_iter_, max_stall_iter_ } },
     { params_ns_ + "parallel_ik_mode", { &parallelize_, ik_solver_msgs::GetIkArray::Request::PARALLELIZE_DISABLE } },
   };
 
@@ -104,6 +105,7 @@ inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& param
     ROS_ERROR("[IkSolver::config] %s is not specified", pn.c_str());
     return false;
   }
+
   lb_.resize(joint_names_.size());
   ub_.resize(joint_names_.size());
   revolute_.resize(joint_names_.size());
@@ -138,7 +140,7 @@ inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& param
     }
   }
 
-  return customConfig();
+  return true;
 }
 
 inline bool IkSolver::getFlangeTool()
@@ -152,7 +154,6 @@ inline bool IkSolver::getFlangeTool()
 //   I.setIdentity();
 //   return I;
 // }
-
 
 }  // end namespace ik_solver
 
