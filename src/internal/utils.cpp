@@ -46,11 +46,11 @@ std::string trim(const std::string& s, const std::string& what)
 }
 
 
- bool isPresent(const Configuration& q, const Configurations& qq)
+ bool isPresent(const Configuration& q, const Configurations& qq, double tolerance)
 {
   for (const auto& _q : qq)
   {
-    if (norm(diff(q, _q)) < 1e-6)
+    if (norm(diff(q, _q)) < std::fabs(tolerance))
       return true;
   }
   return false;

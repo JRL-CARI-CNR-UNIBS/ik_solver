@@ -215,7 +215,7 @@ inline bool get_and_default(std::map<std::string, std::pair<T*, T>>& params)
   return check_and_get(_params);
 }
 
-bool isPresent(const Configuration& q, const Configurations& qq);
+bool isPresent(const Configuration& q, const Configurations& qq, double tolerance = 1e-4);
 
 std::string resolve_ns(const ros::NodeHandle& nh, const std::string& params_ns);
 
