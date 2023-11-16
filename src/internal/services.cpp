@@ -217,6 +217,8 @@ std::vector<ik_solver::Solutions> IkServices::computeIKArrayST(const std::vector
   std::vector<ik_solver::Configurations> seeds = vseeds;
 
   size_t failed_poses_counter = 0;
+  std::vector<size_t> numer_of_solutions;
+  size_t ok_poses_counter = 0;
   for (size_t i = 0; i < v_T_b_f.size(); i++)
   {
     ik_solver::Solutions ik_sol = computeIkFunction(ik_solvers_.front().get(), v_T_b_f.at(i), seeds.at(i),
@@ -225,10 +227,11 @@ std::vector<ik_solver::Solutions> IkServices::computeIKArrayST(const std::vector
     if (ik_sol.configurations().size())
     {
       ret.at(i) = ik_sol;
-      if (update_recursively_seeds && i < (v_T_b_f.size() - 1))
+      if (i < (v_T_b_f.size() - 1))
       {
         seeds.at(i + 1).insert(seeds.at(i + 1).begin(), ik_sol.configurations().begin(), ik_sol.configurations().end());
       }
+      ok_poses_counter++;
     }
     else
     {
@@ -237,13 +240,17 @@ std::vector<ik_solver::Solutions> IkServices::computeIKArrayST(const std::vector
     }
 
     std::string nl = (i == v_T_b_f.size() - 1 ? "\n" : "");
-    ik_solver::printProgress(
-        double(i + 1) / double(v_T_b_f.size()),
-        "IK ST - OK/FAILED/TOT %03zu/%03zu/%03zu (Last IK sols %02zu, des. %zu, stall it. %d - %d, max error tras %f max err rot %f)%s",
-        i + 1 - failed_poses_counter, failed_poses_counter, v_T_b_f.size(), ik_sol.configurations().size(),
-        desired_solutions, min_stall_iterations, max_stall_iterations,
-        std::max_element(ik_sol.translation_residuals().begin(), ik_sol.translation_residuals().end()),
-        std::max_element(ik_sol.rotation_residuals().begin(), ik_sol.rotation_residuals().end()), nl.c_str());
+    numer_of_solutions.push_back(ik_sol.configurations().size());
+    size_t max_no_ik = *std::max_element(numer_of_solutions.begin(), numer_of_solutions.end());
+    size_t min_no_ik = *std::min_element(numer_of_solutions.begin(), numer_of_solutions.end());
+    double max_le = ik_sol.translation_residuals().size() ? *std::max_element(ik_sol.translation_residuals().begin(), ik_sol.translation_residuals().end()) : -1;
+    double max_re = ik_sol.rotation_residuals().size() ? *std::max_element(ik_sol.rotation_residuals().begin(), ik_sol.rotation_residuals().end()) : -1;
+
+    ik_solver::printProgress(double(ok_poses_counter + failed_poses_counter) / double(v_T_b_f.size()),
+                              "IK ST - OK/KO/TOT %03zu/%03zu/%03zu (Min IK %02zu, Max IK %02zu Des. %02zu, it %03d (%d-%d), seeds %03d max le %.3f max re %.3f)",
+                              ok_poses_counter, failed_poses_counter, v_T_b_f.size(), min_no_ik, max_no_ik, 
+                              desired_solutions, ik_sol.iterations(), min_stall_iterations, 
+                              max_stall_iterations, ik_sol.number_of_seeds(), max_le, max_re);
   }
   return ret;
 }
@@ -324,9 +331,10 @@ std::vector<ik_solver::Solutions> IkServices::computeIKArrayMT(const std::vector
         double max_re = ik_sol.rotation_residuals().size() ? *std::max_element(ik_sol.rotation_residuals().begin(), ik_sol.rotation_residuals().end()) : -1;
 
         ik_solver::printProgress(double(ok_poses_counter + failed_poses_counter) / double(v_T_b_f.size()),
-                                 "IK MT - OK/FAILED/TOT %03zu/%03zu/%03zu (Min IK %02zu, Max IK %02zu Des. %02zu, Stall %d - %d, max le %.3f max re %.3f)",
+                                 "IK MT - OK/KO/TOT %03zu/%03zu/%03zu (Min IK %02zu, Max IK %02zu Des. %02zu, it %03d (%d-%d), seeds %03d max le %.3f max re %.3f)",
                                  ok_poses_counter, failed_poses_counter, v_T_b_f.size(), min_no_ik, max_no_ik, 
-                                 desired_solutions, min_stall_iterations, max_stall_iterations, max_le, max_re);
+                                 desired_solutions, ik_sol.iterations(), min_stall_iterations, 
+                                 max_stall_iterations, ik_sol.number_of_seeds(), max_le, max_re);
       }
       else
       {

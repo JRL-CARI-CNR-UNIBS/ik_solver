@@ -11,7 +11,7 @@ namespace ik_solver
 
 void printProgress(double percentage, const char* msg, ...)
 {
-  constexpr const size_t max_lenght = 128;
+  constexpr const size_t max_lenght = 256;
   char buffer[max_lenght] = { 0 };  // maximum expected length of the float
   va_list args;
 
