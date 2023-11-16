@@ -57,8 +57,7 @@ public:
   virtual bool config(const ros::NodeHandle& nh, const std::string& param_ns = "");
   
   // FK flange to base
-  virtual Configurations getIk(const Eigen::Affine3d& T_base_flange, const Configurations& seeds,
-                                 const int& desired_solutions = -1, const int& min_stall_iterations = -1, const int& max_stall_iterations = -1) = 0;
+  virtual Solutions getIk(const Eigen::Affine3d& T_base_flange, const Configurations& seeds, const int& desired_solutions = -1, const int& min_stall_iterations = -1, const int& max_stall_iterations = -1) = 0;
 
   // FK base to flange
   virtual Eigen::Affine3d getFK(const Configuration& s) = 0;

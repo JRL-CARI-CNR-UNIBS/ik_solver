@@ -42,73 +42,82 @@ ik_solver::Configuration& operator<<(ik_solver::Configuration& lhs, const ik_sol
   return cast(lhs, rhs);
 }
 
-ik_solver_msgs::IkSolution& cast(ik_solver_msgs::IkSolution& lhs, const ik_solver::Configurations& rhs)
+ik_solver_msgs::IkSolution& cast(ik_solver_msgs::IkSolution& lhs, const ik_solver::Solutions& rhs)
 {
   lhs.configurations.clear();
-  for (const auto& rhs_c : rhs)
+  lhs.translation_residual_errors.clear();
+  lhs.rotation_residual_errors.clear();
+  for (const auto& rhs_c : rhs.configurations())
   {
     ik_solver_msgs::Configuration lhs_c;
     lhs_c << rhs_c;
     lhs.configurations.push_back(lhs_c);
   }
+  lhs.translation_residual_errors = rhs.translation_residuals();
+  lhs.rotation_residual_errors = rhs.rotation_residuals();
   return lhs;
 }
 
-ik_solver_msgs::IkSolution cast(const ik_solver::Configurations& rhs)
+ik_solver_msgs::IkSolution cast(const ik_solver::Solutions& rhs)
 {
   ik_solver_msgs::IkSolution lhs;
   return cast(lhs, rhs);
 }
 
-ik_solver_msgs::IkSolution& operator<<(ik_solver_msgs::IkSolution& lhs, const ik_solver::Configurations& rhs)
+ik_solver_msgs::IkSolution& operator<<(ik_solver_msgs::IkSolution& lhs, const ik_solver::Solutions& rhs)
 {
   return cast(lhs, rhs);
 }
 
-ik_solver::Configurations& cast(ik_solver::Configurations& lhs, const ik_solver_msgs::IkSolution& rhs)
+ik_solver::Solutions& cast(ik_solver::Solutions& lhs, const ik_solver_msgs::IkSolution& rhs)
 {
   lhs.clear();
-  for (const auto& rhs_c : rhs.configurations)
+  for (size_t i=0; i<rhs.configurations.size(); i++) 
   {
-    Eigen::VectorXd lhs_c(rhs_c.configuration.size());
+
+    const auto& rhs_c = rhs.configurations.at(i);
+
+    Configuration lhs_c(rhs_c.configuration.size());
     lhs_c << rhs_c;
+
+    lhs.configurations().push_back(lhs_c);
+    lhs.translation_residuals().push_back(rhs.translation_residual_errors.at(i));
+    lhs.rotation_residuals().push_back(rhs.rotation_residual_errors.at(i));
+  }
+  return lhs;
+}
+
+ik_solver::Solutions cast(const ik_solver_msgs::IkSolution& rhs)
+{
+  ik_solver::Solutions lhs;
+  return cast(lhs, rhs);
+}
+
+ik_solver::Solutions& operator<<(ik_solver::Solutions& lhs, const ik_solver_msgs::IkSolution& rhs)
+{
+  return cast(lhs, rhs);
+}
+
+std::vector<ik_solver_msgs::IkSolution>& cast(std::vector<ik_solver_msgs::IkSolution>& lhs, const std::vector<ik_solver::Solutions>& rhs)
+{
+  lhs.clear();
+  for (size_t i=0;i<rhs.size();i++)
+  {
+    const auto& rhs_c = rhs.at(i);
+    ik_solver_msgs::IkSolution lhs_c = cast(rhs_c);
     lhs.push_back(lhs_c);
   }
   return lhs;
 }
 
-ik_solver::Configurations cast(const ik_solver_msgs::IkSolution& rhs)
-{
-  ik_solver::Configurations lhs;
-  return cast(lhs, rhs);
-}
-
-ik_solver::Configurations& operator<<(ik_solver::Configurations& lhs, const ik_solver_msgs::IkSolution& rhs)
-{
-  return cast(lhs, rhs);
-}
-
-std::vector<ik_solver_msgs::IkSolution>& cast(std::vector<ik_solver_msgs::IkSolution>& lhs,
-                                              const std::vector<ik_solver::Configurations>& rhs)
-{
-  lhs.clear();
-  for (const auto& rhs_c : rhs)
-  {
-    ik_solver_msgs::IkSolution lhs_c;
-    lhs_c << rhs_c;
-    lhs.push_back(lhs_c);
-  }
-  return lhs;
-}
-
-std::vector<ik_solver_msgs::IkSolution> cast(const std::vector<ik_solver::Configurations>& rhs)
+std::vector<ik_solver_msgs::IkSolution> cast(const std::vector<ik_solver::Solutions>& rhs)
 {
   std::vector<ik_solver_msgs::IkSolution> lhs;
   return cast(lhs, rhs);
 }
 
 std::vector<ik_solver_msgs::IkSolution>& operator<<(std::vector<ik_solver_msgs::IkSolution>& lhs,
-                                                    const std::vector<ik_solver::Configurations>& rhs)
+                                                    const std::vector<ik_solver::Solutions>& rhs)
 {
   return cast(lhs, rhs);
 }

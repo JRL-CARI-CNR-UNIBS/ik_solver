@@ -108,11 +108,11 @@ private:
                               Eigen::Affine3d& T_tool_tip);
                               
 
-  std::vector<ik_solver::Configurations> computeIKArrayMT(const std::vector<Eigen::Affine3d>& v_T_b_f,
+  std::vector<ik_solver::Solutions> computeIKArrayMT(const std::vector<Eigen::Affine3d>& v_T_b_f,
                                                           const std::vector<ik_solver::Configurations>& vseeds,
                                                           size_t desired_solutions, int min_stall_iterations, int max_stall_iterations);
 
-  std::vector<ik_solver::Configurations> computeIKArrayST(const std::vector<Eigen::Affine3d>& v_T_b_f,
+  std::vector<ik_solver::Solutions> computeIKArrayST(const std::vector<Eigen::Affine3d>& v_T_b_f,
                                                           const std::vector<ik_solver::Configurations>& vseeds,
                                                           size_t desired_solutions, int min_stall_iterations, int max_stall_iterations,
                                                           uint8_t update_recursively_seeds);
