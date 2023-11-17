@@ -40,13 +40,8 @@ namespace ik_solver
 {
 using Configuration = Eigen::VectorXd;
 using Configurations = std::vector<Configuration>;
-struct Solutions : std::tuple<ik_solver::Configurations, std::vector<double>, std::vector<double>, int, int>
+struct Solutions : std::tuple<ik_solver::Configurations, std::vector<double>, std::vector<double>, std::string>
 {
-  Solutions() 
-  {
-    iterations() = -1;
-    number_of_seeds() = -1;
-  }
   const ik_solver::Configurations& configurations() const {return std::get<0>(*this);}
   ik_solver::Configurations& configurations() {return std::get<0>(*this);}
 
@@ -56,14 +51,10 @@ struct Solutions : std::tuple<ik_solver::Configurations, std::vector<double>, st
   const std::vector<double>& rotation_residuals() const {return std::get<2>(*this);}
   std::vector<double>& rotation_residuals() {return std::get<2>(*this);}
 
-  const int& iterations() const {return std::get<3>(*this);}
-  int& iterations() {return std::get<3>(*this);}
+  const std::string& message() const { return std::get<3>(*this); }
+  std::string& message() { return std::get<3>(*this); }
 
-  const int& number_of_seeds() const {return std::get<4>(*this);}
-  int& number_of_seeds() {return std::get<4>(*this);}
-
-
-  void clear() { configurations().clear(); translation_residuals().clear(); rotation_residuals().clear();}
+  void clear() { configurations().clear(); translation_residuals().clear(); rotation_residuals().clear(); message().clear();}
 
 };
 

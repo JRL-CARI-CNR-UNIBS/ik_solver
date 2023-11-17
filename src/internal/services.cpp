@@ -28,6 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <algorithm>
 #include <cinttypes>
+#include <cstdio>
 #include <future>
 #include <iterator>
 #include <optional>
@@ -124,6 +125,11 @@ bool IkServices::computeIK(ik_solver_msgs::GetIk::Request& req, ik_solver_msgs::
   Solutions solutions = computeIkFunction(ik_solvers_.front().get(), T_b_f, seeds, desired_solutions,
                                           min_stall_iterations, max_stall_iterations);
 
+  std::string msg = solutions.message().empty() ? "" : solutions.message();
+
+  printf(  "IK - Number of solutions %02zu, %s\n", solutions.configurations().size(), msg.c_str() );
+  fflush(stdout);
+  
   res.solution = ik_solver::cast(solutions);
 
   res.joint_names = config().joint_names();
@@ -243,14 +249,13 @@ std::vector<ik_solver::Solutions> IkServices::computeIKArrayST(const std::vector
     numer_of_solutions.push_back(ik_sol.configurations().size());
     size_t max_no_ik = *std::max_element(numer_of_solutions.begin(), numer_of_solutions.end());
     size_t min_no_ik = *std::min_element(numer_of_solutions.begin(), numer_of_solutions.end());
-    double max_le = ik_sol.translation_residuals().size() ? *std::max_element(ik_sol.translation_residuals().begin(), ik_sol.translation_residuals().end()) : -1;
-    double max_re = ik_sol.rotation_residuals().size() ? *std::max_element(ik_sol.rotation_residuals().begin(), ik_sol.rotation_residuals().end()) : -1;
+    
+    std::string msg = ik_sol.message().empty() ? "" : ik_sol.message();
+    msg += i == v_T_b_f.size()-1 ? "\n" : "",
 
     ik_solver::printProgress(double(ok_poses_counter + failed_poses_counter) / double(v_T_b_f.size()),
-                              "IK ST - OK/KO/TOT %03zu/%03zu/%03zu (Min IK %02zu, Max IK %02zu Des. %02zu, it %03d (%d-%d), seeds %03d max le %.3f max re %.3f)",
-                              ok_poses_counter, failed_poses_counter, v_T_b_f.size(), min_no_ik, max_no_ik, 
-                              desired_solutions, ik_sol.iterations(), min_stall_iterations, 
-                              max_stall_iterations, ik_sol.number_of_seeds(), max_le, max_re);
+                              "IK ST - OK/KO/TOT %03zu/%03zu/%03zu (Min IK %02zu, Max IK %02zu) %s",
+                              ok_poses_counter, failed_poses_counter, v_T_b_f.size(), min_no_ik, max_no_ik, msg.c_str());
   }
   return ret;
 }
@@ -327,21 +332,20 @@ std::vector<ik_solver::Solutions> IkServices::computeIKArrayMT(const std::vector
         numer_of_solutions.push_back(ik_sol.configurations().size());
         size_t max_no_ik = *std::max_element(numer_of_solutions.begin(), numer_of_solutions.end());
         size_t min_no_ik = *std::min_element(numer_of_solutions.begin(), numer_of_solutions.end());
-        double max_le = ik_sol.translation_residuals().size() ? *std::max_element(ik_sol.translation_residuals().begin(), ik_sol.translation_residuals().end()) : -1;
-        double max_re = ik_sol.rotation_residuals().size() ? *std::max_element(ik_sol.rotation_residuals().begin(), ik_sol.rotation_residuals().end()) : -1;
+
+
+        std::string msg = ik_sol.message().empty() ? "" : ik_sol.message();
+        msg += ok_poses_counter + failed_poses_counter == v_T_b_f.size() ? "\n" : "",
 
         ik_solver::printProgress(double(ok_poses_counter + failed_poses_counter) / double(v_T_b_f.size()),
-                                 "IK MT - OK/KO/TOT %03zu/%03zu/%03zu (Min IK %02zu, Max IK %02zu Des. %02zu, it %03d (%d-%d), seeds %03d max le %.3f max re %.3f)",
-                                 ok_poses_counter, failed_poses_counter, v_T_b_f.size(), min_no_ik, max_no_ik, 
-                                 desired_solutions, ik_sol.iterations(), min_stall_iterations, 
-                                 max_stall_iterations, ik_sol.number_of_seeds(), max_le, max_re);
+                              "IK MT - OK/KO/TOT %03zu/%03zu/%03zu (Min IK %02zu, Max IK %02zu) %s",
+                              ok_poses_counter, failed_poses_counter, v_T_b_f.size(), min_no_ik, max_no_ik, msg.c_str());
       }
       else
       {
         ++it;
       }
     }
-    std::cout << std::endl;
   }
 
   return ret;
