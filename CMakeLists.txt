@@ -17,6 +17,9 @@ find_package(catkin REQUIRED COMPONENTS
   tf_conversions
   urdf
   std_srvs
+  moveit_ros_move_group
+  moveit_kinematics
+  moveit_ros_planning_interface
 )
 
 find_package(Eigen3 REQUIRED COMPONENTS Geometry Core)
@@ -24,7 +27,7 @@ find_package(Eigen3 REQUIRED COMPONENTS Geometry Core)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ${PROJECT_NAME} 
-  CATKIN_DEPENDS eigen_conversions ik_solver_msgs pluginlib roscpp tf_conversions urdf
+  CATKIN_DEPENDS eigen_conversions ik_solver_msgs moveit_ros_move_group moveit_kinematics moveit_ros_planning_interface pluginlib roscpp tf_conversions urdf
   DEPENDS EIGEN3
 )
 

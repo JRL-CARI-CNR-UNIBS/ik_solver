@@ -30,9 +30,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define IK_SOLVER__INTERNAL__SERVICES_H
 
 #include <memory>
+#include <stdexcept>
 #include <vector>
 #include <array>
 #include <Eigen/Geometry>
+#include "ik_solver/internal/types.h"
+#include "moveit_servo/collision_check.h"
 #include "ros/node_handle.h"
 #include "std_srvs/TriggerRequest.h"
 #include <ros/ros.h>
@@ -46,6 +49,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ik_solver_msgs/GetBound.h>
 
 #include <ik_solver/ik_solver_base_class.h>
+
+#include <moveit/move_group_interface/move_group_interface.h>
+#include <moveit/robot_model_loader/robot_model_loader.h>
+#include <moveit/robot_model/robot_model.h>
+#include <moveit/planning_scene/planning_scene.h>
 
 namespace ik_solver
 {
@@ -86,6 +94,30 @@ constexpr static const size_t MAX_NUM_PARALLEL_IK_SOLVER = _MAX_NUM_PARALLEL_IK_
 
 using IkSolversPool = std::array<boost::shared_ptr<ik_solver::IkSolver>, ik_solver::MAX_NUM_PARALLEL_IK_SOLVER>;
 
+
+struct CollisionChecker
+{
+  ros::NodeHandle nh_;
+  std::string group_name_;
+  std::vector<std::string> joint_names_;
+  ros::ServiceClient ps_client_;
+  moveit::planning_interface::MoveGroupInterfacePtr move_group_;
+  robot_model_loader::RobotModelLoader robot_model_loader_;
+  robot_model::RobotModelPtr kinematic_model_;
+  planning_scene::PlanningScenePtr planning_scene_;
+  const moveit::core::JointModelGroup* jmg_;
+  std::vector<const moveit::core::JointModel*> joint_models_;
+  std::vector<const moveit::core::JointModel*> mimic_joint_models_;
+
+  robot_state::RobotStatePtr state_;
+
+  CollisionChecker(ros::NodeHandle& nh);
+  bool check(const Configuration&);
+  bool config(std::string& what);
+}; 
+
+using IkCheckerPool = std::array<std::shared_ptr<ik_solver::CollisionChecker>, ik_solver::MAX_NUM_PARALLEL_IK_SOLVER>;
+
 class IkServices
 {
 private:
@@ -100,6 +132,7 @@ private:
   const IkSolver& config() const;
 
   IkSolversPool& ik_solvers_;
+  IkCheckerPool& checkers_;
   
   bool computeTransformations(const std::string& tip_frame, 
                               const std::string& reference_frame,
@@ -117,14 +150,24 @@ private:
                                                           size_t desired_solutions, int min_stall_iterations, int max_stall_iterations,
                                                           uint8_t update_recursively_seeds);
 
+
+
+  planning_scene::PlanningScenePtr planning_scene_;
+
+
+
 public:
+
+  using Ptr = std::shared_ptr<IkServices>;
+  using ConstPtr = std::shared_ptr<const IkServices>;
+
   IkServices() = delete;
   IkServices(const IkServices&) = delete;
   IkServices(IkServices&&) = delete;
   IkServices(const IkServices&&) = delete;
   ~IkServices() = default;
 
-  IkServices(ros::NodeHandle& nh, IkSolversPool& ik_solvers);
+  IkServices(ros::NodeHandle& nh, IkSolversPool& ik_solvers, IkCheckerPool& checkers_);
 
   bool computeIK(ik_solver_msgs::GetIk::Request& req, ik_solver_msgs::GetIk::Response& res);
 
@@ -138,6 +181,9 @@ public:
 
   bool reconfigure(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res);
 };
+
+using IkServicesPtr = IkServices::Ptr;
+using IkServicesConstPtr = IkServices::ConstPtr;
 
 }  // namespace ik_solver
 #endif  // IK_SOLVER__INTERNAL__SERVICES_H

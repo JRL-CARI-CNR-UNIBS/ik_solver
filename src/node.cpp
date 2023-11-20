@@ -34,6 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <ik_solver/internal/services.h>
 
+
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "node");
@@ -47,7 +48,9 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  ik_solver::IkSolversPool  ik_solvers;
+  ik_solver::IkSolversPool ik_solvers;
+  ik_solver::IkCheckerPool checkers;
+
   ROS_DEBUG("Creating %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
   for(std::size_t i=0;i<ik_solver::MAX_NUM_PARALLEL_IK_SOLVER;i++ )
   {
@@ -58,14 +61,20 @@ int main(int argc, char **argv)
       ROS_ERROR("unable to configure %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
       return 0;
     }
+
+    checkers.at(i).reset(new ik_solver::CollisionChecker(nh));
+    std::string what;
+    if (!checkers.at(i)->config(what))
+    {
+      ROS_ERROR("unable to configure collision checker:  %s",what.c_str());
+      return 0;
+    }
   }
-  ROS_DEBUG("%s (type %s) is ready to compute IK",nh.getNamespace().c_str(),plugin_name.c_str());
   // ==============================================
 
-  ik_solver::IkServices services(nh, ik_solvers);
+  ik_solver::IkServices services(nh, ik_solvers, checkers);
 
   // ==============================================
-
   ros::spin();
   return 0;
 }

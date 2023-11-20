@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef IK_SOLVER__IKSOLVER_BASE_CLASS_H
 #define IK_SOLVER__IKSOLVER_BASE_CLASS_H
 
+#include <functional>
 #include <boost/smart_ptr/shared_ptr.hpp>
 #include <memory>
 #include <string>
@@ -48,13 +49,17 @@ class IkSolver
 {
 public:
 
+  using Ptr = std::shared_ptr<IkSolver>;
+  using ConstPtr = std::shared_ptr<const IkSolver>;
+
   IkSolver() = default;
   IkSolver(const IkSolver&) = delete;
   IkSolver(const IkSolver&&) = delete;
   IkSolver(IkSolver&&) = delete;
   virtual ~IkSolver() = default;
-
+  
   virtual bool config(const ros::NodeHandle& nh, const std::string& param_ns = "");
+  virtual bool config(const ros::NodeHandle& nh, const std::string& param_ns, std::function<bool(const Configuration&)> validation_function);
   
   // FK flange to base
   virtual Solutions getIk(const Eigen::Affine3d& T_base_flange, const Configurations& seeds, const int& desired_solutions = -1, const int& min_stall_iterations = -1, const int& max_stall_iterations = -1) = 0;
@@ -105,7 +110,12 @@ protected:
 
   bool getFlangeTool();
 
+  std::function<bool(Configuration)> checker_;
+
 };
+
+using IkSolverPtr = IkSolver::Ptr;
+using IkSolverConstPtr = IkSolver::ConstPtr;
 
 
 }  //  namespace ik_solver

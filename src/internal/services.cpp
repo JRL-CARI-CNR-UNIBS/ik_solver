@@ -29,14 +29,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <algorithm>
 #include <cinttypes>
 #include <cstdio>
+#include <functional>
 #include <future>
 #include <iterator>
 #include <optional>
 #include <Eigen/Geometry>
+#include <stdexcept>
+#include <string>
 #include <vector>
-#include "Eigen/src/Geometry/Transform.h"
-#include "ik_solver/internal/SafeQueue.h"
-#include "ik_solver_msgs/Configuration.h"
+#include <Eigen/src/Geometry/Transform.h>
+#include <ik_solver/internal/SafeQueue.h>
+#include <ik_solver_msgs/Configuration.h>
 #include <geometry_msgs/Pose.h>
 
 #include <tf_conversions/tf_eigen.h>
@@ -48,6 +51,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ik_solver/internal/services.h>
 
 #include <ik_solver/internal/SafeQueue.h>
+
+
+#include <moveit/move_group_interface/move_group_interface.h>
+#include <moveit/robot_model_loader/robot_model_loader.h>
+
 
 namespace ik_solver
 {
@@ -80,7 +88,7 @@ ik_solver::Solutions computeIkFunction(ik_solver::IkSolver* solver, const Eigen:
  * @param nh
  * @param ik_solvers
  */
-IkServices::IkServices(ros::NodeHandle& nh, IkSolversPool& ik_solvers) : nh_(nh), ik_solvers_(ik_solvers)
+IkServices::IkServices(ros::NodeHandle& nh, IkSolversPool& ik_solvers, IkCheckerPool& checkers) : nh_(nh), ik_solvers_(ik_solvers), checkers_(checkers)
 {
   ik_server_ = nh.advertiseService("get_ik", &IkServices::computeIK, this);
   ik_server_array_ = nh.advertiseService("get_ik_array", &IkServices::computeIKArray, this);
@@ -88,6 +96,71 @@ IkServices::IkServices(ros::NodeHandle& nh, IkSolversPool& ik_solvers) : nh_(nh)
   fk_server_array_ = nh.advertiseService("get_fk_array", &IkServices::computeFKArray, this);
   bound_server_array_ = nh.advertiseService("get_bounds", &IkServices::getBounds, this);
   reconfigure_ = nh.advertiseService("reconfigure", &IkServices::reconfigure, this);
+}
+
+CollisionChecker::CollisionChecker(ros::NodeHandle& nh) : nh_(nh), robot_model_loader_("robot_description") 
+{
+  std::string what;
+  group_name_ = "manipulator";
+  if (!nh_.getParam("group_name", group_name_))
+  {
+    throw std::runtime_error(("The '"+nh_.getNamespace()+"/group_name' is undefined").c_str());
+  }
+  
+  move_group_.reset(new moveit::planning_interface::MoveGroupInterface (group_name_));
+  kinematic_model_ = robot_model_loader_.getModel();
+  planning_scene_.reset(new planning_scene::PlanningScene(kinematic_model_));
+  joint_names_ = kinematic_model_->getJointModelGroup(group_name_)->getActiveJointModelNames();
+
+  ps_client_ = nh_.serviceClient<moveit_msgs::GetPlanningScene>("/get_planning_scene");
+  ps_client_.waitForExistence();
+
+}
+
+bool CollisionChecker::check(const Configuration& q)
+{
+  state_ = std::make_shared<robot_state::RobotState>(planning_scene_->getCurrentState());   
+
+  for (size_t i=0;i<joint_names_.size();i++)
+  {
+    state_->setJointPositions(joint_models_.at(i),&q(i));
+  }
+
+  if (!state_->satisfiesBounds(jmg_))
+  {
+    return false;
+  }
+  state_->update();
+  state_->updateCollisionBodyTransforms();
+  return !planning_scene_->isStateColliding(*state_,group_name_);
+}
+
+bool CollisionChecker::config(std::string& what)
+{
+  moveit_msgs::GetPlanningScene ps_srv;
+  if (!ps_client_.call(ps_srv))
+  {
+    what = "Error on  get_planning_scene srv not ok";
+    return false;
+  }
+  if (!planning_scene_)
+  {
+    what = "invalid planning scene";
+    return false;
+  }
+  if (!planning_scene_->setPlanningSceneMsg(ps_srv.response.scene))
+  {
+    what = "Unable to upload scene";
+    return false;
+  }
+
+  state_ = std::make_shared<robot_state::RobotState>(planning_scene_->getCurrentState());
+  jmg_ = state_->getJointModelGroup(group_name_);
+  joint_names_=jmg_->getActiveJointModelNames();
+  joint_models_=jmg_->getActiveJointModels();
+  mimic_joint_models_=jmg_->getMimicJointModels();
+
+  return true;
 }
 
 /**
@@ -353,7 +426,7 @@ std::vector<ik_solver::Solutions> IkServices::computeIKArrayMT(const std::vector
 
 const ik_solver::IkSolver& IkServices::config() const
 {
-  return *ik_solvers_.front();
+    return *ik_solvers_.front();
 }
 
 bool IkServices::computeTransformations(const std::string& tip_frame, const std::string& reference_frame,
@@ -552,12 +625,20 @@ bool IkServices::getBounds(ik_solver_msgs::GetBound::Request& req, ik_solver_msg
  */
 bool IkServices::reconfigure(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res)
 {
+  std::string what;
   for (std::size_t i = 0; i < ik_solver::MAX_NUM_PARALLEL_IK_SOLVER; i++)
   {
-    if (!ik_solvers_.at(i)->config(nh_))
+
+    if(!checkers_.at(i)->config(what))
+    {
+      ROS_ERROR("Unable to re-configure the collision checker of node %s", nh_.getNamespace().c_str());
+      return false;
+    }
+    std::function<bool(const Configuration&)> chk = std::bind(&CollisionChecker::check, checkers_.at(i), std::placeholders::_1);
+    if (!ik_solvers_.at(i)->config(nh_, "", chk))
     {
       ROS_ERROR("Unable to re-configure %s", nh_.getNamespace().c_str());
-      return 0;
+      return false;
     }
   }
   return true;

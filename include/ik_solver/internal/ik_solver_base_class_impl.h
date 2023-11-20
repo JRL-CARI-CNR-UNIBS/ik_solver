@@ -45,6 +45,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <tuple>
 #include <vector>
 #include <regex>
+
 #include <tf/transform_listener.h>
 
 #include <Eigen/Core>
@@ -57,9 +58,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <ik_solver/ik_solver_base_class.h>
 
-
-using namespace std::chrono_literals;
-
 namespace ik_solver
 {
 
@@ -71,7 +69,7 @@ inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& param
   std::map<std::string, std::string*> sparams{
     { params_ns_ + "base_frame", &base_frame_ },
     { params_ns_ + "flange_frame", &flange_frame_ },
-    { params_ns_ + "tool_frame", &tool_frame_ },
+    { params_ns_ + "tool_frame", &tool_frame_}
   };
 
   if (!get_and_return(sparams))
@@ -140,6 +138,17 @@ inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& param
     }
   }
 
+  return true;
+}
+
+inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& param_ns, std::function<bool(const Configuration&)> validation_function)
+{
+  if(!config(nh,param_ns))
+  {
+    return false;
+  }
+
+  checker_ = validation_function;
   return true;
 }
 
