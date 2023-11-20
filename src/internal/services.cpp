@@ -29,10 +29,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <algorithm>
 #include <cinttypes>
 #include <cstdio>
+#include <exception>
 #include <future>
+#include <iostream>
 #include <iterator>
 #include <optional>
 #include <Eigen/Geometry>
+#include <thread>
 #include <vector>
 #include "Eigen/src/Geometry/Transform.h"
 #include "ik_solver/internal/SafeQueue.h"
@@ -283,6 +286,7 @@ std::vector<ik_solver::Solutions> IkServices::computeIKArrayMT(const std::vector
     ik_sol_futures.at(i) = ik_sol_promises.at(i).get_future();
   }
 
+  std::vector<std::thread> workers;
   for (size_t thread_id = 0; thread_id < MAX_NUM_PARALLEL_IK_SOLVER; thread_id++)
   {
     auto thread_function = [&](const size_t& id) {
@@ -300,8 +304,7 @@ std::vector<ik_solver::Solutions> IkServices::computeIKArrayMT(const std::vector
         }
       }
     };
-    auto worker = std::thread(thread_function, thread_id);
-    worker.detach();
+    workers.push_back(std::thread(thread_function, thread_id));
   }
 
   size_t failed_poses_counter = 0;
@@ -346,6 +349,21 @@ std::vector<ik_solver::Solutions> IkServices::computeIKArrayMT(const std::vector
         ++it;
       }
     }
+  }
+
+  try
+  {
+    for(size_t i=0;i<workers.size();i++)
+    {
+      if(workers.at(i).joinable())
+      {
+        workers.at(i).join();
+      }
+    }
+  }
+  catch(std::exception& e)
+  {
+    std::cerr << __PRETTY_FUNCTION__ << ":" << __LINE__ << ":" << e.what() << std::endl;
   }
 
   return ret;
@@ -467,6 +485,7 @@ bool IkServices::computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_sol
     fk_sol_futures.at(i) = fk_sol_promises.at(i).get_future();
   }
 
+  std::vector<std::thread> workers;
   for (size_t thread_id = 0; thread_id < MAX_NUM_PARALLEL_IK_SOLVER; thread_id++)
   {
     auto thread_function = [&](const size_t& id, const auto& order) {
@@ -488,8 +507,7 @@ bool IkServices::computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_sol
         }
       }
     };
-    auto worker = std::thread(thread_function, thread_id, order);
-    worker.detach();
+    workers.push_back(std::thread(thread_function, thread_id, order));
   }
 
   size_t failed_poses_counter = 0;
@@ -514,6 +532,22 @@ bool IkServices::computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_sol
       }
     }
     std::cout << std::endl;
+  }
+
+
+  try
+  {
+    for(size_t i=0;i<workers.size();i++)
+    {
+      if(workers.at(i).joinable())
+      {
+        workers.at(i).join();
+      }
+    }
+  }
+  catch(std::exception& e)
+  {
+    std::cerr << __PRETTY_FUNCTION__ << ":" << __LINE__ << ":" << e.what() << std::endl;
   }
   return true;
 }
