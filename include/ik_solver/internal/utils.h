@@ -237,9 +237,15 @@ bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d
 
 Configurations getSeeds(const std::vector<std::string>& joint_names, const std::vector<std::string>& seed_names, const std::vector<ik_solver_msgs::Configuration>& seeds);
 
-Configurations getMultiplicity(const Configurations& sol, const Configuration& ub, const Configuration& lb, const std::vector<bool>& revolute);
+bool in_range(const double& v, const JointBoundaries& jb);
+std::vector< std::pair<std::string, bool> > in_range(const Configuration& c, const JointsBoundaries& jb);
+bool are_all_in_range(const Configuration& c, const JointsBoundaries& jb);
 
-std::vector<int> outOfBound(const Configuration& c, const Configuration& ub, const Configuration& lb);
+Configurations getMultiplicity(const Configurations& sol, const JointsBoundaries& jb, const std::vector<bool>& revolute);
+
+void outOfBound(const Configuration& c, const JointsBoundaries& jb, std::vector<int>& ax_numbers);
+void outOfBound(const Configuration& c, const JointsBoundaries& jb, std::vector<std::string>& ax_names);
+void outOfBound(const Configuration& c, const JointsBoundaries& jb, std::vector<std::pair<std::string, int> >& ax_out_of_bound);
 
 }
 

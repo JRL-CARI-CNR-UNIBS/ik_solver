@@ -29,15 +29,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef IK_SOLVER__INTERNAL__IKSOLVER_BASE_CLASS_IMPL_H
 #define IK_SOLVER__INTERNAL__IKSOLVER_BASE_CLASS_IMPL_H
 
+#include <exception>
+#include <ostream>
+#include <sstream>
 #include <cmath>
 #include <functional>
 #include <iostream>
 #include <numeric>
-#include <ostream>
 #include <valarray>
 #include <cstddef>
 #include <cstdint>
-#include <sstream>
 #include <algorithm>
 #include <string>
 #include <chrono>
@@ -49,6 +50,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <Eigen/Core>
 #include <cstdio>
+#include "XmlRpcValue.h"
+#include "ik_solver/internal/types.h"
 
 #include <geometry_msgs/Pose.h>
 #include <ik_solver_msgs/GetIkArray.h>
@@ -106,8 +109,7 @@ inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& param
     return false;
   }
 
-  lb_.resize(joint_names_.size());
-  ub_.resize(joint_names_.size());
+  jb_.resize(joint_names_.size());
   revolute_.resize(joint_names_.size());
   std::map<std::string, urdf::JointSharedPtr> joint_models = model_.joints_;
   for (size_t iax = 0; iax < joint_names_.size(); iax++)
@@ -118,28 +120,143 @@ inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& param
       return false;
     }
     const urdf::JointSharedPtr& jmodel = joint_models.at(joint_names_.at(iax));
-    lb_(iax) = jmodel->limits->lower;
-    ub_(iax) = jmodel->limits->upper;
+    ik_solver::Range urdf_range;
+    urdf_range.min() = jmodel->limits->lower;
+    urdf_range.max() = jmodel->limits->upper;
+    jb_.at(iax).first = joint_names_.at(iax);
+    jb_.at(iax).second.push_back(urdf_range);
 
     revolute_.at(iax) = jmodel->type == jmodel->REVOLUTE;
 
-    double value;
-    if (ros::param::get(params_ns_ + "limits/" + joint_names_.at(iax) + "/upper", value))
+    if(ros::param::has(params_ns_ + "limits/" + joint_names_.at(iax)))
     {
-      ub_(iax) = std::min(ub_(iax), value);
-    }
-    if (ros::param::get(params_ns_ + "limits/" + joint_names_.at(iax) + "/lower", value))
-    {
-      lb_(iax) = std::max(lb_(iax), value);
-    }
-    if (lb_(iax) > ub_(iax))
-    {
-      ROS_ERROR("%s: %s has wrong limits: lower=%f, upper=%f", params_ns_.c_str(), joint_names_.at(iax).c_str(),
-                lb_(iax), ub_(iax));
-      return false;
+      XmlRpc::XmlRpcValue list_of_limits;
+      if(!ros::param::get(params_ns_ + "limits/" + joint_names_.at(iax), list_of_limits))
+      {
+        ROS_ERROR("Wierd the param %s exists but is invalid", (params_ns_ + "limits/" + joint_names_.at(iax)).c_str());
+        return false;
+      }
+
+      auto to_str = [](const XmlRpc::XmlRpcValue& p)-> std::string
+      {
+        std::ostream stream(nullptr); // useless ostream (badbit set)
+        std::stringbuf str;
+        stream.rdbuf(&str); // uses str
+        p.write(stream);
+        return str.str();
+      };
+
+      auto to_double = [&to_str](const XmlRpc::XmlRpcValue& p, double& val, std::string& what) -> bool
+      {
+        if(p.getType()==XmlRpc::XmlRpcValue::TypeDouble)
+        {
+          val = double(p);
+        }
+        else if(p.getType()==XmlRpc::XmlRpcValue::TypeInt)
+        {
+          val = double(int(p));
+        }
+        else
+        {
+          what = "The value is neither a double nor an int: " + to_str(p);
+          return false;
+        }
+        return true;
+      };
+
+      auto get_range = [&to_double, &to_str] (const XmlRpc::XmlRpcValue& p, const ik_solver::Range& urdf_range, ik_solver::Range& range, std::string& what) -> bool
+      {
+        size_t ll = __LINE__;
+        try
+        {
+          ll = __LINE__;
+          if(!p.hasMember("upper") && !p.hasMember("lower"))
+          {
+            std::ostream stream(nullptr); // useless ostream (badbit set)
+            std::stringbuf str;
+            stream.rdbuf(&str); // uses str
+            p.write(stream);
+            what = "The entry is ill-formed, there is neither 'upper' nor lower' key (Value: '" + str.str() + "')";
+            return false;
+          }
+          ll = __LINE__;
+          
+          if(p.hasMember("lower"))
+          {
+            ll = __LINE__;
+            if(!to_double(p["lower"], range.min(), what))
+            {
+              return false;
+            }
+          }
+          else
+          {
+            ll = __LINE__;
+            range.min() = urdf_range.min();
+          }
+          if(p.hasMember("upper"))
+          {
+            ll = __LINE__;
+            if(!to_double(p["upper"], range.max(), what))
+            {
+              return false;
+            }
+          }
+          else
+          {
+            ll = __LINE__;
+            range.max() = urdf_range.max();
+          }
+
+          if (range.min() > range.max())
+          {
+            ll = __LINE__;
+            what = "The entry is ill-formed, the 'upper' value is less than the 'lower' value";
+            return false;
+          }
+        }
+        catch(std::exception& e)
+        {
+          what = ("Last Line executed: " + std::to_string(ll) + ": ") + e.what();
+          return false;
+        }
+
+        return true;
+      };
+
+      std::string what;
+      if(list_of_limits.getType() == XmlRpc::XmlRpcValue::TypeStruct)
+      {
+        Range r;
+        if(!get_range(list_of_limits, urdf_range, r,what))
+        {
+          ROS_ERROR("%s", what.c_str());
+          return false;
+        }
+        jb_.at(iax).first = joint_names_.at(iax);
+        jb_.at(iax).second.push_back(r);
+      }
+      else if(list_of_limits.getType() == XmlRpc::XmlRpcValue::TypeArray)
+      {
+        for(auto it = list_of_limits.begin(); it != list_of_limits.end(); ++it)
+        {
+          Range r;
+          if(!get_range(it->second, urdf_range, r,what))
+          {
+            ROS_ERROR("%s", what.c_str());
+            return false;
+          }
+          jb_.at(iax).first = joint_names_.at(iax);
+          jb_.at(iax).second.push_back(r);
+        }
+      }
+      else
+      {
+        assert(0);
+      }
     }
   }
-
+  ROS_WARN_STREAM("jb:" << jb_ );
   return true;
 }
 

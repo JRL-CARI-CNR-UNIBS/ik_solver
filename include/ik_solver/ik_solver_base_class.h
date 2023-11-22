@@ -29,13 +29,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef IK_SOLVER__IKSOLVER_BASE_CLASS_H
 #define IK_SOLVER__IKSOLVER_BASE_CLASS_H
 
+#include <algorithm>
 #include <boost/smart_ptr/shared_ptr.hpp>
+#include <cstddef>
 #include <memory>
 #include <string>
 
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
 #include <Eigen/Geometry>
+#include <Eigen/Core>
+#include <cmath>
+#include "Eigen/src/Core/Matrix.h"
 
 #include <urdf/model.h>
 
@@ -43,6 +48,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace ik_solver
 {
+
 
 class IkSolver
 {
@@ -69,8 +75,8 @@ public:
   const Eigen::Affine3d& transform_from_flange_to_tool() const { return T_tool_flange_; }
   Eigen::Affine3d transform_from_tool_to_flange() const { return T_tool_flange_.inverse(); }
 
-  const Configuration& lb() const { return lb_; }
-  const Configuration& ub() const { return ub_; }
+  
+  const JointsBoundaries& jb() const { return jb_; }
   const std::vector<bool>& revolute() const { return revolute_;}
 
   const int& min_stall_iterations() const { return min_stall_iter_; }
@@ -91,8 +97,7 @@ protected:
   std::string tool_frame_;
   std::vector<std::string> joint_names_;
 
-  Configuration ub_;
-  Configuration lb_;
+  JointsBoundaries jb_;
   std::vector<bool> revolute_;
   int min_stall_iter_ = 998;
   int max_stall_iter_ = 999;

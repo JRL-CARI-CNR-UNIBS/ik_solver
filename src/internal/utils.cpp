@@ -5,6 +5,7 @@
 #include <eigen_conversions/eigen_msg.h>
 #include <ik_solver/internal/utils.h>
 #include <cstddef>
+#include <iterator>
 
 namespace ik_solver
 {
@@ -160,17 +161,87 @@ Configurations getSeeds(const std::vector<std::string>& joint_names, const std::
   return seeds_eigen;
 }
 
+bool in_range(const double& v, const JointBoundaries& jb)
+{
+  if(std::isnan(v))
+  {
+    return false;
+  }
 
-Configurations getMultiplicity(const Configurations& sol, const Configuration& ub, const Configuration& lb, const std::vector<bool>& revolute)
+  bool ok = true;
+  for(const Range &  r : jb)
+  {
+    ok &= ((r.min() <= v) && (v <= r.max()));
+  }
+  return ok;
+}
+
+std::vector<std::pair<std::string, bool> > in_range(const Configuration& c, const JointsBoundaries& jb)
+{
+  std::vector<std::pair<std::string, bool> > ok(jb.size(), {"", false});
+  for (size_t iax = 0; iax < jb.size(); iax++)
+  {
+    ok.at(iax).first = jb.at(iax).first;
+     ok.at(iax).second = in_range(c(iax),jb.at(iax).second);
+  }
+  return ok;
+}
+
+bool all_in_range(const Configuration& sol, const JointsBoundaries& jb)
+{
+  auto vec = in_range(sol,jb);
+  return std::all_of(vec.begin(), vec.end(), [](std::pair<std::string, bool> v) { return v.second; });
+}
+
+void outOfBound(const Configuration& c, const JointsBoundaries& jb, std::vector<int>& ax_out_of_bound)
+{
+  ax_out_of_bound.clear();
+  auto vec = in_range(c,jb);
+  for (size_t iax = 0; iax < jb.size(); iax++)
+  {
+    if (!vec.at(iax).second)
+    {
+      ax_out_of_bound.push_back(iax);
+    }
+  }
+}
+
+void outOfBound(const Configuration& c, const JointsBoundaries& jb, std::vector<std::string>& ax_out_of_bound)
+{
+  ax_out_of_bound.clear();
+  auto vec = in_range(c,jb);
+  for (size_t iax = 0; iax < jb.size(); iax++)
+  {
+    if (!vec.at(iax).second)
+    {
+      ax_out_of_bound.push_back(vec.at(iax).first);
+    }
+  }
+}
+
+void outOfBound(const Configuration& c, const JointsBoundaries& jb, std::vector<std::pair<std::string, int> >& ax_out_of_bound)
+{
+  ax_out_of_bound.clear();
+  auto vec = in_range(c,jb);
+  for (size_t iax = 0; iax < jb.size(); iax++)
+  {
+    if (!vec.at(iax).second)
+    {
+      ax_out_of_bound.push_back(std::make_pair(vec.at(iax).first, iax));
+    }
+  }
+}
+
+Configurations getMultiplicity(const Configurations& sol, const JointsBoundaries& jb, const std::vector<bool>& revolute)
 {
   Configurations multiturn_global;
 
   for (const Configuration& q : sol)
   {
     Configurations multiturn;
-    std::vector<std::vector<double>> multiturn_ax(ub.size());
+    std::vector<std::vector<double>> multiturn_ax(jb.size());
 
-    for (unsigned int idx = 0; idx < ub.size(); idx++)
+    for (unsigned int idx = 0; idx < jb.size(); idx++)
     {
       multiturn_ax.at(idx).push_back(q(idx));
 
@@ -181,24 +252,36 @@ Configurations getMultiplicity(const Configurations& sol, const Configuration& u
       while (true)
       {
         tmp += 2 * M_PI;
-        if (tmp > ub(idx))
+        if (in_range(tmp, jb.at(idx).second))
+        {
+          multiturn_ax.at(idx).push_back(tmp);
+        }
+        else if(tmp> jb.at(idx).second.ub())
+        {
           break;
-        multiturn_ax.at(idx).push_back(tmp);
+        }
       }
       tmp = q(idx);
       while (true)
       {
         tmp -= 2 * M_PI;
-        if (tmp < lb(idx))
+        if (in_range(tmp, jb.at(idx).second))
+        {
+          multiturn_ax.at(idx).push_back(tmp);
+        }
+        else if(tmp <jb.at(idx).second.lb())
+        {
           break;
-        multiturn_ax.at(idx).push_back(tmp);
+        }
       }
     }
 
     if (!isPresent(q, multiturn))
+    {
       multiturn.push_back(q);
+    }
 
-    for (unsigned int idx = 0; idx < ub.size(); idx++)
+    for (unsigned int idx = 0; idx < jb.size(); idx++)
     {
       size_t size_multiturn = multiturn.size();
       for (size_t is = 1; is < multiturn_ax.at(idx).size(); is++)
@@ -208,31 +291,23 @@ Configurations getMultiplicity(const Configurations& sol, const Configuration& u
           Eigen::VectorXd new_q = multiturn.at(im);
           new_q(idx) = multiturn_ax.at(idx).at(is);
           if (!isPresent(new_q, multiturn))
+          {
             multiturn.push_back(new_q);
+          }
         }
       }
     }
 
     for (const Eigen::VectorXd& q2 : multiturn)
+    {
       if (!isPresent(q2, multiturn_global))
+      {
         multiturn_global.push_back(q2);
+      }
+    }
   }
 
   return multiturn_global;
 }
-
-std::vector<int> outOfBound(const Configuration& c, const Configuration& ub, const Configuration& lb)
-{
-  std::vector<int> out_of_bound;
-  for (int iax = 0; iax < lb.rows(); iax++)
-  {
-    if ((c(iax) < lb(iax)) || (c(iax) > ub(iax)) || (std::isnan(c(iax))))
-    {
-      out_of_bound.push_back(iax);
-    }
-  }
-  return out_of_bound;
-}
-
 
 }

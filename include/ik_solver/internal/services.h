@@ -82,22 +82,22 @@ inline const int& get_max_stall_iterations(const IkArgs& args)
   #define _MAX_NUM_PARALLEL_IK_SOLVER 10
 #endif
 
-constexpr static const size_t MAX_NUM_PARALLEL_IK_SOLVER = _MAX_NUM_PARALLEL_IK_SOLVER;
+constexpr static const size_t MAX_NUM_PARALLEL_IK_SOLVER = 2; //_MAX_NUM_PARALLEL_IK_SOLVER;
 
 using IkSolversPool = std::array<boost::shared_ptr<ik_solver::IkSolver>, ik_solver::MAX_NUM_PARALLEL_IK_SOLVER>;
 
 class IkServices
 {
 private:
-  ros::NodeHandle nh_;
-  ros::ServiceServer ik_server_;
-  ros::ServiceServer ik_server_array_;
-  ros::ServiceServer fk_server_;
-  ros::ServiceServer fk_server_array_;
-  ros::ServiceServer bound_server_array_;
-  ros::ServiceServer reconfigure_;
+  ros::NodeHandle     nh_;
+  ros::ServiceServer  ik_server_;
+  ros::ServiceServer  ik_server_array_;
+  ros::ServiceServer  fk_server_;
+  ros::ServiceServer  fk_server_array_;
+  ros::ServiceServer  bound_server_array_;
+  ros::ServiceServer  reconfigure_;
 
-  const IkSolver& config() const;
+  const IkSolver& data() const;
 
   IkSolversPool& ik_solvers_;
   

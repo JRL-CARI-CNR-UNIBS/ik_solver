@@ -38,8 +38,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace ik_solver
 {
+
+
 using Configuration = Eigen::VectorXd;
 using Configurations = std::vector<Configuration>;
+
 struct Solutions : std::tuple<ik_solver::Configurations, std::vector<double>, std::vector<double>, std::string>
 {
   const ik_solver::Configurations& configurations() const {return std::get<0>(*this);}
@@ -55,8 +58,72 @@ struct Solutions : std::tuple<ik_solver::Configurations, std::vector<double>, st
   std::string& message() { return std::get<3>(*this); }
 
   void clear() { configurations().clear(); translation_residuals().clear(); rotation_residuals().clear(); message().clear();}
-
 };
+
+
+struct Range : std::pair<double,double>
+{
+  const double& min() const { return std::get<0>(*this); }
+  double& min() { return std::get<0>(*this); }
+
+  const double& max() const { return std::get<1>(*this); }
+  double& max() { return std::get<1>(*this); }
+};
+
+
+struct JointBoundaries : std::vector<Range>
+{
+  double lb() const
+  { 
+    auto it = std::max_element(this->begin(), this->end(), [](const Range & lhs, const Range & rhs) {return lhs.min() < rhs.min();});
+    return it == this->end() ? std::nan("1") : it->min();
+  }
+  double ub() const 
+  { 
+    auto it = std::min_element(this->begin(), this->end(), [](const Range  & lhs, const Range  & rhs) {return lhs.max() < rhs.max();});
+    return it == this->end() ? std::nan("1") : it->max();
+  }
+};
+
+struct NamedJointBoundaries : std::pair<std::string, JointBoundaries>
+{
+  const std::string& jname() const { return this->first; }
+  std::string& jname() { return this->first; }
+
+  const JointBoundaries& jb() const { return this->second; }
+  JointBoundaries& jb() { return this->second; }
+};
+
+
+struct JointsBoundaries : std::vector< NamedJointBoundaries >
+{
+  Eigen::VectorXd lb() const
+  {
+    Eigen::VectorXd _lb(this->size());
+    for(size_t i=0; i<this->size();i++)
+    {
+      _lb(i)= this->at(i).second.lb();
+    }
+    return _lb;
+  }
+  Eigen::VectorXd ub() const
+  {
+    Eigen::VectorXd _ub(this->size());
+    for(size_t i=0; i<this->size();i++)
+    {
+      _ub(i)= this->at(i).second.ub();
+    }
+    return _ub;
+  }
+};
+
+std::ostream& operator<<(std::ostream& stream, const Range& r);
+
+std::ostream& operator<<(std::ostream& stream, const JointBoundaries& rr);
+
+std::ostream& operator<<(std::ostream& stream, const NamedJointBoundaries& rr);
+
+std::ostream& operator<<(std::ostream& stream, const JointsBoundaries& rr);
 
 ik_solver_msgs::Configuration& cast(ik_solver_msgs::Configuration& lhs, const ik_solver::Configuration& rhs);
 
