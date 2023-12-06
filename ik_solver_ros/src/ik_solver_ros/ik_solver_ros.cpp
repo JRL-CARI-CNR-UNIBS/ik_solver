@@ -27,31 +27,31 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <algorithm>
-#include <cinttypes>
 #include <cstdio>
 #include <exception>
 #include <future>
 #include <iostream>
 #include <iterator>
-#include <optional>
-#include <Eigen/Geometry>
 #include <thread>
 #include <vector>
-#include "Eigen/src/Geometry/Transform.h"
-#include "ik_solver/internal/SafeQueue.h"
-#include "ik_solver_msgs/Configuration.h"
-#include "ik_solver_msgs/JointRange.h"
+
+#include <Eigen/Geometry>
+
+#include <ik_solver_msgs/Configuration.h>
+#include <ik_solver_msgs/JointRange.h>
 #include <geometry_msgs/Pose.h>
 
 #include <tf_conversions/tf_eigen.h>
 #include <eigen_conversions/eigen_msg.h>
 
-#include <ik_solver/ik_solver_base_class.h>
-#include <ik_solver/internal/types.h>
-#include <ik_solver/internal/utils.h>
-#include <ik_solver/internal/services.h>
+#include <ik_solver_core/ik_solver_base_class.h>
+#include <ik_solver_core/types.h>
+#include <ik_solver_core/utils.h>
 
-#include <ik_solver/internal/SafeQueue.h>
+#include <ik_solver_ros/utils.h>
+#include <ik_solver_ros/conversions.h>
+#include <ik_solver_ros/SafeQueue.h>
+#include <ik_solver_ros/ik_solver_ros.h>
 
 namespace ik_solver
 {
@@ -592,12 +592,219 @@ bool IkServices::getBounds(ik_solver_msgs::GetBound::Request& req, ik_solver_msg
  */
 bool IkServices::reconfigure(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res)
 {
-  for (std::size_t i = 0; i < ik_solver::MAX_NUM_PARALLEL_IK_SOLVER; i++)
-  {
-    if (!ik_solvers_.at(i)->config(nh_))
+  std::string what;
+  IkSolverOptionsPtr opts;
+  if(ik_solvers_.configurator_->get_configuration(opts,nh_,"",what))
+  {  
+    for (std::size_t i = 0; i < ik_solver::MAX_NUM_PARALLEL_IK_SOLVER; i++)
     {
-      ROS_ERROR("Unable to re-configure %s", nh_.getNamespace().c_str());
-      return 0;
+
+      if (!ik_solvers_.at(i)->config(opts, what))
+      {
+        res.message = "Unable to re-configure "+nh_.getNamespace()+". What: " + what;
+        res.success = false;
+      }
+    }
+  }
+  else
+  {
+    res.message = "Error in reconfiguring the ikSolver. What: " + what;
+    res.success = false;
+  }
+  return true;
+}
+
+
+bool IkSolverConfigurator::get_configuration(IkSolverOptionsPtr opts, const ros::NodeHandle& nh, const std::string& params_ns, std::string& what)
+{
+  auto _params_ns = ik_solver::resolve_ns(nh, params_ns);
+  auto _robot_nh = nh;
+
+  std::map<std::string, std::string*> sparams{
+    { _params_ns + "base_frame", &opts->base_frame_ },
+    { _params_ns + "flange_frame", &opts->flange_frame_ },
+    { _params_ns + "tool_frame", &opts->tool_frame_ },
+  };
+
+  if (!get_and_return(sparams,what))
+  {
+    return false;
+  }
+
+  std::map<std::string, std::pair<int*, int>> iparams{
+    { _params_ns + "desired_solutions", { &opts->desired_solutions_, opts->desired_solutions_ } },
+    { _params_ns + "min_stall_iterations", { &opts->min_stall_iter_, opts->min_stall_iter_ } },
+    { _params_ns + "max_stall_iterations", { &opts->max_stall_iter_, opts->max_stall_iter_ } },
+    { _params_ns + "parallel_ik_mode", { &opts->parallelize_, ik_solver_msgs::GetIkArray::Request::PARALLELIZE_DISABLE } },
+  };
+
+  if (!get_and_default(iparams,what))
+  {
+    return false;
+  }
+
+  if (!getTF(opts->flange_frame_, opts->tool_frame_, opts->T_tool_flange_))
+  {
+    what = _params_ns + ": no TF from flange and tool";
+    return false;
+  }
+
+  urdf::Model model;
+
+  model.initParam("robot_description");
+
+  auto pn = _params_ns + "joint_names";
+  if (!ros::param::get(pn, opts->joint_names_))
+  {
+    what = pn + " is not specified";
+    return false;
+  }
+
+  opts->jb_.resize(opts->joint_names_.size());
+  std::vector<bool> revolute(opts->joint_names_.size());
+  std::map<std::string, urdf::JointSharedPtr> joint_models = model.joints_;
+  for (size_t iax = 0; iax < opts->joint_names_.size(); iax++)
+  {
+    if (joint_models.count(opts->joint_names_.at(iax)) == 0)
+    {
+      what = _params_ns +": "+opts->joint_names_.at(iax)+" is not a valid joint name";
+      return false;
+    }
+    const urdf::JointSharedPtr& jmodel = joint_models.at(opts->joint_names_.at(iax));
+    ik_solver::Range urdf_range;
+    urdf_range.min() = jmodel->limits->lower;
+    urdf_range.max() = jmodel->limits->upper;
+    opts->jb_.at(iax).first = opts->joint_names_.at(iax);
+    opts->jb_.at(iax).second.push_back(urdf_range);
+
+    revolute.at(iax) = jmodel->type == jmodel->REVOLUTE;
+
+    if(ros::param::has(_params_ns + "limits/" + opts->joint_names_.at(iax)))
+    {
+      XmlRpc::XmlRpcValue list_of_limits;
+      if(!ros::param::get(_params_ns + "limits/" + opts->joint_names_.at(iax), list_of_limits))
+      {
+        what = "Wierd the param "+_params_ns + "limits/" + opts->joint_names_.at(iax)+" exists but is invalid";
+        return false;
+      }
+
+      auto to_str = [](const XmlRpc::XmlRpcValue& p)-> std::string
+      {
+        std::ostream stream(nullptr); // useless ostream (badbit set)
+        std::stringbuf str;
+        stream.rdbuf(&str); // uses str
+        p.write(stream);
+        return str.str();
+      };
+
+      auto to_double = [&to_str](const XmlRpc::XmlRpcValue& p, double& val, std::string& what) -> bool
+      {
+        if(p.getType()==XmlRpc::XmlRpcValue::TypeDouble)
+        {
+          val = double(p);
+        }
+        else if(p.getType()==XmlRpc::XmlRpcValue::TypeInt)
+        {
+          val = double(int(p));
+        }
+        else
+        {
+          what = "The value is neither a double nor an int: " + to_str(p);
+          return false;
+        }
+        return true;
+      };
+
+      auto get_range = [&to_double, &to_str] (const XmlRpc::XmlRpcValue& p, const ik_solver::Range& urdf_range, ik_solver::Range& range, std::string& what) -> bool
+      {
+        size_t ll = __LINE__;
+        try
+        {
+          ll = __LINE__;
+          if(!p.hasMember("upper") && !p.hasMember("lower"))
+          {
+            std::ostream stream(nullptr); // useless ostream (badbit set)
+            std::stringbuf str;
+            stream.rdbuf(&str); // uses str
+            p.write(stream);
+            what = "The entry is ill-formed, there is neither 'upper' nor lower' key (Value: '" + str.str() + "')";
+            return false;
+          }
+          ll = __LINE__;
+          
+          if(p.hasMember("lower"))
+          {
+            ll = __LINE__;
+            if(!to_double(p["lower"], range.min(), what))
+            {
+              return false;
+            }
+          }
+          else
+          {
+            ll = __LINE__;
+            range.min() = urdf_range.min();
+          }
+          if(p.hasMember("upper"))
+          {
+            ll = __LINE__;
+            if(!to_double(p["upper"], range.max(), what))
+            {
+              return false;
+            }
+          }
+          else
+          {
+            ll = __LINE__;
+            range.max() = urdf_range.max();
+          }
+
+          if (range.min() > range.max())
+          {
+            ll = __LINE__;
+            what = "The entry is ill-formed, the 'upper' value is less than the 'lower' value";
+            return false;
+          }
+        }
+        catch(std::exception& e)
+        {
+          what = ("Last Line executed: " + std::to_string(ll) + ": ") + e.what();
+          return false;
+        }
+
+        return true;
+      };
+
+      std::string what;
+      if(list_of_limits.getType() == XmlRpc::XmlRpcValue::TypeStruct)
+      {
+        Range r;
+        if(!get_range(list_of_limits, urdf_range, r,what))
+        {
+          ROS_ERROR("%s", what.c_str());
+          return false;
+        }
+        opts->jb_.at(iax).first = opts->joint_names_.at(iax);
+        opts->jb_.at(iax).second.push_back(r);
+      }
+      else if(list_of_limits.getType() == XmlRpc::XmlRpcValue::TypeArray)
+      {
+        for(auto it = list_of_limits.begin(); it != list_of_limits.end(); ++it)
+        {
+          Range r;
+          if(!get_range(it->second, urdf_range, r,what))
+          {
+            ROS_ERROR("%s", what.c_str());
+            return false;
+          }
+          opts->jb_.at(iax).first = opts->joint_names_.at(iax);
+          opts->jb_.at(iax).second.push_back(r);
+        }
+      }
+      else
+      {
+        assert(0);
+      }
     }
   }
   return true;

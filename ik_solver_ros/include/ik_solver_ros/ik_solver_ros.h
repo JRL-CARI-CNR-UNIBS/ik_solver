@@ -29,15 +29,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef IK_SOLVER__INTERNAL__SERVICES_H
 #define IK_SOLVER__INTERNAL__SERVICES_H
 
+#include <boost/smart_ptr/shared_ptr.hpp>
 #include <memory>
 #include <vector>
 #include <array>
 #include <Eigen/Geometry>
 #include "ros/node_handle.h"
-#include "std_srvs/TriggerRequest.h"
 #include <ros/ros.h>
 
-#include <ik_solver/internal/wsq.h>
 #include <std_srvs/Trigger.h>
 #include <ik_solver_msgs/GetIk.h>
 #include <ik_solver_msgs/GetFk.h>
@@ -45,7 +44,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ik_solver_msgs/GetFkArray.h>
 #include <ik_solver_msgs/GetBound.h>
 
-#include <ik_solver/ik_solver_base_class.h>
+#include <ik_solver_core/ik_solver_base_class.h>
 
 namespace ik_solver
 {
@@ -82,9 +81,25 @@ inline const int& get_max_stall_iterations(const IkArgs& args)
   #define _MAX_NUM_PARALLEL_IK_SOLVER 10
 #endif
 
-constexpr static const size_t MAX_NUM_PARALLEL_IK_SOLVER = 2; //_MAX_NUM_PARALLEL_IK_SOLVER;
+constexpr static const size_t MAX_NUM_PARALLEL_IK_SOLVER = _MAX_NUM_PARALLEL_IK_SOLVER;
 
-using IkSolversPool = std::array<boost::shared_ptr<ik_solver::IkSolver>, ik_solver::MAX_NUM_PARALLEL_IK_SOLVER>;
+struct IkSolverConfigurator 
+{
+  IkSolverConfigurator() = default;
+  ~IkSolverConfigurator() = default;
+
+  IkSolverConfigurator(const IkSolverConfigurator& ) = delete;
+  IkSolverConfigurator(IkSolverConfigurator&& ) = delete;
+  IkSolverConfigurator& operator=(const IkSolverConfigurator& rhs ) = delete;
+
+  virtual bool get_configuration(IkSolverOptionsPtr opts, const ros::NodeHandle& nh, const std::string& params_ns, std::string& what);
+
+};
+
+struct IkSolversPool : std::array<boost::shared_ptr<IkSolver>, ik_solver::MAX_NUM_PARALLEL_IK_SOLVER>
+{
+  boost::shared_ptr<IkSolverConfigurator> configurator_;
+};
 
 class IkServices
 {
@@ -138,6 +153,8 @@ public:
 
   bool reconfigure(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res);
 };
+
+
 
 }  // namespace ik_solver
 #endif  // IK_SOLVER__INTERNAL__SERVICES_H

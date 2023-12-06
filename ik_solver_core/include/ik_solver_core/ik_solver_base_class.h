@@ -26,72 +26,91 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef IK_SOLVER__IKSOLVER_BASE_CLASS_H
-#define IK_SOLVER__IKSOLVER_BASE_CLASS_H
+#ifndef IK_SOLVER__IK_SOLVER_CORE__IKSOLVER_BASE_CLASS_H
+#define IK_SOLVER__IK_SOLVER_CORE__IKSOLVER_BASE_CLASS_H
 
-#include <algorithm>
-#include <boost/smart_ptr/shared_ptr.hpp>
-#include <cstddef>
-#include <memory>
 #include <string>
+#include <vector>
+#include <memory>
 
-#include <ros/ros.h>
-#include <tf/transform_listener.h>
-#include <Eigen/Geometry>
-#include <Eigen/Core>
-#include <cmath>
-#include "Eigen/src/Core/Matrix.h"
+#include <eigen3/Eigen/Geometry>
+#include <eigen3/Eigen/Core>
 
 #include <urdf/model.h>
 
-#include <ik_solver/internal/types.h>
+#include <ik_solver_core/types.h>
 
 namespace ik_solver
 {
+struct IkSolverOptions
+{
+  virtual ~IkSolverOptions() = default;
+  using Ptr = std::shared_ptr<IkSolverOptions>;
+  using ConstPtr = std::shared_ptr<const IkSolverOptions>;
 
+  std::string robot_description_xmlstring_;
+  
+  std::string base_frame_;
+  std::string flange_frame_;
+  std::string tool_frame_;
 
+  int desired_solutions_;
+  int min_stall_iter_;
+  int max_stall_iter_;
+  int parallelize_;
+
+  std::vector<std::string> joint_names_; // All joint names, considering also the attached robot if present
+  JointsBoundaries jb_;
+  Eigen::Affine3d T_tool_flange_;
+
+  std::shared_ptr<IkSolverOptions> base_robot_options_;
+  std::shared_ptr<IkSolverOptions> attached_robot_options_;
+};
+
+using IkSolverOptionsPtr = IkSolverOptions::Ptr;
+using IkSolverOptionsConstPtr = IkSolverOptions::ConstPtr;
+
+/**
+ * @brief
+ *
+ */
 class IkSolver
 {
 public:
-
   IkSolver() = default;
   IkSolver(const IkSolver&) = delete;
   IkSolver(const IkSolver&&) = delete;
   IkSolver(IkSolver&&) = delete;
   virtual ~IkSolver() = default;
 
-  virtual bool config(const ros::NodeHandle& nh, const std::string& param_ns = "");
-  
+  virtual bool config(IkSolverOptionsConstPtr nh, std::string& what);
+
   // FK flange to base
-  virtual Solutions getIk(const Eigen::Affine3d& T_base_flange, const Configurations& seeds, const int& desired_solutions = -1, const int& min_stall_iterations = -1, const int& max_stall_iterations = -1) = 0;
+  virtual Solutions getIk(const Eigen::Affine3d& T_base_flange, const Configurations& seeds,
+                          const int& desired_solutions = -1, const int& min_stall_iterations = -1,
+                          const int& max_stall_iterations = -1) = 0;
 
   // FK base to flange
-  virtual Eigen::Affine3d getFK(const Configuration& s) = 0;
+  virtual Eigen::Affine3d getFK(const Configuration& s);
 
-  const std::vector<std::string>& joint_names() const { return joint_names_; }
-  const std::string& base_frame() const { return base_frame_; }
-  const std::string& flange_frame() const { return flange_frame_; }
-  const std::string& tool_frame() const { return tool_frame_; }
-  const Eigen::Affine3d& transform_from_flange_to_tool() const { return T_tool_flange_; }
-  Eigen::Affine3d transform_from_tool_to_flange() const { return T_tool_flange_.inverse(); }
-
-  
-  const JointsBoundaries& jb() const { return jb_; }
-  const std::vector<bool>& revolute() const { return revolute_;}
-
-  const int& min_stall_iterations() const { return min_stall_iter_; }
-  const int& max_stall_iterations() const { return max_stall_iter_; }
-  const int& desired_solutions() const { return desired_solutions_; }
-  const int& parallelize() const { return parallelize_; }
-
-  const std::string param_namespace() const {return params_ns_;}
+  const std::vector<std::string>& joint_names() const;
+  const std::string& base_frame() const;
+  const std::string& flange_frame() const;
+  const std::string& tool_frame() const;
+  const Eigen::Affine3d& transform_from_flange_to_tool() const;
+  Eigen::Affine3d transform_from_tool_to_flange() const;
+  const JointsBoundaries& jb() const;
+  const std::vector<bool>& revolute() const;
+  const int& min_stall_iterations() const;
+  const int& max_stall_iterations() const;
+  const int& desired_solutions() const;
+  const int& parallelize() const;
+  const std::string param_namespace() const;
 
 protected:
   std::string params_ns_;
-  ros::NodeHandle robot_nh_;
-  
+
   Eigen::Affine3d T_tool_flange_;
-  tf::TransformListener listener_;
   std::string base_frame_;
   std::string flange_frame_;
   std::string tool_frame_;
@@ -105,16 +124,8 @@ protected:
   int desired_solutions_ = 8;
   int parallelize_ = 0;
   int exploit_solutions_as_seed_ = 0;
-  
-  urdf::Model model_;
-
-  bool getFlangeTool();
-
 };
-
 
 }  //  namespace ik_solver
 
-#include <ik_solver/internal/ik_solver_base_class_impl.h>
-
-#endif  // IK_SOLVER__IKSOLVER_BASE_CLASS_H
+#endif  // IK_SOLVER__IK_SOLVER_CORE__IKSOLVER_BASE_CLASS_H

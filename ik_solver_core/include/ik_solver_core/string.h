@@ -26,46 +26,29 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <array>
+#ifndef IK_SOLVER__INTERNAL__STRING_H
+#define IK_SOLVER__INTERNAL__STRING_H
+
+#include <Eigen/Geometry>
+#include <geometry_msgs/Pose.h>
 #include <string>
-#include <ros/ros.h>
-#include <pluginlib/class_loader.h>
-#include <ik_solver/ik_solver_base_class.h>
+#include <ik_solver_core/types.h>
 
-#include <ik_solver/internal/services.h>
-
-int main(int argc, char **argv)
+namespace std
 {
-  ros::init(argc, argv, "node");
-  ros::NodeHandle nh("~");
-  pluginlib::ClassLoader<ik_solver::IkSolver> ik_loader("ik_solver", "ik_solver::IkSolver");
+std::string to_string(const std::string& s);
+std::string to_string(const Eigen::Affine3d& mat);
+std::string to_string(const geometry_msgs::Pose& mat);
+std::string to_string(const ik_solver::Configuration& mat);
+std::string to_string(const ik_solver::Configurations& seeds);
 
-  std::string plugin_name;
-  if (!nh.getParam("type",plugin_name))
-  {
-    ROS_ERROR("%s/type is not defined",nh.getNamespace().c_str());
-    return -1;
-  }
+std::string ltrim(const std::string& s, const std::string& what = " \n\r\t\f\v");
+std::string rtrim(const std::string& s, const std::string& what = " \n\r\t\f\v");
+std::string trim(const std::string& s, const std::string& what = " \n\r\t\f\v");
 
-  ik_solver::IkSolversPool  ik_solvers;
-  ROS_DEBUG("Creating %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
-  for(std::size_t i=0;i<ik_solver::MAX_NUM_PARALLEL_IK_SOLVER;i++ )
-  {
-    ik_solvers.at(i) = ik_loader.createInstance(plugin_name);
-    ROS_DEBUG("Configuring %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
-    if (!ik_solvers.at(i)->config(nh))
-    {
-      ROS_ERROR("unable to configure %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
-      return 0;
-    }
-  }
-  ROS_DEBUG("%s (type %s) is ready to compute IK",nh.getNamespace().c_str(),plugin_name.c_str());
-  // ==============================================
 
-  ik_solver::IkServices services(nh, ik_solvers);
+}  // namespace std
 
-  // ==============================================
 
-  ros::spin();
-  return 0;
-}
+
+#endif

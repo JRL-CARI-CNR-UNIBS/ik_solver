@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>ik_solver_core</name>
+  <version>0.1.0</version>
+  <description>The ik_solver_core package</description>
+
+  <maintainer email="nicola.pedrocchi@cnr.it">Nicola Pedrocchi</maintainer>
+  <license>BSD-3</license>
+  <author email="nicola.pedrocchi@cnr.it">Nicola pedrocchi</author>
+
+  <buildtool_depend condition="$ROS_VERSION == 1">catkin</buildtool_depend>
+  <!-- TODO <buildtool_depend condition="$ROS_VERSION == 2">cmake</buildtool_depend> -->
+
+  <build_depend>eigen</build_depend>
+  <build_depend>urdf</build_depend>
+  <build_export_depend>eigen</build_export_depend>
+  <build_export_depend>urdf</build_export_depend>
+
+  <export>
+    <build_type condition="$ROS_VERSION == 1">catkin</build_type>
+    <!-- TODO <build_type condition="$ROS_VERSION == 2">cmake</build_type> -->
+  </export>
+
+</package>
