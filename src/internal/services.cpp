@@ -110,7 +110,10 @@ bool IkServices::computeIK(ik_solver_msgs::GetIk::Request& req, ik_solver_msgs::
   Eigen::Affine3d T_b_r;
   if (!getTF(config().base_frame(), req.target.pose.header.frame_id, T_b_r))
   {
-    return false;
+    res.success = false;
+    res.message = "Failed in getting the TF from '"+config().base_frame()+"' to '"+req.target.pose.header.frame_id+"'";
+    printf(  "Error: %s", res.message.c_str());
+    return true;
   }
   Eigen::Affine3d T_r_t;
   tf::poseMsgToEigen(req.target.pose.pose, T_r_t);
@@ -134,8 +137,9 @@ bool IkServices::computeIK(ik_solver_msgs::GetIk::Request& req, ik_solver_msgs::
   fflush(stdout);
   
   res.solution = ik_solver::cast(solutions);
-
   res.joint_names = config().joint_names();
+  res.success = true;
+  res.message = "OK";
   return true;
 }
 
