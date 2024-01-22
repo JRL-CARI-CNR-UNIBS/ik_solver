@@ -59,4 +59,4 @@ if __name__ == "__main__":
                 idx=0
 
     except rospy.ServiceException as e:
-        print("Service call failed: %s"%e)
+        print("[GET TF IK] Service call failed: %s"%e)
