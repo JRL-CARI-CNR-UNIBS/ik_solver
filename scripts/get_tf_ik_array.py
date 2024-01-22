@@ -76,4 +76,4 @@ if __name__ == "__main__":
                         exit()
 
     except rospy.ServiceException as e:
-        print("Service call failed: %s"%e)
+        print("[get TF IK ARRAY] Service call failed: %s"%e)
