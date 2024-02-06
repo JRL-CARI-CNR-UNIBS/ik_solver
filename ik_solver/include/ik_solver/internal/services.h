@@ -45,7 +45,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ik_solver_msgs/GetFkArray.h>
 #include <ik_solver_msgs/GetBound.h>
 
-#include <ik_solver/ik_solver_base_class.h>
+#include <ik_solver_core/ik_solver_base_class.h>
 
 namespace ik_solver
 {

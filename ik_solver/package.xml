@@ -28,6 +28,8 @@
   <exec_depend>roscpp</exec_depend>
   <exec_depend>tf_conversions</exec_depend>
   <exec_depend>urdf</exec_depend>
+
+  <depend>ik_solver_core</depend>
   
   <export>
   </export>

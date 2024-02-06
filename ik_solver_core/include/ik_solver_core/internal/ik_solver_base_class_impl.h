@@ -53,9 +53,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <geometry_msgs/Pose.h>
 #include <ik_solver_msgs/GetIkArray.h>
 #include <ik_solver_msgs/GetBound.h>
-#include <ik_solver/internal/utils.h>
 
-#include <ik_solver/ik_solver_base_class.h>
+#include <ik_solver_core/ik_solver_base_class.h>
 
 
 using namespace std::chrono_literals;
@@ -63,10 +62,12 @@ using namespace std::chrono_literals;
 namespace ik_solver
 {
 
-inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& params_ns)
+inline bool IkSolver::config(const std::string& params_ns)
 {
-  params_ns_ = ik_solver::resolve_ns(nh, params_ns);
-  robot_nh_ = nh;
+  logger_ = std::make_unique<cnr_logger::TraceLogger>();
+  std::string param_what;
+
+  params_ns_ = ik_solver::resolve_ns(params_ns);
 
   std::map<std::string, std::string*> sparams{
     { params_ns_ + "base_frame", &base_frame_ },
@@ -93,16 +94,16 @@ inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& param
 
   if (!getFlangeTool())
   {
-    ROS_ERROR("%s: no TF from flange and tool", params_ns_.c_str());
+    CNR_ERROR(*logger_,"%s: no TF from flange and tool", params_ns_.c_str());
     return false;
   }
 
   model_.initParam("robot_description");
 
   auto pn = params_ns_ + "joint_names";
-  if (!ros::param::get(pn, joint_names_))
+  if (!cnr::param::get(pn, joint_names_, param_what))
   {
-    ROS_ERROR("[IkSolver::config] %s is not specified", pn.c_str());
+    CNR_ERROR(*logger_,"[IkSolver::config] %s is not specified", pn.c_str());
     return false;
   }
 
@@ -114,7 +115,7 @@ inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& param
   {
     if (joint_models.count(joint_names_.at(iax)) == 0)
     {
-      ROS_ERROR("%s: %s is not a valid joint name", params_ns_.c_str(), joint_names_.at(iax).c_str());
+      CNR_ERROR(*logger_,"%s: %s is not a valid joint name", params_ns_.c_str(), joint_names_.at(iax).c_str());
       return false;
     }
     const urdf::JointSharedPtr& jmodel = joint_models.at(joint_names_.at(iax));
@@ -124,17 +125,17 @@ inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& param
     revolute_.at(iax) = jmodel->type == jmodel->REVOLUTE;
 
     double value;
-    if (ros::param::get(params_ns_ + "limits/" + joint_names_.at(iax) + "/upper", value))
+    if (cnr::param::get(params_ns_ + "limits/" + joint_names_.at(iax) + "/upper", value, param_what))
     {
       ub_(iax) = std::min(ub_(iax), value);
     }
-    if (ros::param::get(params_ns_ + "limits/" + joint_names_.at(iax) + "/lower", value))
+    if (cnr::param::get(params_ns_ + "limits/" + joint_names_.at(iax) + "/lower", value, param_what))
     {
       lb_(iax) = std::max(lb_(iax), value);
     }
     if (lb_(iax) > ub_(iax))
     {
-      ROS_ERROR("%s: %s has wrong limits: lower=%f, upper=%f", params_ns_.c_str(), joint_names_.at(iax).c_str(),
+      CNR_ERROR(*logger_,"%s: %s has wrong limits: lower=%f, upper=%f", params_ns_.c_str(), joint_names_.at(iax).c_str(),
                 lb_(iax), ub_(iax));
       return false;
     }

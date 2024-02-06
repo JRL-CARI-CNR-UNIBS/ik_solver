@@ -26,8 +26,8 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef IK_SOLVER__INTERNAL__UITLS_H
-#define IK_SOLVER__INTERNAL__UITLS_H
+#ifndef IK_SOLVER_CORE__INTERNAL__UITLS_H
+#define IK_SOLVER_CORE__INTERNAL__UITLS_H
 
 #include <numeric>
 #include <string>
@@ -35,12 +35,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream>
 #include <regex>
 #include <Eigen/Geometry>
-#include <ros/param.h>
+// #include <ros/param.h>
+#include <cnr_param/cnr_param.h>
+#include <cstdio>
 
 #include <geometry_msgs/Pose.h>
-#include <ik_solver_msgs/Configuration.h>
-#include <ik_solver_msgs/IkSolution.h>
-#include <ik_solver/internal/types.h>
+// #include <ik_solver_msgs/Configuration.h>
+// #include <ik_solver_msgs/IkSolution.h>
+#include <ik_solver_core/internal/types.h>
 
 namespace std
 {
@@ -145,12 +147,13 @@ inline bool check_and_set_duplicate_params(const std::string& nh_ns, const std::
                                            const std::string& param_name, const T& nh_val)
 {
   std::string pn = robot_ns + param_name;
+  std::string param_what;
   T val;
-  if (ros::param::get(pn, val))
+  if (cnr::param::get(pn, val, param_what))
   {
     if (!is_the_same(val, nh_val))
     {
-      ROS_ERROR(
+      printf("[ERROR]:"
           "%s has been found both in the Composed Robot namespace (%s) "
           "and in the Mounted Robot namespace (%s) but they are "
           "different (%s and %s). Put it only in the Composed Robot "
@@ -161,7 +164,7 @@ inline bool check_and_set_duplicate_params(const std::string& nh_ns, const std::
   }
   else
   {
-    ros::param::set(pn, nh_val);
+    cnr::param::set(pn, nh_val, param_what);
   }
   return true;
 }
@@ -170,20 +173,21 @@ inline bool check_and_set_duplicate_params(const std::string& nh_ns, const std::
 template <typename T>
 inline bool check_and_get(std::map<std::string, std::tuple<T*, bool, T>>& params)
 {
+  std::string param_what;
   for (auto& param : params)
   {
     T val = std::get<1>(param.second) ? std::get<2>(param.second) : T();
-    if (!ros::param::get(param.first, val))
+    if (!cnr::param::get(param.first, val, param_what))
     {
       if (!std::get<1>(param.second))
       {
-        ROS_ERROR("[Check and Get] %s is not specified! Abort.", param.first.c_str());
+        printf("[ERROR]: [Check and Get] %s is not specified! Abort.", param.first.c_str());
         return false;
       }
       else
       {
         val = std::get<2>(param.second);
-        ROS_DEBUG("%s is not specified. Default value %s", param.first.c_str(), std::to_string(val).c_str());
+        printf("[DEBUG]: %s is not specified. Default value %s", param.first.c_str(), std::to_string(val).c_str());
       }
     }
     *std::get<0>(param.second) = val;
@@ -217,7 +221,7 @@ inline bool get_and_default(std::map<std::string, std::pair<T*, T>>& params)
 
 bool isPresent(const Configuration& q, const Configurations& qq, double tolerance = 1e-4);
 
-std::string resolve_ns(const ros::NodeHandle& nh, const std::string& params_ns);
+std::string resolve_ns(const std::string& params_ns);
 
 
 
@@ -235,7 +239,7 @@ inline bool is_nan(const Eigen::MatrixBase<Derived>& x)
 
 bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab);
 
-Configurations getSeeds(const std::vector<std::string>& joint_names, const std::vector<std::string>& seed_names, const std::vector<ik_solver_msgs::Configuration>& seeds);
+// Configurations getSeeds(const std::vector<std::string>& joint_names, const std::vector<std::string>& seed_names, const std::vector<ik_solver_msgs::Configuration>& seeds);
 
 Configurations getMultiplicity(const Configurations& sol, const Configuration& ub, const Configuration& lb, const std::vector<bool>& revolute);
 
@@ -323,4 +327,4 @@ inline bool is_the_same(const std::vector<std::string>& lhs, const std::vector<s
 
 }
 
-#endif  // IK_SOLVER__INTERNAL__UITLS_H
+#endif  // IK_SOLVER_CORE__INTERNAL__UITLS_H
