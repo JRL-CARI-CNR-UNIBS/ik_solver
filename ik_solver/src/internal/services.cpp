@@ -45,7 +45,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <tf_conversions/tf_eigen.h>
 #include <eigen_conversions/eigen_msg.h>
 
-#include <ik_solver/ik_solver_base_class.h>
+// #include <ik_solver_core/ik_solver_base_class.h>
 #include <ik_solver/internal/types.h>
 #include <ik_solver/internal/utils.h>
 #include <ik_solver/internal/services.h>
@@ -588,7 +588,8 @@ bool IkServices::reconfigure(std_srvs::Trigger::Request& req, std_srvs::Trigger:
 {
   for (std::size_t i = 0; i < ik_solver::MAX_NUM_PARALLEL_IK_SOLVER; i++)
   {
-    if (!ik_solvers_.at(i)->config(nh_))
+    // if (!ik_solvers_.at(i)->config(nh_))
+    if (!ik_solvers_.at(i)->config())
     {
       ROS_ERROR("Unable to re-configure %s", nh_.getNamespace().c_str());
       return 0;

@@ -30,7 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string>
 #include <ros/ros.h>
 #include <pluginlib/class_loader.h>
-#include <ik_solver/ik_solver_base_class.h>
+#include <ik_solver_core/ik_solver_base_class.h>
 
 #include <ik_solver/internal/services.h>
 
@@ -53,7 +53,7 @@ int main(int argc, char **argv)
   {
     ik_solvers.at(i) = ik_loader.createInstance(plugin_name);
     ROS_DEBUG("Configuring %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
-    if (!ik_solvers.at(i)->config(nh))
+    if (!ik_solvers.at(i)->config())
     {
       ROS_ERROR("unable to configure %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
       return 0;
