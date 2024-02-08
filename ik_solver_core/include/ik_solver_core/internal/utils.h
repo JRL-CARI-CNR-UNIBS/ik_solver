@@ -157,7 +157,7 @@ inline bool check_and_set_duplicate_params(const std::string& nh_ns, const std::
           "%s has been found both in the Composed Robot namespace (%s) "
           "and in the Mounted Robot namespace (%s) but they are "
           "different (%s and %s). Put it only in the Composed Robot "
-          "namespace, or alternatuively be sure they are the same!",
+          "namespace, or alternatuively be sure they are the same!\n",
           pn.c_str(), nh_ns.c_str(), robot_ns.c_str(), to_string(val).c_str(), std::to_string(nh_val).c_str());
       return false;
     }
@@ -179,15 +179,16 @@ inline bool check_and_get(std::map<std::string, std::tuple<T*, bool, T>>& params
     T val = std::get<1>(param.second) ? std::get<2>(param.second) : T();
     if (!cnr::param::get(param.first, val, param_what))
     {
+      printf("[ERROR]: %s\n", param_what.c_str());
       if (!std::get<1>(param.second))
       {
-        printf("[ERROR]: [Check and Get] %s is not specified! Abort.", param.first.c_str());
+        printf("[ERROR]: [Check and Get] %s is not specified! Abort.\n", param.first.c_str());
         return false;
       }
       else
       {
         val = std::get<2>(param.second);
-        printf("[DEBUG]: %s is not specified. Default value %s", param.first.c_str(), std::to_string(val).c_str());
+        printf("[DEBUG]: %s is not specified. Default value %s\n", param.first.c_str(), std::to_string(val).c_str());
       }
     }
     *std::get<0>(param.second) = val;

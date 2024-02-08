@@ -61,9 +61,9 @@ std::string resolve_ns(const std::string& params_ns)
   std::string ret;
   // CNR_PARAM per ora non può gestire parametri privati
 
-  // bool is_private = params_ns.empty() ? false : params_ns[0] == '~';
-  // bool is_global = params_ns.empty() ? false : params_ns[0] == '/';
-  // bool is_relative = params_ns.empty() ? true : params_ns[0] == (!is_private && !is_global);
+  bool is_private = params_ns.empty() ? false : params_ns[0] == '~';
+  bool is_global = params_ns.empty() ? false : params_ns[0] == '/';
+  bool is_relative = params_ns.empty() ? true : params_ns[0] == (!is_private && !is_global);
 
   // if (is_private)
   // {
@@ -80,7 +80,13 @@ std::string resolve_ns(const std::string& params_ns)
   //   ret = nh.getNamespace() + "/" + params_ns;
   // }
 
+  // Hack until cnr_param support private and relative parameters
   ret = params_ns;
+  if(is_relative || is_private)
+  {
+    ret.front() == '/'? ret : "/" + ret;
+  }
+
   ret = ret.back() == '/' ? ret : ret + "/";
   return ret;
 }

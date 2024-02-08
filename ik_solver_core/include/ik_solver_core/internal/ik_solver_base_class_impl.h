@@ -50,9 +50,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Eigen/Core>
 #include <cstdio>
 
-#include <geometry_msgs/Pose.h>
-#include <ik_solver_msgs/GetIkArray.h>
-#include <ik_solver_msgs/GetBound.h>
+// #include <geometry_msgs/Pose.h>
+// #include <ik_solver_msgs/GetIkArray.h>
+// #include <ik_solver_msgs/GetBound.h>
 
 #include <ik_solver_core/ik_solver_base_class.h>
 
@@ -64,10 +64,22 @@ namespace ik_solver
 
 inline bool IkSolver::config(const std::string& params_ns)
 {
-  logger_ = std::make_unique<cnr_logger::TraceLogger>();
-  std::string param_what;
-
   params_ns_ = ik_solver::resolve_ns(params_ns);
+
+  std::string param_what;
+  std::string logger_config_path;
+
+  if(!cnr::param::get(params_ns_ + "logger_config_file", logger_config_path, param_what))
+  {
+    printf("[ERROR]: Missing parameter %s", (params_ns_ + "logger_config_file").c_str());
+    return false;
+  }
+  // TODO: check if exists the logger param file
+  if (!logger_.init("ik_solver", logger_config_path, false, false))
+  {
+    printf("[ERROR]: Logger configuration failed");
+    return false;
+  }
 
   std::map<std::string, std::string*> sparams{
     { params_ns_ + "base_frame", &base_frame_ },
@@ -84,7 +96,8 @@ inline bool IkSolver::config(const std::string& params_ns)
     { params_ns_ + "desired_solutions", { &desired_solutions_, desired_solutions_ } },
     { params_ns_ + "min_stall_iterations", { &min_stall_iter_, min_stall_iter_ } },
     { params_ns_ + "max_stall_iterations", { &max_stall_iter_, max_stall_iter_ } },
-    { params_ns_ + "parallel_ik_mode", { &parallelize_, ik_solver_msgs::GetIkArray::Request::PARALLELIZE_DISABLE } },
+    // { params_ns_ + "parallel_ik_mode", { &parallelize_, ik_solver_msgs::GetIkArray::Request::PARALLELIZE_DISABLE } },
+    { params_ns_ + "parallel_ik_mode", { &parallelize_, PARALLELIZE_DISABLE } },
   };
 
   if (!get_and_default(iparams))
@@ -94,28 +107,38 @@ inline bool IkSolver::config(const std::string& params_ns)
 
   if (!getFlangeTool())
   {
-    CNR_ERROR(*logger_,"%s: no TF from flange and tool", params_ns_.c_str());
+    CNR_ERROR(logger_,"%s: no TF from flange and tool", params_ns_.c_str());
     return false;
   }
 
-  model_.initParam("robot_description");
+  printf("%s", (cnr_logger::CYAN() + "QUI\n").c_str());
+  std::string robot_description;
+  if(!cnr::param::get(params_ns_ + "robot_description", robot_description, param_what))
+  {
+    CNR_ERROR(logger_, "IkSolver: Missing robot_description parameter");
+    return false;
+  }
+  
+  // model_.initParam("robot_description");
+  model_ = urdf::parseURDF(robot_description);
 
   auto pn = params_ns_ + "joint_names";
   if (!cnr::param::get(pn, joint_names_, param_what))
   {
-    CNR_ERROR(*logger_,"[IkSolver::config] %s is not specified", pn.c_str());
+    printf("WHAT: %s", param_what.c_str());
+    CNR_ERROR(logger_,"[IkSolver::config] %s is not specified", pn.c_str());
     return false;
   }
 
   lb_.resize(joint_names_.size());
   ub_.resize(joint_names_.size());
   revolute_.resize(joint_names_.size());
-  std::map<std::string, urdf::JointSharedPtr> joint_models = model_.joints_;
+  std::map<std::string, urdf::JointSharedPtr> joint_models = model_->joints_;
   for (size_t iax = 0; iax < joint_names_.size(); iax++)
   {
     if (joint_models.count(joint_names_.at(iax)) == 0)
     {
-      CNR_ERROR(*logger_,"%s: %s is not a valid joint name", params_ns_.c_str(), joint_names_.at(iax).c_str());
+      CNR_ERROR(logger_,"%s: %s is not a valid joint name", params_ns_.c_str(), joint_names_.at(iax).c_str());
       return false;
     }
     const urdf::JointSharedPtr& jmodel = joint_models.at(joint_names_.at(iax));
@@ -135,7 +158,7 @@ inline bool IkSolver::config(const std::string& params_ns)
     }
     if (lb_(iax) > ub_(iax))
     {
-      CNR_ERROR(*logger_,"%s: %s has wrong limits: lower=%f, upper=%f", params_ns_.c_str(), joint_names_.at(iax).c_str(),
+      CNR_ERROR(logger_,"%s: %s has wrong limits: lower=%f, upper=%f", params_ns_.c_str(), joint_names_.at(iax).c_str(),
                 lb_(iax), ub_(iax));
       return false;
     }

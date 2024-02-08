@@ -7,11 +7,16 @@ project(ik_solver_core)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
+
+set(CMAKE_BUILD_TYPE Debug)
 find_package(catkin REQUIRED COMPONENTS
 	eigen_conversions
 	tf_conversions
-	urdf
+	# urdf
   ik_solver_msgs)
+
+find_package(urdfdom         REQUIRED)
+find_package(urdfdom_headers REQUIRED)
 
 find_package(Eigen3 REQUIRED COMPONENTS Geometry Core)
 find_package(cnr_param REQUIRED)
@@ -24,7 +29,7 @@ catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ${PROJECT_NAME} ${PROJECT_NAME}_utilities
   CATKIN_DEPENDS eigen_conversions tf_conversions urdf ik_solver_msgs
-  DEPENDS EIGEN3 Boost cnr_param cnr_logger yaml-cpp
+  DEPENDS EIGEN3 Boost cnr_param cnr_logger YAML_CPP urdfdom urdfdom_headers
 )
 
 ###########
@@ -35,6 +40,8 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
   include
+  ${urdfdom_INCLUDE_DIRS}
+  ${urdfdom_headers_INCLUDE_DIRS}
   ${cnr_param_INCLUDE_DIRS}
   ${cnr_logger_INCLUDE_DIRS}
   ${ik_solver_msgs_INCLUDE_DIRS}
@@ -59,7 +66,10 @@ add_library(${PROJECT_NAME} SHARED
   )
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME} PUBLIC 
-  ${catkin_LIBRARIES} ${YAML_CPP_LIBRARIES} 
+  ${urdfdom_LIBRARIES} 
+  ${urdfdom_headers_LIBRARIES}
+  ${catkin_LIBRARIES} 
+  ${YAML_CPP_LIBRARIES} 
   ${PROJECT_NAME}_utilities  
   ${ik_solver_msgs_LIBRARIES}
 )
