@@ -40,20 +40,26 @@ if __name__ == "__main__":
             p.position.z=0.15*math.cos(2*math.pi*t)
             target = ik_solver_msgs.msg.IkTarget()
             target.pose.header.frame_id = tf_name
-            target.pose.pose.position.x = 0.0
-            target.pose.pose.position.y = 0.0
-            target.pose.pose.position.z = 0.0
-            target.pose.pose.orientation.x = 0.0
-            target.pose.pose.orientation.y = 0.0
-            target.pose.pose.orientation.z = 0.0
-            target.pose.pose.orientation.w = 1.0
+            target.pose.pose = p
+            # target.pose.pose.position.x = 0.0
+            # target.pose.pose.position.y = 0.0
+            # target.pose.pose.position.z = 0.0   
+            # target.pose.pose.orientation.x = 0.0
+            # target.pose.pose.orientation.y = 0.0
+            # target.pose.pose.orientation.z = 0.0
+            # target.pose.pose.orientation.w = 1.0
 
             req.targets.append(target)
 
+        pa = geometry_msgs.msg.PoseArray()
+        pa.header.frame_id = tf_name
         for ip in range(0,100):
-            array_pub.publish(req.poses)
-            #rospy.loginfo(req.poses)
-            r.sleep()
+            pa.poses.append(req.targets[ip].pose.pose)
+        array_pub.publish(pa)
+        # for ip in range(0,100):
+        #     array_pub.publish(req.targets[ip].pose)
+        #     #rospy.loginfo(req.poses)
+        #     r.sleep()
 
         resp = ik_locations_srv(req)
         if len(resp.solutions)==0:
@@ -66,7 +72,8 @@ if __name__ == "__main__":
         ik_sol.state.joint_state.effort= [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         idx=0
         while not rospy.is_shutdown():
-            array_pub.publish(req.poses)
+            # array_pub.publish(req.poses)
+            array_pub.publish(pa)
             for sol in resp.solutions:
                 for conf in sol.configurations:
                     ik_sol.state.joint_state.position=conf.configuration
