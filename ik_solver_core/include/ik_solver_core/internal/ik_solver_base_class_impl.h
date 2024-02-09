@@ -111,7 +111,6 @@ inline bool IkSolver::config(const std::string& params_ns)
     return false;
   }
 
-  printf("%s", (cnr_logger::CYAN() + "QUI\n").c_str());
   std::string robot_description;
   if(!cnr::param::get(params_ns_ + "robot_description", robot_description, param_what))
   {
@@ -164,6 +163,7 @@ inline bool IkSolver::config(const std::string& params_ns)
     }
   }
 
+  CNR_DEBUG(logger_, "IkSolver configured");
   return true;
 }
 
