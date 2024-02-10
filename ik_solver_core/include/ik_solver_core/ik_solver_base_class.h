@@ -38,7 +38,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <Eigen/Geometry>
 
-// #include <urdf/model.h>
 #include <urdf_model/model.h>
 #include <urdf_parser/urdf_parser.h>
 
@@ -113,6 +112,7 @@ protected:
 
 };
 
+bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab);
 
 }  //  namespace ik_solver
 

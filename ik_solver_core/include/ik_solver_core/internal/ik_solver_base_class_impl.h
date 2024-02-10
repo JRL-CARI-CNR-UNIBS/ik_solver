@@ -45,14 +45,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <tuple>
 #include <vector>
 #include <regex>
-#include <tf/transform_listener.h>
 
 #include <Eigen/Core>
 #include <cstdio>
-
-// #include <geometry_msgs/Pose.h>
-// #include <ik_solver_msgs/GetIkArray.h>
-// #include <ik_solver_msgs/GetBound.h>
 
 #include <ik_solver_core/ik_solver_base_class.h>
 
@@ -166,6 +161,7 @@ inline bool IkSolver::config(const std::string& params_ns)
   CNR_DEBUG(logger_, "IkSolver configured");
   return true;
 }
+
 
 inline bool IkSolver::getFlangeTool()
 {

@@ -1,75 +1,110 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(ik_solver_core)
+project(ik_solver_core VERSION 0.1.0)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
 
-## Find catkin macros and libraries
-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
-
 set(CMAKE_BUILD_TYPE Debug)
-find_package(catkin REQUIRED COMPONENTS
-	eigen_conversions
-	tf_conversions
-	# urdf
-  ik_solver_msgs)
+
+find_package(cnr_param REQUIRED)
+find_package(cnr_logger REQUIRED)
 
 find_package(urdfdom         REQUIRED)
 find_package(urdfdom_headers REQUIRED)
 
-find_package(Eigen3 REQUIRED COMPONENTS Geometry Core)
-find_package(cnr_param REQUIRED)
-find_package(cnr_logger REQUIRED)
+find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(Boost REQUIRED COMPONENTS filesystem system date_time)
+
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
-
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES ${PROJECT_NAME} ${PROJECT_NAME}_utilities
-  CATKIN_DEPENDS eigen_conversions tf_conversions urdf ik_solver_msgs
-  DEPENDS EIGEN3 Boost cnr_param cnr_logger YAML_CPP urdfdom urdfdom_headers
-)
 
 ###########
 ## Build ##
 ###########
 
-## Specify additional locations of header files
-## Your package locations should be listed before other locations
-include_directories(
-  include
-  ${urdfdom_INCLUDE_DIRS}
-  ${urdfdom_headers_INCLUDE_DIRS}
-  ${cnr_param_INCLUDE_DIRS}
-  ${cnr_logger_INCLUDE_DIRS}
-  ${ik_solver_msgs_INCLUDE_DIRS}
-  ${catkin_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIRS}
-  ${YAML_CPP_INCLUDE_DIRS}
-)
-
+# Utilities
 add_library(${PROJECT_NAME}_utilities SHARED
   src/${PROJECT_NAME}/internal/utils.cpp
  )
-add_dependencies(${PROJECT_NAME}_utilities ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME}_utilities PUBLIC 
-  ${catkin_LIBRARIES} 
-  ${YAML_CPP_LIBRARIES} 
-  ${cnr_logger_LIBRARIES} 
+  ${YAML_CPP_LIBRARIES}
+  ${cnr_logger_LIBRARIES}
   ${cnr_param_LIBRARIES}
+  ${urdfdom__LIBRARIES}
+  ${urdfdom_headers_LIBRARIES}
+  Eigen3::Eigen
+  Boost::filesystem Boost::system Boost::date_time
+)
+target_include_directories(${PROJECT_NAME}_utilities PUBLIC
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
+    ${EIGEN3_INCLUDE_DIRS}
+    ${cnr_param_INCLUDE_DIRS}
+    ${cnr_logger_INCLUDE_DIRS}
+    ${urdfdom_INCLUDE_DIRS}
+    ${urdfdom_headers_INCLUDE_DIRS})
+
+# Core
+add_library(${PROJECT_NAME} INTERFACE
+  # src/${PROJECT_NAME}/ik_solver_base_class.cpp
+  )
+target_link_libraries(${PROJECT_NAME} INTERFACE 
+  ${PROJECT_NAME}_utilities
+)
+target_include_directories(${PROJECT_NAME} INTERFACE
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
+    ${EIGEN3_INCLUDE_DIRS}
+    ${cnr_param_INCLUDE_DIRS}
+    ${cnr_logger_INCLUDE_DIRS}
+    ${urdfdom_INCLUDE_DIRS}
+    ${urdfdom_headers_INCLUDE_DIRS})
+
+#############
+## Install ##
+#############
+
+set(CONFIG_DEST share/cmake/${PROJECT_NAME})
+set(EXPORT_DEST ${CONFIG_DEST})
+set(CONFIG_INCLUDE_DIRS ${CMAKE_INSTALL_PREFIX}/include) # for config
+set(config_filename "${PROJECT_NAME}Config")
+
+install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_utilities
+        EXPORT export_${PROJECT_NAME}
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin)
+
+install(EXPORT export_${PROJECT_NAME}
+        FILE export_${PROJECT_NAME}.cmake
+        NAMESPACE ik_solver_core::
+        DESTINATION ${EXPORT_DEST})
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
+
+# Config
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+  ${config_filename}.cmake.in ${config_filename}.cmake
+  INSTALL_DESTINATION ${CONFIG_DEST}
+)
+write_basic_package_version_file(${config_filename}Version.cmake
+    VERSION ${PACKAGE_VERSION}
+    COMPATIBILITY AnyNewerVersion)
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${config_filename}.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/${config_filename}Version.cmake"
+        DESTINATION ${CONFIG_DEST}
 )
 
-add_library(${PROJECT_NAME} SHARED
-  src/${PROJECT_NAME}/ik_solver_base_class.cpp
-  )
-add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(${PROJECT_NAME} PUBLIC 
-  ${urdfdom_LIBRARIES} 
-  ${urdfdom_headers_LIBRARIES}
-  ${catkin_LIBRARIES} 
-  ${YAML_CPP_LIBRARIES} 
-  ${PROJECT_NAME}_utilities  
-  ${ik_solver_msgs_LIBRARIES}
+
+# make uninstall
+add_custom_target("uninstall" COMMENT "Uninstall installed files")
+add_custom_command(
+    TARGET "uninstall"
+    POST_BUILD
+    COMMENT "Uninstall files with install_manifest.txt"
+    COMMAND xargs rm -vf < install_manifest.txt || echo Nothing in
+            install_manifest.txt to be uninstalled!
 )

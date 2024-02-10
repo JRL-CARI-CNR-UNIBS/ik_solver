@@ -34,14 +34,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include <sstream>
 #include <regex>
-#include <Eigen/Geometry>
-// #include <ros/param.h>
-#include <cnr_param/cnr_param.h>
 #include <cstdio>
 
-#include <geometry_msgs/Pose.h>
-// #include <ik_solver_msgs/Configuration.h>
-// #include <ik_solver_msgs/IkSolution.h>
+#include <Eigen/Geometry>
+
+#include <cnr_param/cnr_param.h>
 #include <ik_solver_core/internal/types.h>
 
 namespace std
@@ -73,15 +70,6 @@ inline std::string to_string(const Eigen::Affine3d& mat)
 {
   std::stringstream ss;
   ss << mat.matrix();
-  std::string s = ss.str();
-  std::regex_replace(s, std::regex("\\r\\n|\\r|\\n"), ", ");
-  return s;
-}
-
-inline std::string to_string(const geometry_msgs::Pose& mat)
-{
-  std::stringstream ss;
-  ss << mat;
   std::string s = ss.str();
   std::regex_replace(s, std::regex("\\r\\n|\\r|\\n"), ", ");
   return s;
@@ -237,8 +225,6 @@ inline bool is_nan(const Eigen::MatrixBase<Derived>& x)
 {
 	return ((x.array() == x.array())).all();
 }
-
-bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab);
 
 // Configurations getSeeds(const std::vector<std::string>& joint_names, const std::vector<std::string>& seed_names, const std::vector<ik_solver_msgs::Configuration>& seeds);
 

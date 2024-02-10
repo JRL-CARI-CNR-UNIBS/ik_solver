@@ -51,4 +51,30 @@ Configurations getSeeds(const std::vector<std::string>& joint_names, const std::
   }
   return seeds_eigen;
 }
+
+bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab)
+{
+  tf::StampedTransform location_transform;
+  ros::Time t0 = ros::Time(0);
+  std::string tf_error;
+  tf::TransformListener listener;
+  if (!listener.waitForTransform(a_name, b_name, t0, ros::Duration(10), ros::Duration(0.01), &tf_error))
+  {
+    printf("[WARNING] Unable to find a transform from %s to %s, tf error=%s", a_name.c_str(), b_name.c_str(), tf_error.c_str());
+    return false;
+  }
+
+  try
+  {
+    listener.lookupTransform(a_name, b_name, t0, location_transform);
+  }
+  catch (...)
+  {
+    printf("[WARNING] Unable to find a transform from %s to %s, tf error=%s", a_name.c_str(), b_name.c_str(), tf_error.c_str());
+    return false;
+  }
+
+  tf::poseTFToEigen(location_transform, T_ab);
+  return true;
+}
 }
