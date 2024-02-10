@@ -13,9 +13,9 @@ find_package(urdfdom         REQUIRED)
 find_package(urdfdom_headers REQUIRED)
 
 find_package(Eigen3 REQUIRED NO_MODULE)
-find_package(Boost REQUIRED COMPONENTS filesystem system date_time)
+find_package(Boost REQUIRED COMPONENTS filesystem system date_time) # for cnr_logger missing dependency
 
-find_package(PkgConfig REQUIRED)
+find_package(PkgConfig REQUIRED) # for cnr_param (version of yaml-cpp?)
 pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
 
 ###########
@@ -27,22 +27,18 @@ add_library(${PROJECT_NAME}_utilities SHARED
   src/${PROJECT_NAME}/internal/utils.cpp
  )
 target_link_libraries(${PROJECT_NAME}_utilities PUBLIC 
-  ${YAML_CPP_LIBRARIES}
   ${cnr_logger_LIBRARIES}
   ${cnr_param_LIBRARIES}
-  ${urdfdom__LIBRARIES}
-  ${urdfdom_headers_LIBRARIES}
   Eigen3::Eigen
   Boost::filesystem Boost::system Boost::date_time
+  ${YAML_CPP_LIBRARIES}
 )
 target_include_directories(${PROJECT_NAME}_utilities PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
     ${EIGEN3_INCLUDE_DIRS}
     ${cnr_param_INCLUDE_DIRS}
-    ${cnr_logger_INCLUDE_DIRS}
-    ${urdfdom_INCLUDE_DIRS}
-    ${urdfdom_headers_INCLUDE_DIRS})
+    ${cnr_logger_INCLUDE_DIRS})
 
 # Core
 add_library(${PROJECT_NAME} INTERFACE
@@ -50,6 +46,13 @@ add_library(${PROJECT_NAME} INTERFACE
   )
 target_link_libraries(${PROJECT_NAME} INTERFACE 
   ${PROJECT_NAME}_utilities
+  ${cnr_logger_LIBRARIES}
+  ${cnr_param_LIBRARIES}
+  ${urdfdom__LIBRARIES}
+  ${urdfdom_headers_LIBRARIES}
+  Eigen3::Eigen
+  Boost::filesystem Boost::system Boost::date_time
+  ${YAML_CPP_LIBRARIES}
 )
 target_include_directories(${PROJECT_NAME} INTERFACE
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"

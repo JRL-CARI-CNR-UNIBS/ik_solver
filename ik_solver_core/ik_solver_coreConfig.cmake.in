@@ -4,13 +4,13 @@ get_filename_component(ik_solver_core_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PAT
 
 include(CMakeFindDependencyMacro)
 find_dependency(cnr_param       REQUIRED)
-find_dependency(Boost           REQUIRED COMPONENTS date_time filesystem)
-find_dependency(PkgConfig       REQUIRED)
 find_dependency(cnr_logger      REQUIRED)
-find_dependency(yaml-cpp        REQUIRED)
 find_dependency(urdfdom         REQUIRED)
 find_dependency(urdfdom_headers REQUIRED)
 find_dependency(Eigen3          REQUIRED NO_MODULE)
+
+# Temporary - cnr_logger
+find_dependency(Boost           REQUIRED COMPONENTS date_time filesystem)
 
 include("${ik_solver_core_CMAKE_DIR}/export_ik_solver_core.cmake")
 

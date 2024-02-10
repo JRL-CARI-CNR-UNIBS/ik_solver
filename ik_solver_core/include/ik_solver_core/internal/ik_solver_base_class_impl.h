@@ -70,6 +70,7 @@ inline bool IkSolver::config(const std::string& params_ns)
     return false;
   }
   // TODO: check if exists the logger param file
+  // TODO: differentiate logger_id
   if (!logger_.init("ik_solver", logger_config_path, false, false))
   {
     printf("[ERROR]: Logger configuration failed");
