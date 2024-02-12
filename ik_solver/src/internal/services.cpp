@@ -38,7 +38,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <thread>
 #include <vector>
 #include "Eigen/src/Geometry/Transform.h"
-#include "ik_solver/internal/SafeQueue.h"
 #include "ik_solver_msgs/Configuration.h"
 #include <geometry_msgs/Pose.h>
 
@@ -50,7 +49,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ik_solver/internal/utils.h>
 #include <ik_solver/internal/services.h>
 
-#include <ik_solver/internal/SafeQueue.h>
+#include <ik_solver_core/internal/SafeQueue.h>
 
 namespace ik_solver
 {

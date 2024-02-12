@@ -37,7 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "std_srvs/TriggerRequest.h"
 #include <ros/ros.h>
 
-#include <ik_solver/internal/wsq.h>
+#include <ik_solver_core/internal/wsq.h>
 #include <std_srvs/Trigger.h>
 #include <ik_solver_msgs/GetIk.h>
 #include <ik_solver_msgs/GetFk.h>
