@@ -1,5 +1,6 @@
 #include <ik_solver_core/internal/utils.h>
 #include <cstddef>
+#include <stdarg.h>
 
 namespace ik_solver
 {
