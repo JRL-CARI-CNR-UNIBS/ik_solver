@@ -33,32 +33,30 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include <Eigen/Core>
 
-#include <ik_solver_msgs/Configuration.h>
-#include <ik_solver_msgs/IkSolution.h>
+#if ROS_VERSION == 1
+  #include <ik_solver_msgs/Configuration.h>
+  #include <ik_solver_msgs/IkSolution.h>
+  #include <geometry_msgs/Pose.h>
+  #include <std_srvs/Trigger.h>
+  using Pose = geometry_msgs::Pose;
+  using Trigger = std_srvs::Trigger
+#elif ROS_VERSION == 2
+  #include <ik_solver_msgs/msg/configuration.hpp>
+  #include <ik_solver_msgs/msg/ik_solution.hpp>
+  #include <geometry_msgs/msg/pose.hpp>
+  #include <std_srvs/srv/trigger.hpp>
+  namespace ik_solver_msgs{
+    using namespace msg;
+  }
+  using Trigger = std_srvs::srv::Trigger;
+  using Pose = geometry_msgs::msg::Pose;
+#endif
 
 #include <ik_solver_core/internal/types.h>
 
+
 namespace ik_solver
 {
-// using Configuration = Eigen::VectorXd;
-// using Configurations = std::vector<Configuration>;
-// struct Solutions : std::tuple<ik_solver::Configurations, std::vector<double>, std::vector<double>, std::string>
-// {
-//   const ik_solver::Configurations& configurations() const {return std::get<0>(*this);}
-//   ik_solver::Configurations& configurations() {return std::get<0>(*this);}
-
-//   const std::vector<double>& translation_residuals() const {return std::get<1>(*this);}
-//   std::vector<double>& translation_residuals() {return std::get<1>(*this);}
-
-//   const std::vector<double>& rotation_residuals() const {return std::get<2>(*this);}
-//   std::vector<double>& rotation_residuals() {return std::get<2>(*this);}
-
-//   const std::string& message() const { return std::get<3>(*this); }
-//   std::string& message() { return std::get<3>(*this); }
-
-//   void clear() { configurations().clear(); translation_residuals().clear(); rotation_residuals().clear(); message().clear();}
-
-// };
 
 ik_solver_msgs::Configuration& cast(ik_solver_msgs::Configuration& lhs, const ik_solver::Configuration& rhs);
 

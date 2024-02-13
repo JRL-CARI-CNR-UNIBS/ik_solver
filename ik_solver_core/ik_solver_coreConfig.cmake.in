@@ -18,6 +18,6 @@ set(ik_solver_core_FOUND TRUE)
 
 set_and_check(ik_solver_core_INCLUDE_DIRS "@CONFIG_INCLUDE_DIRS@")
   
-set(ik_solver_core_LIBRARIES ik_solver_core::ik_solver_core)
+set(ik_solver_core_LIBRARIES ik_solver_core::ik_solver_core ik_solver_core::ik_solver_core_utilities)
 
 check_required_components(ik_solver_core)

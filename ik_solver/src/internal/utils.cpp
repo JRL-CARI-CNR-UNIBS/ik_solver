@@ -54,6 +54,7 @@ Configurations getSeeds(const std::vector<std::string>& joint_names, const std::
 
 bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab)
 {
+#if ROS_VERSION == 1
   tf::StampedTransform location_transform;
   ros::Time t0 = ros::Time(0);
   std::string tf_error;
@@ -76,5 +77,25 @@ bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d
 
   tf::poseTFToEigen(location_transform, T_ab);
   return true;
+#elif ROS_VERSION == 2
+  using namespace std::chrono_literals;
+  geometry_msgs::msg::TransformStamped location_transform;
+  tf2::TimePoint t0 = tf2::TimePointZero;
+  std::string tf_error;
+  tf2_ros::Buffer buffer(std::make_shared<rclcpp::Clock>(RCL_SYSTEM_TIME));
+  tf2_ros::TransformListener listener(buffer);
+  try
+  {
+    location_transform = buffer.lookupTransform(a_name, b_name, t0, tf2::Duration(10s));
+  }
+  catch (...)
+  {
+    printf("[WARNING] Unable to find a transform from %s to %s, tf error=%s", a_name.c_str(), b_name.c_str(), tf_error.c_str());
+    return false;
+  }
+
+  T_ab = tf2::transformToEigen(location_transform);
+  return true;
+#endif
 }
 }

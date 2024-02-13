@@ -26,6 +26,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <functional>
 #include <algorithm>
 #include <cinttypes>
 #include <cstdio>
@@ -37,12 +38,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Eigen/Geometry>
 #include <thread>
 #include <vector>
-#include "Eigen/src/Geometry/Transform.h"
-#include "ik_solver_msgs/Configuration.h"
-#include <geometry_msgs/Pose.h>
 
-#include <tf_conversions/tf_eigen.h>
-#include <eigen_conversions/eigen_msg.h>
+#if ROS_VERSION == 1
+  #include "ik_solver_msgs/Configuration.h"
+  #include <geometry_msgs/Pose.h>
+  #include <tf_conversions/tf_eigen.h>
+  #include <eigen_conversions/eigen_msg.h>
+#elif ROS_VERSION == 2
+  #include "ik_solver_msgs/msg/configuration.hpp"
+  #include <geometry_msgs/msg/pose.hpp>
+  #include <tf2/convert.h>
+#endif
 
 // #include <ik_solver_core/ik_solver_base_class.h>
 #include <ik_solver/internal/types.h>
@@ -82,14 +88,25 @@ ik_solver::Solutions computeIkFunction(ik_solver::IkSolver* solver, const Eigen:
  * @param nh
  * @param ik_solvers
  */
-IkServices::IkServices(ros::NodeHandle& nh, IkSolversPool& ik_solvers) : nh_(nh), ik_solvers_(ik_solvers)
+IkServices::IkServices(Node& nh, IkSolversPool& ik_solvers) : nh_(nh), ik_solvers_(ik_solvers)
 {
-  ik_server_ = nh.advertiseService("get_ik", &IkServices::computeIK, this);
-  ik_server_array_ = nh.advertiseService("get_ik_array", &IkServices::computeIKArray, this);
-  fk_server_ = nh.advertiseService("get_fk", &IkServices::computeFK, this);
-  fk_server_array_ = nh.advertiseService("get_fk_array", &IkServices::computeFKArray, this);
+#if ROS_VERSION == 1
+  ik_server_ =          nh.advertiseService("get_ik", &IkServices::computeIK, this);
+  ik_server_array_ =    nh.advertiseService("get_ik_array", &IkServices::computeIKArray, this);
+  fk_server_ =          nh.advertiseService("get_fk", &IkServices::computeFK, this);
+  fk_server_array_ =    nh.advertiseService("get_fk_array", &IkServices::computeFKArray, this);
   bound_server_array_ = nh.advertiseService("get_bounds", &IkServices::getBounds, this);
-  reconfigure_ = nh.advertiseService("reconfigure", &IkServices::reconfigure, this);
+  reconfigure_ =        nh.advertiseService("reconfigure", &IkServices::reconfigure, this);
+#elif ROS_VERSION == 2
+  using namespace std::placeholders;
+  ik_server_ =          nh.create_service<ik_solver_msgs::srv::GetIk>     ("get_ik",       std::bind(&IkServices::computeIK,      this, _1, _2));
+  ik_server_array_ =    nh.create_service<ik_solver_msgs::srv::GetIkArray>("get_ik_array", std::bind(&IkServices::computeIKArray, this, _1, _2));
+  fk_server_ =          nh.create_service<ik_solver_msgs::srv::GetFk>     ("get_fk",       std::bind(&IkServices::computeFK,      this, _1, _2));
+  fk_server_array_ =    nh.create_service<ik_solver_msgs::srv::GetFkArray>("get_fk_array", std::bind(&IkServices::computeFKArray, this, _1, _2));
+  bound_server_array_ = nh.create_service<ik_solver_msgs::srv::GetBound>  ("get_bounds",   std::bind(&IkServices::getBounds,      this, _1, _2));
+  reconfigure_ =        nh.create_service<std_srvs::srv::Trigger>         ("reconfigure",  std::bind(&IkServices::reconfigure,    this, _1, _2));
+#endif
+
 }
 
 /**
@@ -112,7 +129,7 @@ bool IkServices::computeIK(ik_solver_msgs::GetIk::Request& req, ik_solver_msgs::
     return false;
   }
   Eigen::Affine3d T_r_t;
-  tf::poseMsgToEigen(req.target.pose.pose, T_r_t);
+  from_pose_to_eigen(req.target.pose.pose, T_r_t);
 
   Eigen::Affine3d T_t_f = config().transform_from_flange_to_tool();
   Eigen::Affine3d T_b_f = T_b_r * T_r_t * T_t_f;
@@ -178,7 +195,7 @@ bool IkServices::computeIKArray(ik_solver_msgs::GetIkArray::Request& req, ik_sol
       T_b_r = T_b_rp[t.pose.header.frame_id];
     }
     Eigen::Affine3d T_r_t;
-    tf::poseMsgToEigen(t.pose.pose, T_r_t);
+   from_pose_to_eigen(t.pose.pose, T_r_t);
 
     Eigen::Affine3d T_t_f = config().transform_from_flange_to_tool();
     Eigen::Affine3d T_b_f = T_b_r * T_r_t * T_t_f;
@@ -192,7 +209,8 @@ bool IkServices::computeIKArray(ik_solver_msgs::GetIkArray::Request& req, ik_sol
                             config().parallelize();
 
   int update_recursively_seeds = ik_solver_msgs::GetIkArray::Request::UPDATE_RECURSIVELY_SEEDS_FORCE;
-  ros::param::get(config().param_namespace() + "/update_recursively_seeds", update_recursively_seeds);
+  std::string what;
+  cnr::param::get(config().param_namespace() + "/update_recursively_seeds", update_recursively_seeds, what);
   update_recursively_seeds =
       req.update_recursively_seeds != ik_solver_msgs::GetIkArray::Request::UPDATE_RECURSIVELY_SEEDS_DEFAULT ?
           req.update_recursively_seeds :
@@ -383,8 +401,10 @@ bool IkServices::computeTransformations(const std::string& tip_frame, const std:
   }
   else if (!getTF(config().tool_frame(), tip_frame, T_tool_tip))
   {
-    ROS_ERROR("computeFKArray: error on computing TF from tool_name=%s, tip_frame=%s", config().tool_frame().c_str(),
-              tip_frame.c_str());
+//    ROS_ERROR("computeFKArray: error on computing TF from tool_name=%s, tip_frame=%s", config().tool_frame().c_str(),
+//              tip_frame.c_str());
+    printf("%s[ERROR] computeFKArray: error on computing TF from tool_name=%s, tip_frame=%s %s", cnr_logger::RED().c_str(), config().tool_frame().c_str(),
+            tip_frame.c_str(), cnr_logger::RESET().c_str());
     return false;
   }
 
@@ -416,7 +436,8 @@ bool order_joint_names(const std::vector<std::string>& joint_names_ref, const st
     }
     if (!found)
     {
-      ROS_ERROR("computeFKArray joint names are not correct");
+//      ROS_ERROR("computeFKArray joint names are not correct");
+      printf("%s[ERROR] computeFKArray joint names are not correct%s", cnr_logger::RED().c_str(), cnr_logger::RESET().c_str());
       return false;
     }
   }
@@ -448,8 +469,8 @@ bool IkServices::computeFK(ik_solver_msgs::GetFk::Request& req, ik_solver_msgs::
     q(idx) = req.configuration.configuration.at(order.at(idx));
   }
   Eigen::Affine3d fk = T_poses_base * ik_solvers_.front()->getFK(q) * T_flange_tool * T_tool_tip;
-  geometry_msgs::Pose p;
-  tf::poseEigenToMsg(fk, p);
+  Pose p;
+  from_eigen_to_pose(fk, p);
   res.pose.pose = p;
 
   return true;
@@ -476,8 +497,8 @@ bool IkServices::computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_sol
 
   const size_t n_poses = req.configurations.size();
   ik_solver::SafeQueue<std::size_t> fk_args_queue;
-  std::vector<std::promise<geometry_msgs::Pose>> fk_sol_promises(n_poses);
-  std::vector<std::future<geometry_msgs::Pose>> fk_sol_futures(n_poses);
+  std::vector<std::promise<Pose>> fk_sol_promises(n_poses);
+  std::vector<std::future<Pose>> fk_sol_futures(n_poses);
   for (size_t i = 0; i < n_poses; i++)
   {
     fk_args_queue.enqueue(i);
@@ -500,8 +521,8 @@ bool IkServices::computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_sol
           }
           auto solver = ik_solvers_.at(id).get();
           Eigen::Affine3d fk = T_poses_base * solver->getFK(q) * T_flange_tool * T_tool_tip;
-          geometry_msgs::Pose p;
-          tf::poseEigenToMsg(fk, p);
+          Pose p;
+          from_eigen_to_pose(fk, p);
           fk_sol_promises.at(item_index).set_value(p);
         }
       }
@@ -583,14 +604,15 @@ bool IkServices::getBounds(ik_solver_msgs::GetBound::Request& req, ik_solver_msg
  * @return true
  * @return false
  */
-bool IkServices::reconfigure(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res)
+bool IkServices::reconfigure(Trigger::Request& req, Trigger::Response& res)
 {
   for (std::size_t i = 0; i < ik_solver::MAX_NUM_PARALLEL_IK_SOLVER; i++)
   {
     // if (!ik_solvers_.at(i)->config(nh_))
     if (!ik_solvers_.at(i)->config())
     {
-      ROS_ERROR("Unable to re-configure %s", nh_.getNamespace().c_str());
+//      ROS_ERROR("Unable to re-configure %s", nh_.getNamespace().c_str());
+      printf("%s[ERROR] Unable to re-configure%s", cnr_logger::RED().c_str(), cnr_logger::RESET().c_str());
       return 0;
     }
   }
