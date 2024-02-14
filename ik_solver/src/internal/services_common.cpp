@@ -39,21 +39,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <thread>
 #include <vector>
 
-#if ROS_VERSION == 1
-  #include "ik_solver_msgs/Configuration.h"
-  #include <geometry_msgs/Pose.h>
-  #include <tf_conversions/tf_eigen.h>
-  #include <eigen_conversions/eigen_msg.h>
-#elif ROS_VERSION == 2
-  #include "ik_solver_msgs/msg/configuration.hpp"
-  #include <geometry_msgs/msg/pose.hpp>
-  #include <tf2/convert.h>
-#endif
-
 // #include <ik_solver_core/ik_solver_base_class.h>
 #include <ik_solver/internal/types.h>
 #include <ik_solver/internal/utils.h>
-#include <ik_solver/internal/services.h>
+#include <ik_solver/internal/services_common.h>
 
 #include <ik_solver_core/internal/SafeQueue.h>
 
@@ -83,33 +72,6 @@ ik_solver::Solutions computeIkFunction(ik_solver::IkSolver* solver, const Eigen:
 //========================================================================================
 
 /**
- * @brief Construct a new Ik Services:: Ik Services object
- *
- * @param nh
- * @param ik_solvers
- */
-IkServices::IkServices(Node& nh, IkSolversPool& ik_solvers) : nh_(nh), ik_solvers_(ik_solvers)
-{
-#if ROS_VERSION == 1
-  ik_server_ =          nh.advertiseService("get_ik", &IkServices::computeIK, this);
-  ik_server_array_ =    nh.advertiseService("get_ik_array", &IkServices::computeIKArray, this);
-  fk_server_ =          nh.advertiseService("get_fk", &IkServices::computeFK, this);
-  fk_server_array_ =    nh.advertiseService("get_fk_array", &IkServices::computeFKArray, this);
-  bound_server_array_ = nh.advertiseService("get_bounds", &IkServices::getBounds, this);
-  reconfigure_ =        nh.advertiseService("reconfigure", &IkServices::reconfigure, this);
-#elif ROS_VERSION == 2
-  using namespace std::placeholders;
-  ik_server_ =          nh.create_service<ik_solver_msgs::srv::GetIk>     ("get_ik",       std::bind(&IkServices::computeIK,      this, _1, _2));
-  ik_server_array_ =    nh.create_service<ik_solver_msgs::srv::GetIkArray>("get_ik_array", std::bind(&IkServices::computeIKArray, this, _1, _2));
-  fk_server_ =          nh.create_service<ik_solver_msgs::srv::GetFk>     ("get_fk",       std::bind(&IkServices::computeFK,      this, _1, _2));
-  fk_server_array_ =    nh.create_service<ik_solver_msgs::srv::GetFkArray>("get_fk_array", std::bind(&IkServices::computeFKArray, this, _1, _2));
-  bound_server_array_ = nh.create_service<ik_solver_msgs::srv::GetBound>  ("get_bounds",   std::bind(&IkServices::getBounds,      this, _1, _2));
-  reconfigure_ =        nh.create_service<std_srvs::srv::Trigger>         ("reconfigure",  std::bind(&IkServices::reconfigure,    this, _1, _2));
-#endif
-
-}
-
-/**
  * @brief
  *
  * @param req
@@ -117,29 +79,29 @@ IkServices::IkServices(Node& nh, IkSolversPool& ik_solvers) : nh_(nh), ik_solver
  * @return true
  * @return false
  */
-bool IkServices::computeIK(ik_solver_msgs::GetIk::Request& req, ik_solver_msgs::GetIk::Response& res)
+bool IkServicesBase::computeIK(ik_solver_msgs::GetIk::Request* req, ik_solver_msgs::GetIk::Response* res)
 {
   // The input pose is the TOOL pose
   // Frame {b}: robot base
   // Frame {r}: the frame id of the requested tool poses. It must be a solvable TF transform. No relative Transform.
   // TODO add check! Frame {t}: tool frame Frame {f}: flange frame
   Eigen::Affine3d T_b_r;
-  if (!getTF(config().base_frame(), req.target.pose.header.frame_id, T_b_r))
+  if (!getTF(config().base_frame(), req->target.pose.header.frame_id, T_b_r))
   {
     return false;
   }
   Eigen::Affine3d T_r_t;
-  from_pose_to_eigen(req.target.pose.pose, T_r_t);
+  from_pose_to_eigen(req->target.pose.pose, T_r_t);
 
   Eigen::Affine3d T_t_f = config().transform_from_flange_to_tool();
   Eigen::Affine3d T_b_f = T_b_r * T_r_t * T_t_f;
 
-  Configurations seeds = ik_solver::getSeeds(config().joint_names(), req.seed_joint_names, req.target.seeds);
+  Configurations seeds = ik_solver::getSeeds(config().joint_names(), req->seed_joint_names, req->target.seeds);
 
   int desired_solutions =
-      (req.max_number_of_solutions > 0) ? req.max_number_of_solutions : config().desired_solutions();
-  int min_stall_iterations = (req.stall_iterations > 0) ? req.stall_iterations : config().min_stall_iterations();
-  int max_stall_iterations = (req.stall_iterations > 0) ? req.stall_iterations : config().max_stall_iterations();
+      (req->max_number_of_solutions > 0) ? req->max_number_of_solutions : config().desired_solutions();
+  int min_stall_iterations = (req->stall_iterations > 0) ? req->stall_iterations : config().min_stall_iterations();
+  int max_stall_iterations = (req->stall_iterations > 0) ? req->stall_iterations : config().max_stall_iterations();
 
   Solutions solutions = computeIkFunction(ik_solvers_.front().get(), T_b_f, seeds, desired_solutions,
                                           min_stall_iterations, max_stall_iterations);
@@ -149,9 +111,9 @@ bool IkServices::computeIK(ik_solver_msgs::GetIk::Request& req, ik_solver_msgs::
   printf(  "IK - Number of solutions %02zu, %s\n", solutions.configurations().size(), msg.c_str() );
   fflush(stdout);
   
-  res.solution = ik_solver::cast(solutions);
+  res->solution = ik_solver::cast(solutions);
 
-  res.joint_names = config().joint_names();
+  res->joint_names = config().joint_names();
   return true;
 }
 
@@ -164,7 +126,7 @@ bool IkServices::computeIK(ik_solver_msgs::GetIk::Request& req, ik_solver_msgs::
  * @return true
  * @return false
  */
-bool IkServices::computeIKArray(ik_solver_msgs::GetIkArray::Request& req, ik_solver_msgs::GetIkArray::Response& res)
+bool IkServicesBase::computeIKArray(ik_solver_msgs::GetIkArray::Request* req, ik_solver_msgs::GetIkArray::Response* res)
 {  // NOTE:
   // The input pose is the TOOL pose
   // Frame {b}: robot base
@@ -179,7 +141,7 @@ bool IkServices::computeIKArray(ik_solver_msgs::GetIkArray::Request& req, ik_sol
 
   std::vector<ik_solver::Configurations> vseeds;
   std::vector<Eigen::Affine3d> v_T_b_f;
-  for (const auto& t : req.targets)
+  for (const auto& t : req->targets)
   {
     Eigen::Affine3d T_b_r;
     if (T_b_rp.count(t.pose.header.frame_id) == 0)
@@ -199,41 +161,41 @@ bool IkServices::computeIKArray(ik_solver_msgs::GetIkArray::Request& req, ik_sol
 
     Eigen::Affine3d T_t_f = config().transform_from_flange_to_tool();
     Eigen::Affine3d T_b_f = T_b_r * T_r_t * T_t_f;
-    vseeds.push_back(ik_solver::getSeeds(config().joint_names(), req.seed_joint_names, t.seeds));
+    vseeds.push_back(ik_solver::getSeeds(config().joint_names(), req->seed_joint_names, t.seeds));
     v_T_b_f.push_back(T_b_f);
   }
 
   //===============================
-  uint8_t parallelize = req.parallelize != ik_solver_msgs::GetIkArray::Request::PARALLELIZE_DEFAULT ?
-                            req.parallelize :
+  uint8_t parallelize = req->parallelize != ik_solver_msgs::GetIkArray::Request::PARALLELIZE_DEFAULT ?
+                            req->parallelize :
                             config().parallelize();
 
   int update_recursively_seeds = ik_solver_msgs::GetIkArray::Request::UPDATE_RECURSIVELY_SEEDS_FORCE;
   std::string what;
   cnr::param::get(config().param_namespace() + "/update_recursively_seeds", update_recursively_seeds, what);
   update_recursively_seeds =
-      req.update_recursively_seeds != ik_solver_msgs::GetIkArray::Request::UPDATE_RECURSIVELY_SEEDS_DEFAULT ?
-          req.update_recursively_seeds :
+      req->update_recursively_seeds != ik_solver_msgs::GetIkArray::Request::UPDATE_RECURSIVELY_SEEDS_DEFAULT ?
+          req->update_recursively_seeds :
           update_recursively_seeds;
 
   if (parallelize != ik_solver_msgs::GetIkArray::Request::PARALLELIZE_FORCE)
   {
-    res.solutions =
+    res->solutions =
         ik_solver::cast(computeIKArrayST(v_T_b_f, vseeds, config().desired_solutions(), config().min_stall_iterations(),
-                                         config().max_stall_iterations(), req.update_recursively_seeds));
+                                         config().max_stall_iterations(), req->update_recursively_seeds));
   }
   else
   {
-    res.solutions = ik_solver::cast(computeIKArrayMT(v_T_b_f, vseeds, config().desired_solutions(),
+    res->solutions = ik_solver::cast(computeIKArrayMT(v_T_b_f, vseeds, config().desired_solutions(),
                                                      config().min_stall_iterations(), config().max_stall_iterations()));
   }
-  res.joint_names = config().joint_names();
+  res->joint_names = config().joint_names();
 
   return true;
 }
 
 //========================================================================================
-std::vector<ik_solver::Solutions> IkServices::computeIKArrayST(const std::vector<Eigen::Affine3d>& v_T_b_f,
+std::vector<ik_solver::Solutions> IkServicesBase::computeIKArrayST(const std::vector<Eigen::Affine3d>& v_T_b_f,
                                                                const std::vector<ik_solver::Configurations>& vseeds,
                                                                size_t desired_solutions, int min_stall_iterations,
                                                                int max_stall_iterations,
@@ -282,7 +244,7 @@ std::vector<ik_solver::Solutions> IkServices::computeIKArrayST(const std::vector
 //==========================================================promis=============================
 
 //========================================================================================
-std::vector<ik_solver::Solutions> IkServices::computeIKArrayMT(const std::vector<Eigen::Affine3d>& v_T_b_f,
+std::vector<ik_solver::Solutions> IkServicesBase::computeIKArrayMT(const std::vector<Eigen::Affine3d>& v_T_b_f,
                                                                const std::vector<ik_solver::Configurations>& vseeds,
                                                                size_t desired_solutions, int min_stall_iterations,
                                                                int max_stall_iterations)
@@ -386,12 +348,12 @@ std::vector<ik_solver::Solutions> IkServices::computeIKArrayMT(const std::vector
   return ret;
 }
 
-const ik_solver::IkSolver& IkServices::config() const
+const ik_solver::IkSolver& IkServicesBase::config() const
 {
   return *ik_solvers_.front();
 }
 
-bool IkServices::computeTransformations(const std::string& tip_frame, const std::string& reference_frame,
+bool IkServicesBase::computeTransformations(const std::string& tip_frame, const std::string& reference_frame,
                                         Eigen::Affine3d& T_poses_base, Eigen::Affine3d& T_flange_tool,
                                         Eigen::Affine3d& T_tool_tip)
 {
@@ -429,7 +391,7 @@ bool order_joint_names(const std::vector<std::string>& joint_names_ref, const st
       if (!joint_names_req.at(iax).compare(joint_names_ref.at(idx)))
       {
         found = true;
-        // ROS_INFO("%s at  position %d",req.joint_names.at(iax).c_str(),iax);
+        // ROS_INFO("%s at  position %d",req->joint_names.at(iax).c_str(),iax);
         order.at(idx) = iax;
         break;
       }
@@ -445,20 +407,20 @@ bool order_joint_names(const std::vector<std::string>& joint_names_ref, const st
 }
 
 //========================================================================================
-bool IkServices::computeFK(ik_solver_msgs::GetFk::Request& req, ik_solver_msgs::GetFk::Response& res)
+bool IkServicesBase::computeFK(ik_solver_msgs::GetFk::Request* req, ik_solver_msgs::GetFk::Response* res)
 {
   Eigen::Affine3d T_poses_base;
   Eigen::Affine3d T_flange_tool;
   Eigen::Affine3d T_tool_tip;
-  if (!computeTransformations(req.tip_frame, req.reference_frame, T_poses_base, T_flange_tool, T_tool_tip))
+  if (!computeTransformations(req->tip_frame, req->reference_frame, T_poses_base, T_flange_tool, T_tool_tip))
   {
     return false;
   }
 
-  res.pose.header.frame_id = req.reference_frame;
+  res->pose.header.frame_id = req->reference_frame;
   std::vector<int> order(config().joint_names().size());
 
-  if (!order_joint_names(config().joint_names(), req.joint_names, order))
+  if (!order_joint_names(config().joint_names(), req->joint_names, order))
   {
     return false;
   }
@@ -466,36 +428,36 @@ bool IkServices::computeFK(ik_solver_msgs::GetFk::Request& req, ik_solver_msgs::
   Configuration q(config().joint_names().size());
   for (int idx = 0; idx < config().joint_names().size(); idx++)
   {
-    q(idx) = req.configuration.configuration.at(order.at(idx));
+    q(idx) = req->configuration.configuration.at(order.at(idx));
   }
   Eigen::Affine3d fk = T_poses_base * ik_solvers_.front()->getFK(q) * T_flange_tool * T_tool_tip;
   Pose p;
   from_eigen_to_pose(fk, p);
-  res.pose.pose = p;
+  res->pose.pose = p;
 
   return true;
 }
 
 //========================================================================================
-bool IkServices::computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_solver_msgs::GetFkArray::Response& res)
+bool IkServicesBase::computeFKArray(ik_solver_msgs::GetFkArray::Request* req, ik_solver_msgs::GetFkArray::Response* res)
 {
   Eigen::Affine3d T_poses_base;
   Eigen::Affine3d T_flange_tool;
   Eigen::Affine3d T_tool_tip;
-  if (!computeTransformations(req.tip_frame, req.reference_frame, T_poses_base, T_flange_tool, T_tool_tip))
+  if (!computeTransformations(req->tip_frame, req->reference_frame, T_poses_base, T_flange_tool, T_tool_tip))
   {
     return false;
   }
 
-  res.poses.header.frame_id = req.reference_frame;
+  res->poses.header.frame_id = req->reference_frame;
   std::vector<int> order(config().joint_names().size());
 
-  if (!order_joint_names(config().joint_names(), req.joint_names, order))
+  if (!order_joint_names(config().joint_names(), req->joint_names, order))
   {
     return false;
   }
 
-  const size_t n_poses = req.configurations.size();
+  const size_t n_poses = req->configurations.size();
   ik_solver::SafeQueue<std::size_t> fk_args_queue;
   std::vector<std::promise<Pose>> fk_sol_promises(n_poses);
   std::vector<std::future<Pose>> fk_sol_futures(n_poses);
@@ -517,7 +479,7 @@ bool IkServices::computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_sol
           Configuration q(order.size());
           for (int idx = 0; idx < config().joint_names().size(); idx++)
           {
-            q(idx) = req.configurations.at(item_index).configuration.at(order.at(idx));
+            q(idx) = req->configurations.at(item_index).configuration.at(order.at(idx));
           }
           auto solver = ik_solvers_.at(id).get();
           Eigen::Affine3d fk = T_poses_base * solver->getFK(q) * T_flange_tool * T_tool_tip;
@@ -531,7 +493,7 @@ bool IkServices::computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_sol
   }
 
   size_t failed_poses_counter = 0;
-  while (res.poses.poses.size() + failed_poses_counter != n_poses)
+  while (res->poses.poses.size() + failed_poses_counter != n_poses)
   {
     std::chrono::milliseconds span(1000);
     for (auto it = fk_sol_futures.begin(); it != fk_sol_futures.end();)
@@ -539,11 +501,11 @@ bool IkServices::computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_sol
       if (it->wait_for(span) == std::future_status::ready)
       {
         auto fk_sol = it->get();
-        res.poses.poses.push_back(fk_sol);
+        res->poses.poses.push_back(fk_sol);
         it = fk_sol_futures.erase(it);
 
-        ik_solver::printProgress(double(res.poses.poses.size() + failed_poses_counter) / double(n_poses),
-                                 "FK MT - OK/FAILED/TOT %03zu/%03zu/%03zu", res.poses.poses.size(),
+        ik_solver::printProgress(double(res->poses.poses.size() + failed_poses_counter) / double(n_poses),
+                                 "FK MT - OK/FAILED/TOT %03zu/%03zu/%03zu", res->poses.poses.size(),
                                  failed_poses_counter, n_poses);
       }
       else
@@ -581,17 +543,17 @@ bool IkServices::computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_sol
  * @return false
  */
 
-bool IkServices::getBounds(ik_solver_msgs::GetBound::Request& req, ik_solver_msgs::GetBound::Response& res)
+bool IkServicesBase::getBounds(ik_solver_msgs::GetBound::Request* req, ik_solver_msgs::GetBound::Response* res)
 {
-  res.joint_names.resize(config().joint_names().size());
-  res.lower_bound.resize(config().lb().size());
-  res.upper_bound.resize(config().ub().size());
+  res->joint_names.resize(config().joint_names().size());
+  res->lower_bound.resize(config().lb().size());
+  res->upper_bound.resize(config().ub().size());
 
   for (size_t iax = 0; iax < config().lb().size(); iax++)
   {
-    res.joint_names.at(iax) = config().joint_names().at(iax);
-    res.lower_bound.at(iax) = config().lb()(iax);
-    res.upper_bound.at(iax) = config().ub()(iax);
+    res->joint_names.at(iax) = config().joint_names().at(iax);
+    res->lower_bound.at(iax) = config().lb()(iax);
+    res->upper_bound.at(iax) = config().ub()(iax);
   }
   return true;
 }
@@ -604,7 +566,7 @@ bool IkServices::getBounds(ik_solver_msgs::GetBound::Request& req, ik_solver_msg
  * @return true
  * @return false
  */
-bool IkServices::reconfigure(Trigger::Request& req, Trigger::Response& res)
+bool IkServicesBase::reconfigure(Trigger::Request* req, Trigger::Response* res)
 {
   for (std::size_t i = 0; i < ik_solver::MAX_NUM_PARALLEL_IK_SOLVER; i++)
   {

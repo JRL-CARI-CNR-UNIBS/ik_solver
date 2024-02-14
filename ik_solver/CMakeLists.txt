@@ -25,20 +25,20 @@ find_package(ik_solver_core REQUIRED)
 ###########
 ## SETUP ##
 ###########
-
+set(IKSERVICES_SOURCE src/internal/services_common.cpp)
 ## ROS 1
 if(ROS_VERSION EQUAL 1)
-    find_package(catkin REQUIRED COMPONENTS
-      eigen_conversions
-      ik_solver_msgs
-      pluginlib
-      roscpp
-      tf_conversions
-      urdf
-      std_srvs
-      geometry_msgs
-      tf
-    )
+  find_package(catkin REQUIRED COMPONENTS
+    eigen_conversions
+    ik_solver_msgs
+    pluginlib
+    roscpp
+    tf_conversions
+    urdf
+    std_srvs
+    geometry_msgs
+    tf
+  )
 
   catkin_package(
     INCLUDE_DIRS include
@@ -53,7 +53,8 @@ if(ROS_VERSION EQUAL 1)
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
   )
-
+  list(APPEND IKSERVICES_SOURCE src/internal/services_1.cpp)
+  set(NODE_SOURCE src/node_1.cpp)
 ## ROS 2
 elseif(ROS_VERSION EQUAL 2)
   find_package(ament_cmake REQUIRED)
@@ -67,6 +68,9 @@ elseif(ROS_VERSION EQUAL 2)
   find_package(geometry_msgs REQUIRED)
   find_package(std_srvs REQUIRED)
   find_package(ik_solver_msgs REQUIRED)
+
+  list(APPEND IKSERVICES_SOURCE src/internal/services_2.cpp)
+  set(NODE_SOURCE src/node_2.cpp)
 endif()
 ########################
 
@@ -82,13 +86,13 @@ endif()
 #############
 ## TARGETS ##
 #############
+add_library(${PROJECT_NAME} ${IKSERVICES_SOURCE} src/internal/utils.cpp src/internal/types.cpp)
+target_compile_definitions(${PROJECT_NAME} PUBLIC
+  _MAX_NUM_PARALLEL_IK_SOLVER=${MAX_NUM_PARALLEL_IK_SOLVER}
+  -DROS_VERSION=${ROS_VERSION})
 
-add_library(${PROJECT_NAME} src/internal/services.cpp src/internal/utils.cpp src/internal/types.cpp)
-target_compile_definitions(${PROJECT_NAME} PUBLIC _MAX_NUM_PARALLEL_IK_SOLVER=${MAX_NUM_PARALLEL_IK_SOLVER})
-
-target_compile_definitions(${PROJECT_NAME} PUBLIC -DROS_VERSION=${ROS_VERSION})
-
-add_executable(${PROJECT_NAME}_node src/node.cpp)
+add_executable(${PROJECT_NAME}_node ${NODE_SOURCE})
+target_compile_definitions(${PROJECT_NAME}_node PUBLIC -DROS_VERSION=${ROS_VERSION})
 
 ###########
 ## LINK  ##

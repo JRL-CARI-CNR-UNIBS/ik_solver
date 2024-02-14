@@ -37,24 +37,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ik_solver/internal/types.h>
 
 #include <ik_solver_core/internal/wsq.h>
-#if ROS_VERSION == 1
+
 #include <ros/ros.h>
 #include <ik_solver_msgs/GetIk.h>
 #include <ik_solver_msgs/GetFk.h>
 #include <ik_solver_msgs/GetIkArray.h>
 #include <ik_solver_msgs/GetFkArray.h>
 #include <ik_solver_msgs/GetBound.h>
-#elif ROS_VERSION == 2
-#include <rclcpp/rclcpp.hpp>
-#include <ik_solver_msgs/srv/get_ik.hpp>
-#include <ik_solver_msgs/srv/get_fk.hpp>
-#include <ik_solver_msgs/srv/get_ik_array.hpp>
-#include <ik_solver_msgs/srv/get_fk_array.hpp>
-#include <ik_solver_msgs/srv/get_bound.hpp>
-namespace ik_solver_msgs{
-  using namespace srv;
-}
-#endif
 
 #include <ik_solver_core/ik_solver_base_class.h>
 
@@ -100,27 +89,14 @@ using IkSolversPool = std::array<boost::shared_ptr<ik_solver::IkSolver>, ik_solv
 class IkServices
 {
 private:
-#if ROS_VERSION == 1
-//  using RosService = ros::ServiceServer;
   ros::ServiceServer ik_server_;
   ros::ServiceServer ik_server_array_;
   ros::ServiceServer fk_server_;
   ros::ServiceServer fk_server_array_;
   ros::ServiceServer bound_server_array_;
   ros::ServiceServer reconfigure_;
-  using Node = ros::NodeHandle;
-#elif ROS_VERSION == 2
-//  using RosService = std::shared_ptr<rclcpp::ServiceBase>;
-  using Node = rclcpp::Node;
-  rclcpp::Service<ik_solver_msgs::srv::GetIk>::SharedPtr      ik_server_;
-  rclcpp::Service<ik_solver_msgs::srv::GetIkArray>::SharedPtr ik_server_array_;
-  rclcpp::Service<ik_solver_msgs::srv::GetFk>::SharedPtr      fk_server_;
-  rclcpp::Service<ik_solver_msgs::srv::GetFkArray>::SharedPtr fk_server_array_;
-  rclcpp::Service<ik_solver_msgs::srv::GetBound>::SharedPtr   bound_server_array_;
-  rclcpp::Service<Trigger>::SharedPtr                         reconfigure_;
-#endif
 
-  Node& nh_;
+  ros::NodeHandle nh_;
 
   const IkSolver& config() const;
 
@@ -149,7 +125,7 @@ public:
   IkServices(const IkServices&&) = delete;
   ~IkServices() = default;
 
-  IkServices(Node& nh, IkSolversPool& ik_solvers);
+  IkServices(ros::NodeHandle& nh, IkSolversPool& ik_solvers);
 
   bool computeIK(ik_solver_msgs::GetIk::Request& req, ik_solver_msgs::GetIk::Response& res);
 

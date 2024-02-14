@@ -48,7 +48,7 @@ target_link_libraries(${PROJECT_NAME} INTERFACE
   ${PROJECT_NAME}_utilities
   ${cnr_logger_LIBRARIES}
   ${cnr_param_LIBRARIES}
-  ${urdfdom__LIBRARIES}
+  ${urdfdom_LIBRARIES}
   ${urdfdom_headers_LIBRARIES}
   Eigen3::Eigen
   Boost::filesystem Boost::system Boost::date_time
@@ -84,7 +84,7 @@ install(EXPORT export_${PROJECT_NAME}
         DESTINATION ${EXPORT_DEST})
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}
-        DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
+        DESTINATION include)
 
 # Config
 include(CMakePackageConfigHelpers)

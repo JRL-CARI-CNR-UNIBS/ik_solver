@@ -32,7 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pluginlib/class_loader.h>
 #include <ik_solver_core/ik_solver_base_class.h>
 
-#include <ik_solver/internal/services.h>
+#include <ik_solver/internal/services_1.h>
 
 int main(int argc, char **argv)
 {
