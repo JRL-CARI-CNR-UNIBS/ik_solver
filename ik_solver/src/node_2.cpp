@@ -39,14 +39,15 @@ int main(int argc, char **argv)
 {
   rclcpp::init(argc, argv);
   rclcpp::Node::SharedPtr node = std::make_shared<rclcpp::Node>("ik_solver_node");
-
 //  ros::NodeHandle nh("~");
   pluginlib::ClassLoader<ik_solver::IkSolver> ik_loader("ik_solver", "ik_solver::IkSolver");
+
+  node->declare_parameter("type", rclcpp::PARAMETER_STRING);
 
   std::string plugin_name;
   if (!node->get_parameter("type",plugin_name))
   {
-    RCLCPP_ERROR(node->get_logger(), "%s/type is not defined",node->get_namespace());
+    RCLCPP_ERROR(node->get_logger(), "%s/type is not defined",node->get_name());
     return -1;
   }
 

@@ -86,7 +86,7 @@ endif()
 #############
 ## TARGETS ##
 #############
-add_library(${PROJECT_NAME} ${IKSERVICES_SOURCE} src/internal/utils.cpp src/internal/types.cpp)
+add_library(${PROJECT_NAME} SHARED ${IKSERVICES_SOURCE} src/internal/utils.cpp src/internal/types.cpp)
 target_compile_definitions(${PROJECT_NAME} PUBLIC
   _MAX_NUM_PARALLEL_IK_SOLVER=${MAX_NUM_PARALLEL_IK_SOLVER}
   -DROS_VERSION=${ROS_VERSION})
@@ -165,7 +165,11 @@ if(ROS_VERSION EQUAL 2)
                             pluginlib
                             geometry_msgs
                             std_srvs
-                            ik_solver_msgs)
+                            ik_solver_msgs
+                            )
+  ament_export_include_directories(
+    include
+  )
 
   install(TARGETS ${PROJECT_NAME}_node
       DESTINATION lib/${PROJECT_NAME})

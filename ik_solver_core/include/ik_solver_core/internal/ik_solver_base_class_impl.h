@@ -66,14 +66,14 @@ inline bool IkSolver::config(const std::string& params_ns)
 
   if(!cnr::param::get(params_ns_ + "logger_config_file", logger_config_path, param_what))
   {
-    printf("[ERROR]: Missing parameter %s", (params_ns_ + "logger_config_file").c_str());
+    fprintf(stderr, "[ERROR]: Missing parameter %s", (params_ns_ + "logger_config_file").c_str());
     return false;
   }
   // TODO: check if exists the logger param file
   // TODO: differentiate logger_id
   if (!logger_.init("ik_solver", logger_config_path, false, false))
   {
-    printf("[ERROR]: Logger configuration failed");
+    fprintf(stderr, "[ERROR]: Logger configuration failed");
     return false;
   }
 
@@ -116,11 +116,15 @@ inline bool IkSolver::config(const std::string& params_ns)
   
   // model_.initParam("robot_description");
   model_ = urdf::parseURDF(robot_description);
+  if(model_ == nullptr)
+  {
+    CNR_ERROR(logger_, "Cannot load robot_description!");
+  }
 
   auto pn = params_ns_ + "joint_names";
   if (!cnr::param::get(pn, joint_names_, param_what))
   {
-    printf("WHAT: %s", param_what.c_str());
+    fprintf(stderr, "WHAT: %s", param_what.c_str());
     CNR_ERROR(logger_,"[IkSolver::config] %s is not specified", pn.c_str());
     return false;
   }
