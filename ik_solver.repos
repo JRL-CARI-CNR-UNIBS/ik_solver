@@ -1,0 +1,17 @@
+repositories:
+  cnr_logger:
+    type: git
+    url: https://github.com/CNR-STIIMA-IRAS/cnr_logger.git
+    version: master
+  cnr_param:
+    type: git
+    url: https://github.com/CNR-STIIMA-IRAS/cnr_param.git
+    version: master
+  ik_solver:
+    type: git
+    url: https://github.com/JRL-CARI-CNR-UNIBS/ik_solver.git
+    version: roberto-devel
+  ik_solver_msgs:
+    type: git
+    url: https://github.com/JRL-CARI-CNR-UNIBS/ik_solver_msgs.git
+    version: roberto-devel
