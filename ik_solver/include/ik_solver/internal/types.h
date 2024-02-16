@@ -39,7 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   #include <geometry_msgs/Pose.h>
   #include <std_srvs/Trigger.h>
   using Pose = geometry_msgs::Pose;
-  using Trigger = std_srvs::Trigger
+  using Trigger = std_srvs::Trigger;
 #elif ROS_VERSION == 2
   #include <ik_solver_msgs/msg/configuration.hpp>
   #include <ik_solver_msgs/msg/ik_solution.hpp>

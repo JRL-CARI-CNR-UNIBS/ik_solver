@@ -42,7 +42,7 @@ if(ROS_VERSION EQUAL 1)
 
   catkin_package(
     INCLUDE_DIRS include
-    LIBRARIES ${PROJECT_NAME}
+    LIBRARIES ${PROJECT_NAME} ${PROJECT_NAME}_node
     CATKIN_DEPENDS eigen_conversions ik_solver_msgs pluginlib roscpp tf_conversions urdf geometry_msgs tf
     DEPENDS EIGEN3 ik_solver_core
   )
@@ -89,10 +89,10 @@ endif()
 add_library(${PROJECT_NAME} SHARED ${IKSERVICES_SOURCE} src/internal/utils.cpp src/internal/types.cpp)
 target_compile_definitions(${PROJECT_NAME} PUBLIC
   _MAX_NUM_PARALLEL_IK_SOLVER=${MAX_NUM_PARALLEL_IK_SOLVER}
-  -DROS_VERSION=${ROS_VERSION})
+  ROS_VERSION=${ROS_VERSION})
 
 add_executable(${PROJECT_NAME}_node ${NODE_SOURCE})
-target_compile_definitions(${PROJECT_NAME}_node PUBLIC -DROS_VERSION=${ROS_VERSION})
+target_compile_definitions(${PROJECT_NAME}_node PUBLIC ROS_VERSION=${ROS_VERSION})
 
 ###########
 ## LINK  ##
@@ -102,9 +102,10 @@ target_compile_definitions(${PROJECT_NAME}_node PUBLIC -DROS_VERSION=${ROS_VERSI
 if(ROS_VERSION EQUAL 1)
   add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
   target_link_libraries(${PROJECT_NAME}
-    ${ik_solver_core_LIBRARIES}
     ${catkin_LIBRARIES}
+    ${ik_solver_core_LIBRARIES}
   )
+  # set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_DEFINITIONS "ROS_VERSION=${ROS_VERSION}")
 
   add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
   target_link_libraries(${PROJECT_NAME}_node
