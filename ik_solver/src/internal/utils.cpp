@@ -29,7 +29,7 @@ Configurations getSeeds(const std::vector<std::string>& joint_names, const std::
 
   if (!seed_ok)
   {
-    printf("[WARNING] seed names are wrong, skip seed");
+    fprintf(stderr, "[WARNING] seed names are wrong, skip seed");
   }
   else
   {
@@ -39,7 +39,7 @@ Configurations getSeeds(const std::vector<std::string>& joint_names, const std::
       s.resize(joint_names.size());
       if (s.size() != (long)seed.configuration.size())
       {
-        printf("[WARNING] seed dimensions are wrong, given %zu, expected %zu. Skip it", seed.configuration.size(), s.size());
+        fprintf(stderr,"[WARNING] seed dimensions are wrong, given %zu, expected %zu. Skip it", seed.configuration.size(), s.size());
         continue;
       }
       for (size_t idx = 0; idx < seed.configuration.size(); idx++)
@@ -90,7 +90,7 @@ bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d
   }
   catch (...)
   {
-    printf("[WARNING] Unable to find a transform from %s to %s, tf error=%s", a_name.c_str(), b_name.c_str(), tf_error.c_str());
+    fprintf(stderr, "[WARNING] Unable to find a transform from %s to %s, tf error=%s", a_name.c_str(), b_name.c_str(), tf_error.c_str());
     return false;
   }
 
