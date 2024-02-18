@@ -16,14 +16,17 @@
   <build_depend condition="$ROS_VERSION == 1">tf_conversions   </build_depend>
   <build_depend condition="$ROS_VERSION == 1">roscpp           </build_depend>
   <build_depend condition="$ROS_VERSION == 1">tf               </build_depend>
+  <build_depend condition="$ROS_VERSION == 1">urdf             </build_depend>
   <build_export_depend condition="$ROS_VERSION == 1">eigen_conversions</build_export_depend>
   <build_export_depend condition="$ROS_VERSION == 1">tf_conversions   </build_export_depend>
   <build_export_depend condition="$ROS_VERSION == 1">roscpp           </build_export_depend>
   <build_export_depend condition="$ROS_VERSION == 1">tf               </build_export_depend>
+  <build_export_depend condition="$ROS_VERSION == 1">urdf             </build_export_depend>
   <exec_depend condition="$ROS_VERSION == 1">eigen_conversions</exec_depend>
   <exec_depend condition="$ROS_VERSION == 1">tf_conversions   </exec_depend>
   <exec_depend condition="$ROS_VERSION == 1">roscpp           </exec_depend>
   <exec_depend condition="$ROS_VERSION == 1">tf               </exec_depend>
+  <exec_depend condition="$ROS_VERSION == 1">urdf             </exec_depend>
 
   <!-- ROS2 -->
   <build_depend condition="$ROS_VERSION == 2">rclcpp           </build_depend>

@@ -42,7 +42,7 @@ if(ROS_VERSION EQUAL 1)
 
   catkin_package(
     INCLUDE_DIRS include
-    LIBRARIES ${PROJECT_NAME}
+    LIBRARIES ${PROJECT_NAME} ${PROJECT_NAME}_node
     CATKIN_DEPENDS eigen_conversions ik_solver_msgs pluginlib roscpp tf_conversions urdf geometry_msgs tf
     DEPENDS EIGEN3 ik_solver_core
   )

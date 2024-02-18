@@ -45,48 +45,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ik_solver_msgs/GetFkArray.h>
 #include <ik_solver_msgs/GetBound.h>
 
+#include <ik_solver/internal/services_common.h>
+
 #include <ik_solver_core/ik_solver_base_class.h>
 
 namespace ik_solver
 {
-using IkArgs = std::tuple<Eigen::Affine3d, ik_solver::Configurations, std::size_t, int, int>;
 
-inline const Eigen::Affine3d& get_T_base_flange(const IkArgs& args)
-{
-  return std::get<0>(args);
-}
-inline const ik_solver::Configurations& get_seeds(const IkArgs& args)
-{
-  return std::get<1>(args);
-}
-inline const std::size_t& get_desired_solutions(const IkArgs& args)
-{
-  return std::get<2>(args);
-}
-inline const int& get_min_stall_iterations(const IkArgs& args)
-{
-  return std::get<3>(args);
-}
-inline const int& get_max_stall_iterations(const IkArgs& args)
-{
-  return std::get<4>(args);
-}
-
-// std::shared_ptr<ik_solver::ThreadPool> ik_pool;
-#if defined(_MAX_NUM_PARALLEL_IK_SOLVER) && (_MAX_NUM_PARALLEL_IK_SOLVER!=0)
-  #define STR_HELPER(x) #x
-  #define STR(x) STR_HELPER(x)
-  #pragma message "IK SOLVER _MAX_NUM_PARALLEL_IK_SOLVER: " STR(_MAX_NUM_PARALLEL_IK_SOLVER)
-  #define NUM_MAX_AXES MAX_NUM_AXES
-#else
-  #define _MAX_NUM_PARALLEL_IK_SOLVER 10
-#endif
-
-constexpr static const size_t MAX_NUM_PARALLEL_IK_SOLVER = _MAX_NUM_PARALLEL_IK_SOLVER;
-
-using IkSolversPool = std::array<boost::shared_ptr<ik_solver::IkSolver>, ik_solver::MAX_NUM_PARALLEL_IK_SOLVER>;
-
-class IkServices
+class IkServices : public IkServicesBase
 {
 private:
   ros::ServiceServer ik_server_;
@@ -97,26 +63,6 @@ private:
   ros::ServiceServer reconfigure_;
 
   ros::NodeHandle nh_;
-
-  const IkSolver& config() const;
-
-  IkSolversPool& ik_solvers_;
-  
-  bool computeTransformations(const std::string& tip_frame, 
-                              const std::string& reference_frame,
-                              Eigen::Affine3d& T_poses_base, 
-                              Eigen::Affine3d& T_flange_tool, 
-                              Eigen::Affine3d& T_tool_tip);
-                              
-
-  std::vector<ik_solver::Solutions> computeIKArrayMT(const std::vector<Eigen::Affine3d>& v_T_b_f,
-                                                          const std::vector<ik_solver::Configurations>& vseeds,
-                                                          size_t desired_solutions, int min_stall_iterations, int max_stall_iterations);
-
-  std::vector<ik_solver::Solutions> computeIKArrayST(const std::vector<Eigen::Affine3d>& v_T_b_f,
-                                                          const std::vector<ik_solver::Configurations>& vseeds,
-                                                          size_t desired_solutions, int min_stall_iterations, int max_stall_iterations,
-                                                          uint8_t update_recursively_seeds);
 
 public:
   IkServices() = delete;
