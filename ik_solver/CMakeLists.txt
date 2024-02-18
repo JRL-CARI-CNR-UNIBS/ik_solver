@@ -20,6 +20,7 @@ endif()
 
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(ik_solver_core REQUIRED)
+find_package(Boost REQUIRED COMPONENTS system)
 
 
 ###########
@@ -39,12 +40,14 @@ if(ROS_VERSION EQUAL 1)
     geometry_msgs
     tf
   )
+  find_package(cnr_param REQUIRED)
+  find_package(cnr_logger REQUIRED)
 
   catkin_package(
     INCLUDE_DIRS include
     LIBRARIES ${PROJECT_NAME} ${PROJECT_NAME}_node
     CATKIN_DEPENDS eigen_conversions ik_solver_msgs pluginlib roscpp tf_conversions urdf geometry_msgs tf
-    DEPENDS EIGEN3 ik_solver_core
+    DEPENDS EIGEN3 ik_solver_core cnr_param cnr_logger
   )
 
   include_directories(
@@ -108,9 +111,9 @@ if(ROS_VERSION EQUAL 1)
 
   add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
   target_link_libraries(${PROJECT_NAME}_node
+    ${catkin_LIBRARIES}
     ${PROJECT_NAME}
     ${ik_solver_core_LIBRARIES}
-    ${catkin_LIBRARIES}
   )
 endif()
 

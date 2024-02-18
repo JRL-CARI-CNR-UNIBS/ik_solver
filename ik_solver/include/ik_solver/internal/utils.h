@@ -8,6 +8,7 @@
 #if ROS_X == 1
 #include <tf/transform_listener.h>
 #include <tf_conversions/tf_eigen.h>
+#include <eigen_conversions/eigen_msg.h>
 #elif ROS_X == 2
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <tf2_ros/transform_listener.h>
