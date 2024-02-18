@@ -38,14 +38,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <ik_solver_core/internal/wsq.h>
 
-#if ROS_VERSION == 1
+#if ROS_X == 1
 #include <ros/ros.h>
 #include <ik_solver_msgs/GetIk.h>
 #include <ik_solver_msgs/GetFk.h>
 #include <ik_solver_msgs/GetIkArray.h>
 #include <ik_solver_msgs/GetFkArray.h>
 #include <ik_solver_msgs/GetBound.h>
-#elif ROS_VERSION == 2
+#elif ROS_X == 2
 //#include <rclcpp/rclcpp.hpp>
 #include <ik_solver_msgs/srv/get_ik.hpp>
 #include <ik_solver_msgs/srv/get_fk.hpp>

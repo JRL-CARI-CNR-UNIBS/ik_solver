@@ -33,14 +33,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include <Eigen/Core>
 
-#if ROS_VERSION == 1
+#if ROS_X == 1
   #include <ik_solver_msgs/Configuration.h>
   #include <ik_solver_msgs/IkSolution.h>
   #include <geometry_msgs/Pose.h>
   #include <std_srvs/Trigger.h>
   using Pose = geometry_msgs::Pose;
   using Trigger = std_srvs::Trigger
-#elif ROS_VERSION == 2
+#elif ROS_X == 2
   #include <ik_solver_msgs/msg/configuration.hpp>
   #include <ik_solver_msgs/msg/ik_solution.hpp>
   #include <geometry_msgs/msg/pose.hpp>

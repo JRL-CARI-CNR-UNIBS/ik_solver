@@ -89,10 +89,10 @@ endif()
 add_library(${PROJECT_NAME} SHARED ${IKSERVICES_SOURCE} src/internal/utils.cpp src/internal/types.cpp)
 target_compile_definitions(${PROJECT_NAME} PUBLIC
   _MAX_NUM_PARALLEL_IK_SOLVER=${MAX_NUM_PARALLEL_IK_SOLVER}
-  -DROS_VERSION=${ROS_VERSION})
+  -DROS_X=${ROS_VERSION})
 
 add_executable(${PROJECT_NAME}_node ${NODE_SOURCE})
-target_compile_definitions(${PROJECT_NAME}_node PUBLIC -DROS_VERSION=${ROS_VERSION})
+target_compile_definitions(${PROJECT_NAME}_node PUBLIC -DROS_X=${ROS_VERSION})
 
 ###########
 ## LINK  ##

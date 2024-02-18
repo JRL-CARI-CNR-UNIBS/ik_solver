@@ -54,7 +54,7 @@ Configurations getSeeds(const std::vector<std::string>& joint_names, const std::
 
 bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab)
 {
-#if ROS_VERSION == 1
+#if ROS_X == 1
   tf::StampedTransform location_transform;
   ros::Time t0 = ros::Time(0);
   std::string tf_error;
@@ -77,7 +77,7 @@ bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d
 
   tf::poseTFToEigen(location_transform, T_ab);
   return true;
-#elif ROS_VERSION == 2
+#elif ROS_X == 2
   using namespace std::chrono_literals;
   geometry_msgs::msg::TransformStamped location_transform;
   tf2::TimePoint t0 = tf2::TimePointZero;
