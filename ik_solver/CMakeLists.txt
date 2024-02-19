@@ -131,6 +131,7 @@ if(ROS_VERSION EQUAL 1)
     ${catkin_LIBRARIES}
     ${PROJECT_NAME}
     ${ik_solver_core_LIBRARIES}
+    ${catkin_LIBRARIES}
   )
 endif()
 
