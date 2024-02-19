@@ -18,8 +18,10 @@ if(NOT((ROS_VERSION EQUAL 1) OR (ROS_VERSION EQUAL 2)))
   message(FATAL_ERROR "No supported version of ROS found!")
 endif()
 
+option(SEARCH_IN_CATKIN "search for _core and cnr_* dependencies in catkin (only if ROS_VERSION=1)" OFF)
+
 find_package(Eigen3 REQUIRED NO_MODULE)
-find_package(ik_solver_core REQUIRED)
+find_package(Boost REQUIRED COMPONENTS system)
 
 
 ###########
@@ -28,6 +30,16 @@ find_package(ik_solver_core REQUIRED)
 set(IKSERVICES_SOURCE src/internal/services_common.cpp)
 ## ROS 1
 if(ROS_VERSION EQUAL 1)
+  
+  if(SEARCH_IN_CATKIN)
+    set(LIB_IN_CATKIN cnr_param;cnr_logger;ik_solver_core)
+  else()
+    find_package(cnr_logger REQUIRED)
+    find_package(ik_solver_core REQUIRED)
+    find_package(cnr_param REQUIRED)
+    set(LIB_NON_CATKIN cnr_param;cnr_logger;ik_solver_core)
+  endif()
+
   find_package(catkin REQUIRED COMPONENTS
     eigen_conversions
     ik_solver_msgs
@@ -38,13 +50,14 @@ if(ROS_VERSION EQUAL 1)
     std_srvs
     geometry_msgs
     tf
+    ${LIB_IN_CATKIN}
   )
 
   catkin_package(
     INCLUDE_DIRS include
     LIBRARIES ${PROJECT_NAME} ${PROJECT_NAME}_node
-    CATKIN_DEPENDS eigen_conversions ik_solver_msgs pluginlib roscpp tf_conversions urdf geometry_msgs tf
-    DEPENDS EIGEN3 ik_solver_core
+    CATKIN_DEPENDS eigen_conversions ik_solver_msgs pluginlib roscpp tf_conversions urdf geometry_msgs tf ${LIB_IN_CATKIN}
+    DEPENDS EIGEN3 ${LIB_NON_CATKIN}
   )
 
   include_directories(
@@ -60,6 +73,9 @@ elseif(ROS_VERSION EQUAL 2)
   find_package(ament_cmake REQUIRED)
   find_package(rclcpp REQUIRED)
 
+  find_package(cnr_param REQUIRED)
+  find_package(cnr_logger REQUIRED)
+
   find_package(tf2 REQUIRED)
   find_package(tf2_ros REQUIRED)
   find_package(tf2_eigen REQUIRED)
@@ -68,6 +84,8 @@ elseif(ROS_VERSION EQUAL 2)
   find_package(geometry_msgs REQUIRED)
   find_package(std_srvs REQUIRED)
   find_package(ik_solver_msgs REQUIRED)
+
+  find_package(ik_solver_core REQUIRED)
 
   list(APPEND IKSERVICES_SOURCE src/internal/services_2.cpp)
   set(NODE_SOURCE src/node_2.cpp)
@@ -102,15 +120,17 @@ target_compile_definitions(${PROJECT_NAME}_node PUBLIC -DROS_X=${ROS_VERSION})
 if(ROS_VERSION EQUAL 1)
   add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
   target_link_libraries(${PROJECT_NAME}
+    ${cnr_param_LIBRARIES}
     ${ik_solver_core_LIBRARIES}
     ${catkin_LIBRARIES}
   )
 
   add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
   target_link_libraries(${PROJECT_NAME}_node
+    ${cnr_param_LIBRARIES}
+    ${catkin_LIBRARIES}
     ${PROJECT_NAME}
     ${ik_solver_core_LIBRARIES}
-    ${catkin_LIBRARIES}
   )
 endif()
 

@@ -31,8 +31,40 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ros/ros.h>
 #include <pluginlib/class_loader.h>
 #include <ik_solver_core/ik_solver_base_class.h>
+#include <boost/shared_ptr.hpp>
 
 #include <ik_solver/internal/services_1.h>
+
+// For boost -> std shared_ptr conversion
+namespace {
+    template<class SharedPointer> struct Holder {
+        SharedPointer p;
+
+        Holder(const SharedPointer &p) : p(p) {}
+        Holder(const Holder &other) : p(other.p) {}
+        Holder(Holder &&other) : p(std::move(other.p)) {}
+
+        void operator () (...) { p.reset(); }
+    };
+}
+
+template<class T> std::shared_ptr<T> to_std_ptr(const boost::shared_ptr<T> &p) {
+    typedef Holder<std::shared_ptr<T>> H;
+    if(H *h = boost::get_deleter<H>(p)) {
+        return h->p;
+    } else {
+        return std::shared_ptr<T>(p.get(), Holder<boost::shared_ptr<T>>(p));
+    }
+}
+
+template<class T> boost::shared_ptr<T> to_boost_ptr(const std::shared_ptr<T> &p){
+    typedef Holder<boost::shared_ptr<T>> H;
+    if(H * h = std::get_deleter<H>(p)) {
+        return h->p;
+    } else {
+        return boost::shared_ptr<T>(p.get(), Holder<std::shared_ptr<T>>(p));
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -52,7 +84,8 @@ int main(int argc, char **argv)
   ROS_DEBUG("Creating %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
   for(std::size_t i=0;i<ik_solver::MAX_NUM_PARALLEL_IK_SOLVER;i++ )
   {
-    ik_solvers.at(i) = ik_loader.createInstance(plugin_name);
+    boost::shared_ptr<ik_solver::IkSolver> ptr = ik_loader.createInstance(plugin_name);
+    ik_solvers.at(i) = to_std_ptr<ik_solver::IkSolver>(ptr);
     ROS_DEBUG("Configuring %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
     if (!ik_solvers.at(i)->config())
     {
