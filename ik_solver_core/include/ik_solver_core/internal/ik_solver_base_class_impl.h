@@ -48,9 +48,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <Eigen/Core>
 #include <cstdio>
+#include <cstdlib>
 
 #include <ik_solver_core/ik_solver_base_class.h>
 
+
+constexpr static char ENV_LOGGER_CONFIG_PATH[] = "IK_SOLVER_LOGGER_CONFIG_PATH";
 
 using namespace std::chrono_literals;
 
@@ -62,18 +65,25 @@ inline bool IkSolver::config(const std::string& params_ns)
   params_ns_ = ik_solver::resolve_ns(params_ns);
 
   std::string param_what;
-  std::string logger_config_path;
+//  std::string logger_config_path;
 
-  if(!cnr::param::get(params_ns_ + "logger_config_file", logger_config_path, param_what))
-  {
-    fprintf(stderr, "[ERROR]: Missing parameter %s", (params_ns_ + "logger_config_file").c_str());
-    return false;
-  }
+//  if(!cnr::param::get(params_ns_ + "logger_config_file", logger_config_path, param_what))
+//  {
+//    fprintf(stderr, "[ERROR]: Missing parameter %s", (params_ns_ + "logger_config_file").c_str());
+//    return false;
+//  }
   // TODO: check if exists the logger param file
   // TODO: differentiate logger_id
+  char* logger_config_path = std::getenv(ENV_LOGGER_CONFIG_PATH);
+//  std::string logger_config_path();
+  if(logger_config_path == nullptr)
+  {
+    fprintf(stderr, "%s[ERROR]: Missing environemnt variable IK_SOLVER_LOGGER_CONFIG_PATH!%s\n", cnr_logger::BOLDRED().c_str(), cnr_logger::RESET().c_str());
+    return false;
+  }
   if (!logger_.init("ik_solver", logger_config_path, false, false))
   {
-    fprintf(stderr, "[ERROR]: Logger configuration failed");
+    fprintf(stderr, "%s[ERROR]: Logger configuration failed: parameter file checked: %s%s\n", cnr_logger::BOLDRED().c_str(), logger_config_path, cnr_logger::RESET().c_str());
     return false;
   }
 
@@ -108,9 +118,9 @@ inline bool IkSolver::config(const std::string& params_ns)
   }
 
   std::string robot_description;
-  if(!cnr::param::get(params_ns_ + "robot_description", robot_description, param_what))
+  if(!cnr::param::get(params_ns_ + "/robot_description", robot_description, param_what))
   {
-    CNR_ERROR(logger_, "IkSolver: Missing robot_description parameter");
+    CNR_ERROR(logger_, "IkSolver: Missing robot_description parameter\n%s",param_what.c_str());
     return false;
   }
   
@@ -171,6 +181,11 @@ inline bool IkSolver::config(const std::string& params_ns)
 inline bool IkSolver::getFlangeTool()
 {
   return getTF(tool_frame_, flange_frame_, T_tool_flange_);
+}
+
+inline bool IkSolver::changeTool(const std::string &t_frame)
+{
+  tool_frame_ = t_frame;
 }
 
 // Eigen::Affine3d IkSolver::getFK(const Configuration& s)

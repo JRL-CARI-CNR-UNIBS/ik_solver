@@ -36,11 +36,16 @@ endif()
 # Utilities
 add_library(${PROJECT_NAME}_utilities SHARED
   src/${PROJECT_NAME}/internal/utils.cpp
- )
+  include/${PROJECT_NAME}/internal/SafeQueue.h
+  include/${PROJECT_NAME}/internal/types.h
+  include/${PROJECT_NAME}/internal/utils.h
+  include/${PROJECT_NAME}/internal/wsq.h
+  )
 
 # Core
 add_library(${PROJECT_NAME} INTERFACE
-  # src/${PROJECT_NAME}/ik_solver_base_class.cpp
+  include/${PROJECT_NAME}/ik_solver_base_class.h
+  include/${PROJECT_NAME}/internal/ik_solver_base_class_impl.h
   )
 
 if(USE_ROS1)

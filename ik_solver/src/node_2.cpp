@@ -42,23 +42,45 @@ int main(int argc, char **argv)
 //  ros::NodeHandle nh("~");
   pluginlib::ClassLoader<ik_solver::IkSolver> ik_loader("ik_solver", "ik_solver::IkSolver");
 
-  node->declare_parameter("type", rclcpp::PARAMETER_STRING);
-
   std::string plugin_name;
-  if (!node->get_parameter("type",plugin_name))
+  std::string what;
+  if(!cnr::param::get(std::string(node->get_namespace()) + "/type", plugin_name, what))
   {
-    RCLCPP_ERROR(node->get_logger(), "%s/type is not defined",node->get_name());
+    RCLCPP_ERROR(node->get_logger(), "%s/type is not defined",node->get_namespace());
+    RCLCPP_DEBUG_STREAM(node->get_logger(), what);
     return -1;
   }
+
+  // Get robot_description
+  node->declare_parameter("robot_description_holder", rclcpp::PARAMETER_STRING);
+  const std::string robot_description_holder = node->get_parameter_or("robot_description_holder", std::string("/robot_state_publisher"));
+  RCLCPP_DEBUG(node->get_logger(), "robot_description_holder: %s", robot_description_holder.c_str());
+  rclcpp::SyncParametersClient::SharedPtr parameters_client = std::make_shared<rclcpp::SyncParametersClient>(node, robot_description_holder);
+  while (!parameters_client->wait_for_service(1s)) {
+    if (!rclcpp::ok()) {
+      RCLCPP_ERROR(node->get_logger(), "Interrupted while waiting for the service. Exiting.");
+      rclcpp::shutdown();
+      return -1;
+    }
+    RCLCPP_INFO(node->get_logger(), "service not available, waiting again...");
+  }
+  if(!parameters_client->has_parameter("robot_description"))
+  {
+    RCLCPP_ERROR(node->get_logger(), "Node %s does not have the robot_description parameter", robot_description_holder.c_str());
+    return -1;
+  }
+  const std::string robot_description = parameters_client->get_parameter<std::string>("robot_description");
+  RCLCPP_DEBUG(node->get_logger(), "/robot_description: %s", robot_description.c_str());
+  cnr::param::set(node->get_namespace()+std::string("/robot_description"), robot_description, what);
+  RCLCPP_WARN(node->get_logger(), "what: %s", what.c_str());
 
   ik_solver::IkSolversPool  ik_solvers;
   RCLCPP_DEBUG(node->get_logger(), "Creating %s (type %s)",node->get_namespace(), plugin_name.c_str());
   for(std::size_t i=0;i<ik_solver::MAX_NUM_PARALLEL_IK_SOLVER;i++ )
   {
-//    ik_solvers.at(i) = ik_loader.createInstance(plugin_name);
     ik_solvers.at(i) = ik_loader.createSharedInstance(plugin_name);
     RCLCPP_DEBUG(node->get_logger(), "Configuring %s (type %s)",node->get_namespace(), plugin_name.c_str());
-    if (!ik_solvers.at(i)->config())
+    if (!ik_solvers.at(i)->config(node->get_namespace()))
     {
       RCLCPP_ERROR(node->get_logger(), "unable to configure %s (type %s)",node->get_namespace(), plugin_name.c_str());
       return 0;

@@ -110,6 +110,8 @@ protected:
 
   bool getFlangeTool();
 
+  bool changeTool(const std::string& t_frame);
+
 };
 
 bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab);
