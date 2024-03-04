@@ -52,6 +52,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ik_solver_msgs/srv/get_ik_array.hpp>
 #include <ik_solver_msgs/srv/get_fk_array.hpp>
 #include <ik_solver_msgs/srv/get_bound.hpp>
+#include <ik_solver_msgs/srv/change_tool.hpp>
 namespace ik_solver_msgs{
   using namespace srv;
 }
@@ -135,6 +136,8 @@ protected:
   bool getBounds(ik_solver_msgs::GetBound::Request* req, ik_solver_msgs::GetBound::Response* res);
 
   bool reconfigure(Trigger::Request* req, Trigger::Response* res);
+
+  void changeTool(ik_solver_msgs::ChangeTool::Request* req, ik_solver_msgs::ChangeTool::Response* res);
 };
 
 }  // namespace ik_solver

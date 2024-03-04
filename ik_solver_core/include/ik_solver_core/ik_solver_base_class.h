@@ -83,6 +83,9 @@ public:
 
   const std::string param_namespace() const {return params_ns_;}
 
+  bool changeTool(const std::string& t_frame);
+  bool changeTool(const std::string& t_frame, const Eigen::Affine3d& T_tool_flange);
+
 protected:
   cnr_logger::TraceLogger logger_;
 
@@ -109,8 +112,6 @@ protected:
   urdf::ModelInterfaceSharedPtr model_;
 
   bool getFlangeTool();
-
-  bool changeTool(const std::string& t_frame);
 
 };
 

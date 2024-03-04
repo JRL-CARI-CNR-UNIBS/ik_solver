@@ -581,4 +581,20 @@ bool IkServicesBase::reconfigure(Trigger::Request* req, Trigger::Response* res)
   return true;
 }
 
+void IkServicesBase::changeTool(ik_solver_msgs::ChangeTool::Request *req, ik_solver_msgs::ChangeTool::Response *res)
+{
+  Eigen::Affine3d T_tool_flange;
+  if(!ik_solver::getTF(req->tool, config().flange_frame(), T_tool_flange))
+  {
+    res->result = ik_solver_msgs::ChangeTool::Response::TOOL_NOT_FOUND;
+    return;
+  }
+
+  // Change tool for all solver in the pool
+  std::for_each(ik_solvers_.begin(), ik_solvers_.end(), [&req, &T_tool_flange](std::shared_ptr<IkSolver>& solver){
+    solver->changeTool(req->tool, T_tool_flange);
+  });
+  res->result = ik_solver_msgs::ChangeTool::Response::SUCCESS;
+}
+
 }  // namespace ik_solver

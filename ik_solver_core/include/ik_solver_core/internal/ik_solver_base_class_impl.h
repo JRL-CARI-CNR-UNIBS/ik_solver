@@ -185,7 +185,23 @@ inline bool IkSolver::getFlangeTool()
 
 inline bool IkSolver::changeTool(const std::string &t_frame)
 {
+  Eigen::Affine3d T;
+  if(!getTF(t_frame, flange_frame_, T))
+  {
+    CNR_ERROR(logger_, "Cannot change tool: missing transform from %s to %s", flange_frame_.c_str(), t_frame.c_str());
+    return false;
+  }
+  T_tool_flange_ = T;
   tool_frame_ = t_frame;
+  return true;
+}
+
+inline bool IkSolver::changeTool(const std::string &t_frame, const Eigen::Affine3d &T_tool_flange)
+{
+  CNR_WARN(logger_, "Changing tool without prior control of transformation");
+  T_tool_flange_ = T_tool_flange;
+  tool_frame_ = t_frame;
+  return true;
 }
 
 // Eigen::Affine3d IkSolver::getFK(const Configuration& s)
