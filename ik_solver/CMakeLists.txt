@@ -55,7 +55,7 @@ if(ROS_VERSION EQUAL 1)
 
   catkin_package(
     INCLUDE_DIRS include
-    LIBRARIES ${PROJECT_NAME} ${PROJECT_NAME}_node
+    LIBRARIES ${PROJECT_NAME}
     CATKIN_DEPENDS eigen_conversions ik_solver_msgs pluginlib roscpp tf_conversions urdf geometry_msgs tf ${LIB_IN_CATKIN}
     DEPENDS EIGEN3 ${LIB_NON_CATKIN}
   )
@@ -133,6 +133,8 @@ if(ROS_VERSION EQUAL 1)
     ${ik_solver_core_LIBRARIES}
     ${catkin_LIBRARIES}
   )
+  catkin_install_python(PROGRAMS launch/ik_solver_1.py
+    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 endif()
 
 ## ROS 2

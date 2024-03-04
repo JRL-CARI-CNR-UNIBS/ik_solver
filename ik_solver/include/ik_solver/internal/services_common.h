@@ -45,6 +45,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ik_solver_msgs/GetIkArray.h>
 #include <ik_solver_msgs/GetFkArray.h>
 #include <ik_solver_msgs/GetBound.h>
+#include <ik_solver_msgs/ChangeTool.h>
 #elif ROS_X == 2
 //#include <rclcpp/rclcpp.hpp>
 #include <ik_solver_msgs/srv/get_ik.hpp>
