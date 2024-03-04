@@ -57,6 +57,7 @@ private:
   rclcpp::Service<ik_solver_msgs::srv::GetFkArray>::SharedPtr fk_server_array_;
   rclcpp::Service<ik_solver_msgs::srv::GetBound>::SharedPtr   bound_server_array_;
   rclcpp::Service<Trigger>::SharedPtr                         reconfigure_;
+  rclcpp::Service<ik_solver_msgs::srv::ChangeTool>::SharedPtr change_tool_;
 
   rclcpp::Node::SharedPtr nh_;
 
@@ -80,6 +81,8 @@ public:
   bool getBounds(const ik_solver_msgs::srv::GetBound::Request::SharedPtr req, ik_solver_msgs::srv::GetBound::Response::SharedPtr res);
 
   bool reconfigure(const Trigger::Request::SharedPtr req, Trigger::Response::SharedPtr res);
+
+  void changeTool(ik_solver_msgs::srv::ChangeTool::Request::SharedPtr req, ik_solver_msgs::srv::ChangeTool::Response::SharedPtr res);
 };
 
 }  // namespace ik_solver

@@ -69,6 +69,7 @@ IkServices::IkServices(rclcpp::Node::SharedPtr& nh, IkSolversPool& ik_solvers) :
   fk_server_array_ =    nh->create_service<ik_solver_msgs::srv::GetFkArray>("get_fk_array", std::bind(&IkServices::computeFKArray, this, _1, _2));
   bound_server_array_ = nh->create_service<ik_solver_msgs::srv::GetBound>  ("get_bounds",   std::bind(&IkServices::getBounds     , this, _1, _2));
   reconfigure_ =        nh->create_service<std_srvs::srv::Trigger>         ("reconfigure",  std::bind(&IkServices::reconfigure   , this, _1, _2));
+  change_tool_ =        nh->create_service<ik_solver_msgs::srv::ChangeTool>("change_tool",  std::bind(&IkServices::changeTool    , this, _1, _2));
 }
 
 
@@ -100,6 +101,13 @@ bool IkServices::getBounds(const ik_solver_msgs::GetBound::Request::SharedPtr re
 bool IkServices::reconfigure(const Trigger::Request::SharedPtr req, Trigger::Response::SharedPtr res)
 {
   return IkServicesBase::reconfigure(req.get(), res.get());
+}
+
+void IkServices::changeTool(ik_solver_msgs::ChangeTool::Request::SharedPtr req, ik_solver_msgs::ChangeTool::Response::SharedPtr res)
+{
+  IkServicesBase::changeTool(req.get(), res.get());
+  RCLCPP_INFO(nh_->get_logger(), "Change Tool Result: %d", res->result);
+  return;
 }
 
 }  // namespace ik_solver
