@@ -72,7 +72,7 @@ int main(int argc, char **argv)
   const std::string robot_description = parameters_client->get_parameter<std::string>("robot_description");
   RCLCPP_DEBUG(node->get_logger(), "/robot_description: %s", robot_description.c_str());
   cnr::param::set(node->get_namespace()+std::string("/robot_description"), robot_description, what);
-  RCLCPP_WARN(node->get_logger(), "what: %s", what.c_str());
+  RCLCPP_DEBUG(node->get_logger(), "what: %s", what.c_str());
 
   ik_solver::IkSolversPool  ik_solvers;
   RCLCPP_DEBUG(node->get_logger(), "Creating %s (type %s)",node->get_namespace(), plugin_name.c_str());

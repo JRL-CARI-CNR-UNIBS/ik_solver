@@ -74,11 +74,23 @@ int main(int argc, char **argv)
   pluginlib::ClassLoader<ik_solver::IkSolver> ik_loader("ik_solver", "ik_solver::IkSolver");
 
   std::string plugin_name;
-  if (!nh.getParam("type",plugin_name))
+  std::string what;
+  if(!cnr::param::get(std::string(node->get_namespace()) + "/type", plugin_name, what))
   {
-    ROS_ERROR("%s/type is not defined",nh.getNamespace().c_str());
+    RCLCPP_ERROR(node->get_logger(), "%s/type is not defined",node->get_namespace());
+    RCLCPP_DEBUG_STREAM(node->get_logger(), what);
     return -1;
   }
+
+  std::string rd;
+  if(!nh.getParam("robot_description", rd))
+  {
+    ROS_ERROR("Cannot retrieve robot description");
+  }
+
+  std::string what;
+  cnr::param::set("/robot_description", rd, what);
+  ROS_DEBUG("what: %s", what.c_str());
 
   ik_solver::IkSolversPool  ik_solvers;
   ROS_DEBUG("Creating %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
