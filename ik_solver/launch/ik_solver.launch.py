@@ -55,7 +55,7 @@ def launch_setup(context, *args, **kwargs):
       executable="ik_solver_node",
       output="screen",
       namespace=pack,
-      arguments=["--ros-args", "--log-level", "info"]
+      ros_arguments=["--log-level", "info"],
     ))
 
     launch_node_after_load.append(RegisterEventHandler(
