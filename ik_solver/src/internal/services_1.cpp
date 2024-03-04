@@ -70,6 +70,7 @@ IkServices::IkServices(ros::NodeHandle& nh, IkSolversPool& ik_solvers) : nh_(nh)
   fk_server_array_ =    nh.advertiseService("get_fk_array", &IkServices::computeFKArray, this);
   bound_server_array_ = nh.advertiseService("get_bounds", &IkServices::getBounds, this);
   reconfigure_ =        nh.advertiseService("reconfigure", &IkServices::reconfigure, this);
+  change_tool_ =        nh.advertiseService("change_tool", &IkServices::changeTool, this);
 }
 
 bool IkServices::computeIK(ik_solver_msgs::GetIk::Request& req, ik_solver_msgs::GetIk::Response& res)
@@ -100,6 +101,18 @@ bool IkServices::getBounds(ik_solver_msgs::GetBound::Request& req, ik_solver_msg
 bool IkServices::reconfigure(Trigger::Request& req, Trigger::Response& res)
 {
   return IkServicesBase::reconfigure(&req, &res);
+}
+
+void IkServices::changeTool(ik_solver_msgs::ChangeTool::Request& req, ik_solver_msgs::ChangeTool::Response& res)
+{
+  return IkServicesBase::changeTool(&req, &res);
+}
+
+void IkServices::changeTool(ik_solver_msgs::ChangeTool::Request& req, ik_solver_msgs::ChangeTool::Response& res)
+{
+  IkServicesBase::changeTool(&req, &res);
+  RCLCPP_INFO(nh_->get_logger(), "Change Tool Result: %d", res->result);
+  return;
 }
 
 }  // namespace ik_solver

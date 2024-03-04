@@ -61,6 +61,7 @@ private:
   ros::ServiceServer fk_server_array_;
   ros::ServiceServer bound_server_array_;
   ros::ServiceServer reconfigure_;
+  ros::ServiceServer change_tool_;
 
   ros::NodeHandle nh_;
 
@@ -84,6 +85,8 @@ public:
   bool getBounds(ik_solver_msgs::GetBound::Request& req, ik_solver_msgs::GetBound::Response& res);
 
   bool reconfigure(Trigger::Request& req, Trigger::Response& res);
+
+  void changeTool(ik_solver_msgs::ChangeTool::Request& req, ik_solver_msgs::ChangeTool::Response& res)
 };
 
 }  // namespace ik_solver
