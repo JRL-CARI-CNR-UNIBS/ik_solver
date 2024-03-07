@@ -1,8 +1,8 @@
 # IK Solver
 
-IkSolver is a solver-agnostic interface for inverse kinematics solvers, both numerical and analytical. It is compatible with both ROS1 and ROS2, and a ROS-free interface can be extended to non-ROS use.
+**IkSolver** is a solver-agnostic interface for inverse kinematics solvers, both numerical and analytical. It is compatible with both ROS1 and ROS2.
 
-The plugin features of ROS are used to provide the required solver to the program.
+The solvers are provided as ROS-plugins.
 
 The library implements parallel computation routines.
 
@@ -10,14 +10,49 @@ The library implements parallel computation routines.
 
 A `.repo` file compatible with `vcstool` is provided with all the dependencies
 
-```bash
-vcs import < ik_solver/ik_solver.repo
-```
-
 - [cnr_param](https://github.com/CNR-STIIMA-IRAS/cnr_param): ROS-free parameter handling
 - [cnr_logger](https://github.com/CNR-STIIMA-IRAS/cnr_logger.git): ROS-free logger library
 
 ## Usage
+
+### Installation
+
+#### Get dependencies
+```bash
+vcs import < ik_solver/ik_solver.repo
+```
+
+#### ROS 1 (catkin_tools)
+```bash
+## Move ros-free libraries
+export INSTALL_LOCATION=/path/to/install/location
+### cnr_logger
+mv cnr_logger /path/outside/workspace
+cd /path/outside/workspace; cd cnr_logger
+mkdir build; cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=$INSTALL_LOCATION -DUSE_ROS1=OFF
+make; make install
+
+### cnr_param
+mv cnr_param  /path/outside/workspace
+cd /path/outside/workspace; cd cnr_logger
+mkdir build; cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=$INSTALL_LOCATION -DUSE_ROS1=OFF
+make; make install
+
+## Build
+catkin build -cs --cmake-args -DUSE_ROS1=ON
+```
+**Note:**
+- `CMAKE_PREFIX_PATH` must contain `$INSTALL_LOCATION`;
+- `LD_LIBRARY_PATH` must contain `$INSTALL_LOCATION/lib`
+
+#### ROS 2 (colcon)
+```bash
+colcon build --symlink-install --continue-on-error --cmake-args -DUSE_ROS1=OFF
+```
+
+### Services
 
 The following services are provided through the "ik_solver_node":
 
@@ -34,8 +69,8 @@ Several utility services are provided:
 ### Run server
 
 ```bash
-# ROS1
-###### WIP...
+# ROS1 : WIP
+roslaunch ik_solver ik_solver_1.py plugin='[<plugin_pkg_name_1>, <plugin_pkg_name_2>, ...]' config='[<config_filename_plugin_1>, <config_filename_plugin_2>, ...]'
 # ROS2
 ros2 launch ik_solver ik_solver.launch.py plugin:='[<plugin_pkg_name_1>, <plugin_pkg_name_2>, ...]' config:='[<config_filename_plugin_1>, <config_filename_plugin_2>, ...]'
 ```
