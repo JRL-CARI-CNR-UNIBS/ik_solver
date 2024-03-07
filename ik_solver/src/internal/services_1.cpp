@@ -103,16 +103,11 @@ bool IkServices::reconfigure(Trigger::Request& req, Trigger::Response& res)
   return IkServicesBase::reconfigure(&req, &res);
 }
 
-void IkServices::changeTool(ik_solver_msgs::ChangeTool::Request& req, ik_solver_msgs::ChangeTool::Response& res)
-{
-  return IkServicesBase::changeTool(&req, &res);
-}
-
-void IkServices::changeTool(ik_solver_msgs::ChangeTool::Request& req, ik_solver_msgs::ChangeTool::Response& res)
+bool IkServices::changeTool(ik_solver_msgs::ChangeTool::Request& req, ik_solver_msgs::ChangeTool::Response& res)
 {
   IkServicesBase::changeTool(&req, &res);
-  RCLCPP_INFO(nh_->get_logger(), "Change Tool Result: %d", res->result);
-  return;
+  ROS_INFO("Change Tool Result: %d", res.result);
+  return true;
 }
 
 }  // namespace ik_solver

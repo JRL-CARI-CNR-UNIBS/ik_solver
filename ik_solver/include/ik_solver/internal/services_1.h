@@ -86,7 +86,7 @@ public:
 
   bool reconfigure(Trigger::Request& req, Trigger::Response& res);
 
-  void changeTool(ik_solver_msgs::ChangeTool::Request& req, ik_solver_msgs::ChangeTool::Response& res)
+  bool changeTool(ik_solver_msgs::ChangeTool::Request& req, ik_solver_msgs::ChangeTool::Response& res);
 };
 
 }  // namespace ik_solver

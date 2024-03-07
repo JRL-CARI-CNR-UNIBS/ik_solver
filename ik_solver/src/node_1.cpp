@@ -68,27 +68,36 @@ template<class T> boost::shared_ptr<T> to_boost_ptr(const std::shared_ptr<T> &p)
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "node");
+  ros::init(argc, argv, "ik_solver_node");
 
-  ros::NodeHandle nh("~");
+  ros::NodeHandle pnh("~");
+  ros::NodeHandle nh;
+
   pluginlib::ClassLoader<ik_solver::IkSolver> ik_loader("ik_solver", "ik_solver::IkSolver");
 
   std::string plugin_name;
   std::string what;
-  if(!cnr::param::get(std::string(node->get_namespace()) + "/type", plugin_name, what))
+  if(!cnr::param::get(std::string(nh.getNamespace()) + "/type", plugin_name, what))
   {
-    RCLCPP_ERROR(node->get_logger(), "%s/type is not defined",node->get_namespace());
-    RCLCPP_DEBUG_STREAM(node->get_logger(), what);
+    ROS_ERROR("%s/type is not defined",nh.getNamespace().c_str());
+    ROS_WARN_STREAM(what);
     return -1;
   }
 
-  std::string rd;
-  if(!nh.getParam("robot_description", rd))
+  if(plugin_name.substr(0, 10).compare("ik_solver::"))
   {
-    ROS_ERROR("Cannot retrieve robot description");
+    ROS_WARN("plugin type corrected");
+    plugin_name = "ik_solver/" + plugin_name.substr(11);
   }
 
-  std::string what;
+
+  std::string rd;
+  if(!nh.getParam("/robot_description", rd))
+  {
+    ROS_ERROR("Cannot retrieve robot description");
+    return -1;
+  }
+
   cnr::param::set("/robot_description", rd, what);
   ROS_DEBUG("what: %s", what.c_str());
 
@@ -98,14 +107,14 @@ int main(int argc, char **argv)
   {
     boost::shared_ptr<ik_solver::IkSolver> ptr = ik_loader.createInstance(plugin_name);
     ik_solvers.at(i) = to_std_ptr<ik_solver::IkSolver>(ptr);
-    ROS_DEBUG("Configuring %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
+    ROS_INFO("Configuring %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
     if (!ik_solvers.at(i)->config())
     {
       ROS_ERROR("unable to configure %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
-      return 0;
+      return -1;
     }
   }
-  ROS_DEBUG("%s (type %s) is ready to compute IK",nh.getNamespace().c_str(),plugin_name.c_str());
+  ROS_INFO("%s (type %s) is ready to compute IK",nh.getNamespace().c_str(),plugin_name.c_str());
   // ==============================================
 
   ik_solver::IkServices services(nh, ik_solvers);
