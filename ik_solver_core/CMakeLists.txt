@@ -15,19 +15,18 @@ find_package(Boost REQUIRED COMPONENTS filesystem system date_time) # for cnr_lo
 find_package(PkgConfig REQUIRED) # for cnr_param (version of yaml-cpp?)
 pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
 
+find_package(cnr_param REQUIRED)
+find_package(cnr_logger REQUIRED)
+
 if(USE_ROS1)
-  find_package(catkin REQUIRED COMPONENTS
-    cnr_param
-    cnr_logger)
+  message(WARNING "cnr_param and cnr_logger should be installed outside ROS")
+  find_package(catkin REQUIRED)
   catkin_package(
     INCLUDE_DIRS include
     LIBRARIES ${PROJECT_NAME}_utilities
-    CATKIN_DEPENDS cnr_param cnr_logger
-    DEPENDS urdfdom urdfdom_headers EIGEN3 Boost YAML_CPP
+#    CATKIN_DEPENDS
+    DEPENDS urdfdom urdfdom_headers EIGEN3 Boost YAML_CPP cnr_param cnr_logger
   )
-else()
-  find_package(cnr_param REQUIRED)
-  find_package(cnr_logger REQUIRED)
 endif()
 ###########
 ## Build ##
@@ -49,8 +48,16 @@ add_library(${PROJECT_NAME} INTERFACE
   )
 
 if(USE_ROS1)
-  add_dependencies(${PROJECT_NAME}_utilities ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
-  add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
+  add_dependencies(${PROJECT_NAME}_utilities
+    ${catkin_EXPORTED_TARGETS}
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${cnr_param_LIBRARIES}
+    ${cnr_logger_LIBRARIES})
+  add_dependencies(${PROJECT_NAME}
+    ${catkin_EXPORTED_TARGETS}
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${cnr_param_LIBRARIES}
+    ${cnr_logger_LIBRARIES})
 endif()
 
 #Utils
@@ -84,18 +91,10 @@ if(USE_ROS1)
 else()
   target_include_directories(${PROJECT_NAME}_utilities PUBLIC
       "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-      "$<INSTALL_INTERFACE:include>"
-      ${EIGEN3_INCLUDE_DIRS}
-      ${cnr_param_INCLUDE_DIRS}
-      ${cnr_logger_INCLUDE_DIRS})
+      "$<INSTALL_INTERFACE:include>")
   target_include_directories(${PROJECT_NAME} INTERFACE
       "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-      "$<INSTALL_INTERFACE:include>"
-      ${EIGEN3_INCLUDE_DIRS}
-      ${cnr_param_INCLUDE_DIRS}
-      ${cnr_logger_INCLUDE_DIRS}
-      ${urdfdom_INCLUDE_DIRS}
-      ${urdfdom_headers_INCLUDE_DIRS})
+      "$<INSTALL_INTERFACE:include>")
 endif()
 
 #############
