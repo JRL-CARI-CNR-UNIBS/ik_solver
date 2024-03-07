@@ -187,6 +187,7 @@ if(ROS_VERSION EQUAL 2)
                             geometry_msgs
                             std_srvs
                             ik_solver_msgs
+                            ik_solver_core
                             )
   ament_export_include_directories(
     include

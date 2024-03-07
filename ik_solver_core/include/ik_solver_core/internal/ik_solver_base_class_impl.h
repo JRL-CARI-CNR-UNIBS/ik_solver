@@ -198,7 +198,7 @@ inline bool IkSolver::changeTool(const std::string &t_frame)
 
 inline bool IkSolver::changeTool(const std::string &t_frame, const Eigen::Affine3d &T_tool_flange)
 {
-  CNR_WARN(logger_, "Changing tool without prior control of transformation");
+  CNR_DEBUG(logger_, "Changing tool without prior control of transformation");
   T_tool_flange_ = T_tool_flange;
   tool_frame_ = t_frame;
   return true;

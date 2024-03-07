@@ -8,16 +8,18 @@ from launch.event_handlers import OnProcessExit
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
+import os
+
 def generate_launch_description():
   launch_arg = [
     DeclareLaunchArgument("plugin"),
-    DeclareLaunchArgument("filename")
+    DeclareLaunchArgument("config")
   ]
   return LaunchDescription([*launch_arg, OpaqueFunction(function=launch_setup)])
 
 def launch_setup(context, *args, **kwargs):
   pack_names = LaunchConfiguration("plugin")
-  filenames = LaunchConfiguration("filename")
+  filenames = LaunchConfiguration("config")
 
   pack_splitted = pack_names.perform(context).split(",")
   file_splitted = filenames.perform(context).split(",")
@@ -35,6 +37,9 @@ def launch_setup(context, *args, **kwargs):
   launch_node_after_load = []
 
   for pack, filen in zip(pack_list, file_list):
+    if(os.path.splitext(filen)[1] != ".yaml"):
+      filen += ".yaml"
+
     load_plugin_param_proc.append(
       ExecuteProcess(
         cmd = [

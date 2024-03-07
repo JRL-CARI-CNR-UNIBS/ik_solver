@@ -2,7 +2,7 @@
 
 IkSolver is a solver-agnostic interface for inverse kinematics solvers, both numerical and analytical. It is compatible with both ROS1 and ROS2, and a ROS-free interface can be extended to non-ROS use.
 
-The plugin feature of ROS are used to provide the required solver to the program.
+The plugin features of ROS are used to provide the required solver to the program.
 
 The library implements parallel computation routines.
 
@@ -10,10 +10,14 @@ The library implements parallel computation routines.
 
 A `.repo` file compatible with `vcstool` is provided with all the dependencies
 
-- `cnr_param`: ROS-free parameter handling
-- `cnr_logger`: ROS-free logger library
+```bash
+vcs import < ik_solver/ik_solver.repo
+```
 
-## ROS
+- [cnr_param](https://github.com/CNR-STIIMA-IRAS/cnr_param): ROS-free parameter handling
+- [cnr_logger](https://github.com/CNR-STIIMA-IRAS/cnr_logger.git): ROS-free logger library
+
+## Usage
 
 The following services are provided through the "ik_solver_node":
 
@@ -24,29 +28,40 @@ The following services are provided through the "ik_solver_node":
 
 Several utility services are provided:
 
-- `get_bounds`
+- `get_bounds`: get joint bounds
 - `change_tool`: change the tool frame
 
-### Use
+### Run server
 
 ```bash
 # ROS1
 ###### WIP...
 # ROS2
-ros2 launch ik_solver ik_solver.launch.py plugin:='[<plugin_pkg_name_1>, <plugin_pkg_name_2>, ...]' filename:='[<config_filename_plugin_1>, <config_filename_plugin_2>, ...]'
+ros2 launch ik_solver ik_solver.launch.py plugin:='[<plugin_pkg_name_1>, <plugin_pkg_name_2>, ...]' config:='[<config_filename_plugin_1>, <config_filename_plugin_2>, ...]'
 ```
 
 The following arguments are required:
 
 - `plugin`: name of the packages of the plugins which needs to be loaded. This will also provide the namespace the namespace of the node implementing each plugin.
-- `filename`: config file containing the plugin settings.
+- `config`: config file containing the plugin settings (without `.yaml`).
+
+**Important:** both the previous arguments must be string of arrays and **not** arrays of strings.
 
 The number of plugins required must match the number of filenames. The config file must be in `<plugin_pkg_name>/config/<config_filename_plugin>`.
+
+#### Example
+```bash
+ros2 launch ik_solver ik_solver.launch.py plugin:='[rosdyn_ik_solver, comau_ik_solver]' config:='[ik_solver, generic]'
+```
+
 
 
 ### Environment Variables
 ```bash
+# Path to a valid directory in which save the parameters
 export CNR_PARAM_ROOT_DIRECTORY="/tmp"
+
+# Path to a valid cnr_logger config file
 export IK_SOLVER_LOGGER_CONFIG_PATH="/path/to/repository/ik_solver/ik_solver/config/default_logger.yaml"
 ```
 
