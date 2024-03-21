@@ -86,6 +86,7 @@ inline bool IkSolver::config(const std::string& params_ns)
     fprintf(stderr, "%s[ERROR]: Logger configuration failed: parameter file checked: %s%s\n", cnr_logger::BOLDRED().c_str(), logger_config_path, cnr_logger::RESET().c_str());
     return false;
   }
+  CNR_INFO(logger_, "LOGGER OK");
 
   std::map<std::string, std::string*> sparams{
     { params_ns_ + "base_frame", &base_frame_ },
@@ -110,12 +111,14 @@ inline bool IkSolver::config(const std::string& params_ns)
   {
     return false;
   }
+  CNR_DEBUG(logger_, "Solver parameters: OK");
 
   if (!getFlangeTool())
   {
     CNR_ERROR(logger_,"%s: no TF from flange and tool", params_ns_.c_str());
     return false;
   }
+  CNR_DEBUG(logger_, "Flange->Tool transform: OK");
 
   std::string robot_description;
   if(!cnr::param::get(params_ns_ + "/robot_description", robot_description, param_what))
@@ -123,21 +126,25 @@ inline bool IkSolver::config(const std::string& params_ns)
     CNR_ERROR(logger_, "IkSolver: Missing robot_description parameter\n%s",param_what.c_str());
     return false;
   }
+  CNR_DEBUG(logger_, "robot_description from param: OK");
   
   // model_.initParam("robot_description");
   model_ = urdf::parseURDF(robot_description);
   if(model_ == nullptr)
   {
     CNR_ERROR(logger_, "Cannot load robot_description!");
+    return false;
   }
+  CNR_DEBUG(logger_, "urdf model: OK");
 
   auto pn = params_ns_ + "joint_names";
   if (!cnr::param::get(pn, joint_names_, param_what))
   {
-    fprintf(stderr, "WHAT: %s", param_what.c_str());
+    CNR_DEBUG(logger_, "WHAT: %s", param_what.c_str());
     CNR_ERROR(logger_,"[IkSolver::config] %s is not specified", pn.c_str());
     return false;
   }
+  CNR_DEBUG(logger_, "joint names from param: OK");
 
   lb_.resize(joint_names_.size());
   ub_.resize(joint_names_.size());
