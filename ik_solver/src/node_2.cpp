@@ -51,7 +51,8 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  // Get robot_description
+  // TODO: get robot description from topic
+  // Get robot_description from param
   node->declare_parameter("robot_description_holder", rclcpp::PARAMETER_STRING);
   const std::string robot_description_holder = node->get_parameter_or("robot_description_holder", std::string("/robot_state_publisher"));
   RCLCPP_DEBUG(node->get_logger(), "robot_description_holder: %s", robot_description_holder.c_str());
