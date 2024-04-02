@@ -71,25 +71,29 @@ Several utility services are provided:
 ```bash
 # ROS1 : WIP
 roslaunch ik_solver ik_solver_1.py plugin='[<plugin_pkg_name_1>, <plugin_pkg_name_2>, ...]' config='[<config_filename_plugin_1>, <config_filename_plugin_2>, ...]'
-# ROS2
-ros2 launch ik_solver ik_solver.launch.py plugin:='[<plugin_pkg_name_1>, <plugin_pkg_name_2>, ...]' config:='[<config_filename_plugin_1>, <config_filename_plugin_2>, ...]'
 ```
 
-The following arguments are required:
+```bash
+# ROS2
+ros2 launch ik_solver ik_solver.launch.py file:="path/to/config/file"
+```
 
-- `plugin`: name of the packages of the plugins which needs to be loaded. This will also provide the namespace the namespace of the node implementing each plugin.
-- `config`: config file containing the plugin settings (without `.yaml`).
+The config file has the following structure:
 
-**Important:** both the previous arguments must be string of arrays and **not** arrays of strings.
-
-The number of plugins required must match the number of filenames. The config file must be in `<plugin_pkg_name>/config/<config_filename_plugin>`.
+```yaml
+ik_solver:
+  - package: "pkg1"    # Package which contain the configuration file
+    config: "cf1"      # Path from package share to config file
+    namespace: "n1"    # Namespace of the node (and of the config parameters)
+  - package: "pkg1"
+    config: "cf2"
+    namespace: "n2"
+```
 
 #### Example
 ```bash
-ros2 launch ik_solver ik_solver.launch.py plugin:='[rosdyn_ik_solver, comau_ik_solver]' config:='[ik_solver, generic]'
+ros2 launch ik_solver ik_solver.launch.py file:=ik_solver/config/config_example.yaml
 ```
-
-
 
 ### Environment Variables
 ```bash
