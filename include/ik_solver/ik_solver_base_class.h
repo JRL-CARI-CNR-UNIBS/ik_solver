@@ -29,8 +29,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef IK_SOLVER__IKSOLVER_BASE_CLASS_H
 #define IK_SOLVER__IKSOLVER_BASE_CLASS_H
 
-#include <boost/smart_ptr/shared_ptr.hpp>
-#include <memory>
 #include <string>
 
 #include <ros/ros.h>
@@ -44,10 +42,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace ik_solver
 {
 
+/**
+ * @class IkSolver
+ * @brief Base class for inverse kinematics solvers.
+ *
+ * This class provides a base implementation for inverse kinematics solvers.
+ * Derived classes can inherit from this class to implement specific inverse
+ * kinematics algorithms.
+ */
 class IkSolver
 {
 public:
-
   IkSolver() = default;
   IkSolver(const IkSolver&) = delete;
   IkSolver(const IkSolver&&) = delete;
@@ -55,35 +60,34 @@ public:
   virtual ~IkSolver() = default;
 
   virtual bool config(const ros::NodeHandle& nh, const std::string& param_ns = "");
-  
+
   // FK flange to base
-  virtual Solutions getIk(const Eigen::Affine3d& T_base_flange, const Configurations& seeds, const int& desired_solutions = -1, const int& min_stall_iterations = -1, const int& max_stall_iterations = -1) = 0;
+  virtual Solutions getIk(const Eigen::Affine3d& T_base_flange, const Configurations& seeds,
+                          const int& desired_solutions = -1, const int& min_stall_iterations = -1,
+                          const int& max_stall_iterations = -1) = 0;
 
   // FK base to flange
   virtual Eigen::Affine3d getFK(const Configuration& s) = 0;
 
-  const std::vector<std::string>& joint_names() const { return joint_names_; }
-  const std::string& base_frame() const { return base_frame_; }
-  const std::string& flange_frame() const { return flange_frame_; }
-  const std::string& tool_frame() const { return tool_frame_; }
-  const Eigen::Affine3d& transform_from_flange_to_tool() const { return T_tool_flange_; }
-  Eigen::Affine3d transform_from_tool_to_flange() const { return T_tool_flange_.inverse(); }
-
-  const Configuration& lb() const { return lb_; }
-  const Configuration& ub() const { return ub_; }
-  const std::vector<bool>& revolute() const { return revolute_;}
-
-  const int& min_stall_iterations() const { return min_stall_iter_; }
-  const int& max_stall_iterations() const { return max_stall_iter_; }
-  const int& desired_solutions() const { return desired_solutions_; }
-  const int& parallelize() const { return parallelize_; }
-
-  const std::string param_namespace() const {return params_ns_;}
+  const std::vector<std::string>& joint_names() const;
+  const std::string& base_frame() const;
+  const std::string& flange_frame() const;
+  const std::string& tool_frame() const;
+  const Eigen::Affine3d& transform_from_flange_to_tool() const;
+  Eigen::Affine3d transform_from_tool_to_flange() const;
+  const Configuration& lb() const;
+  const Configuration& ub() const;
+  const std::vector<bool>& revolute() const;
+  const int& min_stall_iterations() const;
+  const int& max_stall_iterations() const;
+  const int& desired_solutions() const;
+  const int& parallelize() const;
+  const std::string param_namespace() const;
 
 protected:
   std::string params_ns_;
   ros::NodeHandle robot_nh_;
-  
+
   Eigen::Affine3d T_tool_flange_;
   tf::TransformListener listener_;
   std::string base_frame_;
@@ -100,13 +104,11 @@ protected:
   int desired_solutions_ = 8;
   int parallelize_ = 0;
   int exploit_solutions_as_seed_ = 0;
-  
+
   urdf::Model model_;
 
   bool getFlangeTool();
-
 };
-
 
 }  //  namespace ik_solver
 

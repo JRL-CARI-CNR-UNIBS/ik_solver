@@ -1,30 +1,14 @@
-/*
-Copyright (c) 2022, JRL-CARI CNR-STIIMA/UNIBS
-Manuel Beschi manuel.beschi@unibs.it
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above copyright
-      notice, this list of conditions and the following disclaimer in the
-      documentation and/or other materials provided with the distribution.
-    * Neither the name of the <organization> nor the
-      names of its contributors may be used to endorse or promote products
-      derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
-DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+/**
+ * @file node.cpp
+ * @brief This file contains the main function for the IK solver node.
+ *
+ * The IK solver node initializes the ROS node, loads the IK solver plugin, configures the solver, and provides IK services.
+ * It uses the pluginlib library to dynamically load the IK solver plugin based on the specified plugin name.
+ * The node can handle multiple parallel IK solvers and provides services for computing IK solutions.
+ */
+/* Copyright (C) 2024 Beschi Manuel
+ * SPDX-License-Identifier:    Apache-2.0
+ */
 
 #include <array>
 #include <string>
@@ -34,10 +18,24 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <ik_solver/internal/services.h>
 
+/**
+ * @brief The main function of the node.
+ *
+ * This function initializes the ROS node, loads the IK solver plugin, and configures the IK solvers.
+ * It then creates an instance of the IkServices class and starts the ROS spin loop.
+ *
+ * @param argc The number of command-line arguments.
+ * @param argv An array of command-line arguments.
+ * @return int The exit code of the program.
+ */
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "node");
+
+  // Creation of the ros1 node
+  ros::init(argc, argv, "ik_server_node");
   ros::NodeHandle nh("~");
+
+  // Load the IK solver plugin
   pluginlib::ClassLoader<ik_solver::IkSolver> ik_loader("ik_solver", "ik_solver::IkSolver");
 
   std::string plugin_name;
@@ -47,6 +45,7 @@ int main(int argc, char **argv)
     return -1;
   }
 
+  // Creation of the IKSolversPool.
   ik_solver::IkSolversPool  ik_solvers;
   ROS_DEBUG("Creating %s (type %s)",nh.getNamespace().c_str(),plugin_name.c_str());
   for(std::size_t i=0;i<ik_solver::MAX_NUM_PARALLEL_IK_SOLVER;i++ )

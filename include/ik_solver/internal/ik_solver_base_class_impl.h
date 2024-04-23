@@ -57,12 +57,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <ik_solver/ik_solver_base_class.h>
 
-
 using namespace std::chrono_literals;
 
 namespace ik_solver
 {
-
 inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& params_ns)
 {
   params_ns_ = ik_solver::resolve_ns(nh, params_ns);
@@ -141,6 +139,63 @@ inline bool IkSolver::config(const ros::NodeHandle& nh, const std::string& param
   }
 
   return true;
+}
+
+inline const std::vector<std::string>& IkSolver::joint_names() const
+{
+  return joint_names_;
+}
+inline const std::string& IkSolver::base_frame() const
+{
+  return base_frame_;
+}
+inline const std::string& IkSolver::flange_frame() const
+{
+  return IkSolver::flange_frame_;
+}
+inline const std::string& IkSolver::tool_frame() const
+{
+  return tool_frame_;
+}
+inline const Eigen::Affine3d& IkSolver::transform_from_flange_to_tool() const
+{
+  return T_tool_flange_;
+}
+inline Eigen::Affine3d IkSolver::transform_from_tool_to_flange() const
+{
+  return T_tool_flange_.inverse();
+}
+inline const Configuration& IkSolver::lb() const
+{
+  return lb_;
+}
+inline const Configuration& IkSolver::ub() const
+{
+  return ub_;
+}
+inline const std::vector<bool>& IkSolver::revolute() const
+{
+  return revolute_;
+}
+inline const int& IkSolver::min_stall_iterations() const
+{
+  return min_stall_iter_;
+}
+inline const int& IkSolver::max_stall_iterations() const
+{
+  return max_stall_iter_;
+}
+inline const int& IkSolver::desired_solutions() const
+{
+  return desired_solutions_;
+}
+inline const int& IkSolver::parallelize() const
+{
+  return parallelize_;
+}
+inline const std::string IkSolver::param_namespace() const
+{
+  return params_ns_;
 }
 
 inline bool IkSolver::getFlangeTool()
