@@ -1,3 +1,7 @@
+/* Copyright (C) 2024 Beschi Manuel
+ * SPDX-License-Identifier:    Apache-2.0
+ */
+
 #include <ik_solver/internal/types.h>
 
 namespace ik_solver

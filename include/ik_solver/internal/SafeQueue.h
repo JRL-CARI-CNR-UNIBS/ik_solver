@@ -1,3 +1,7 @@
+/* Copyright (C) 2024 Beschi Manuel
+ * SPDX-License-Identifier:    Apache-2.0
+ */
+
 #ifndef IK_SOLVER__INTERNAL__SAFE_QUEUE_H
 #define IK_SOLVER__INTERNAL__SAFE_QUEUE_H
 

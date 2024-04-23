@@ -1,3 +1,7 @@
+/* Copyright (C) 2024 Beschi Manuel
+ * SPDX-License-Identifier:    Apache-2.0
+ */
+
 #include <ros/node_handle.h>
 #include <tf/transform_listener.h>
 #include <tf_conversions/tf_eigen.h>
