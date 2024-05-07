@@ -27,9 +27,6 @@
   <exec_depend condition="$ROS_VERSION == 1">roscpp           </exec_depend>
   <exec_depend condition="$ROS_VERSION == 1">tf               </exec_depend>
   <exec_depend condition="$ROS_VERSION == 1">urdf             </exec_depend>
-  <depend condition="$ROS_VERSION == 1">cnr_param             </depend>
-  <depend condition="$ROS_VERSION == 1">cnr_logger             </depend>
-  <depend condition="$ROS_VERSION == 1">ik_solver_core             </depend>
 
   <!-- ROS2 -->
   <build_depend condition="$ROS_VERSION == 2">rclcpp           </build_depend>
@@ -51,8 +48,12 @@
   <exec_depend>ik_solver_msgs</exec_depend>
   <exec_depend>pluginlib     </exec_depend>
   <exec_depend>std_srvs      </exec_depend>
-  <exec_depend>geometry_msgs </exec_depend>
-  
+  <exec_depend>geometry_msgs </exec_depend>  
+
+  <depend> cnr_param </depend>
+  <depend> cnr_logger </depend>
+  <depend> ik_solver_core </depend>
+
   <export>
     <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>
   </export>
