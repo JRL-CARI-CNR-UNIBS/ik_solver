@@ -1,19 +1,16 @@
-cmake_minimum_required(VERSION 3.0.2)
-project(ik_solver_core VERSION 0.1.0)
+cmake_minimum_required(VERSION 3.8)
+project(ik_solver_core VERSION 0.0.0)
 
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 17)
 
 option(USE_ROS1 "Compile using ROS1 catkin and search for cnr_* libraries in catkin workspace" OFF)
 
-find_package(urdfdom         REQUIRED)
-find_package(urdfdom_headers REQUIRED)
-
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(Boost REQUIRED COMPONENTS filesystem system date_time) # for cnr_logger missing dependency
 
-find_package(PkgConfig REQUIRED) # for cnr_param (version of yaml-cpp?)
-pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
+find_package(PkgConfig REQUIRED) # temporary for urdfdom
+pkg_check_modules(urdfdom REQUIRED urdfdom IMPORTED_TARGET)
 
 find_package(cnr_param REQUIRED)
 find_package(cnr_logger REQUIRED)
@@ -25,7 +22,7 @@ if(USE_ROS1)
     INCLUDE_DIRS include
     LIBRARIES ${PROJECT_NAME}_utilities
 #    CATKIN_DEPENDS
-    DEPENDS urdfdom urdfdom_headers EIGEN3 Boost YAML_CPP cnr_param cnr_logger
+    DEPENDS urdfdom EIGEN3 Boost cnr_param cnr_logger
   )
 endif()
 ###########
@@ -33,7 +30,7 @@ endif()
 ###########
 
 # Utilities
-add_library(${PROJECT_NAME}_utilities SHARED
+add_library(ik_solver_core_utilities SHARED
   src/${PROJECT_NAME}/internal/utils.cpp
   include/${PROJECT_NAME}/internal/SafeQueue.h
   include/${PROJECT_NAME}/internal/types.h
@@ -42,13 +39,13 @@ add_library(${PROJECT_NAME}_utilities SHARED
   )
 
 # Core
-add_library(${PROJECT_NAME} INTERFACE
+add_library(ik_solver_core INTERFACE
   include/${PROJECT_NAME}/ik_solver_base_class.h
   include/${PROJECT_NAME}/internal/ik_solver_base_class_impl.h
   )
 
 if(USE_ROS1)
-  add_dependencies(${PROJECT_NAME}_utilities
+  add_dependencies(ik_solver_core_utilities
     ${catkin_EXPORTED_TARGETS}
     ${${PROJECT_NAME}_EXPORTED_TARGETS}
     ${cnr_param_LIBRARIES}
@@ -60,25 +57,24 @@ if(USE_ROS1)
     ${cnr_logger_LIBRARIES})
 endif()
 
-#Utils
-target_link_libraries(${PROJECT_NAME}_utilities PUBLIC 
-  ${cnr_logger_LIBRARIES}
-  ${cnr_param_LIBRARIES}
+# Utils
+target_link_libraries(ik_solver_core_utilities PUBLIC
+  cnr_logger::cnr_logger
+  cnr_param::cnr_param
   Eigen3::Eigen
   Boost::filesystem Boost::system Boost::date_time
-  ${YAML_CPP_LIBRARIES}
 )
+add_library(ik_solver_core::ik_solver_core_utilities ALIAS ik_solver_core_utilities)
 # Core
-target_link_libraries(${PROJECT_NAME} INTERFACE 
-  ${PROJECT_NAME}_utilities
-  ${cnr_logger_LIBRARIES}
-  ${cnr_param_LIBRARIES}
-  ${urdfdom_LIBRARIES}
-  ${urdfdom_headers_LIBRARIES}
+target_link_libraries(ik_solver_core INTERFACE
+  ik_solver_core::ik_solver_core_utilities
+  cnr_logger::cnr_logger
+  cnr_param::cnr_param
+  PkgConfig::urdfdom
   Eigen3::Eigen
   Boost::filesystem Boost::system Boost::date_time
-  ${YAML_CPP_LIBRARIES}
 )
+add_library(ik_solver_core::ik_solver_core ALIAS ik_solver_core)
 
 if(USE_ROS1)
   include_directories(
@@ -86,7 +82,6 @@ if(USE_ROS1)
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
     ${urdfdom_INCLUDE_DIRS}
-    ${urdfdom_headers_INCLUDE_DIRS}
   )
 else()
   target_include_directories(${PROJECT_NAME}_utilities PUBLIC
@@ -104,16 +99,16 @@ if(NOT USE_ROS1)
   set(CONFIG_DEST share/cmake/${PROJECT_NAME})
   set(EXPORT_DEST ${CONFIG_DEST})
   set(CONFIG_INCLUDE_DIRS ${CMAKE_INSTALL_PREFIX}/include) # for config
-  set(config_filename "${PROJECT_NAME}Config")
+  set(CONFIG_FILENAME "ik_solver_coreConfig")
 
-  install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_utilities
-          EXPORT export_${PROJECT_NAME}
+  install(TARGETS ik_solver_core ik_solver_core_utilities
+          EXPORT export_ik_solver_core
           ARCHIVE DESTINATION lib
           LIBRARY DESTINATION lib
           RUNTIME DESTINATION bin)
 
-  install(EXPORT export_${PROJECT_NAME}
-          FILE export_${PROJECT_NAME}.cmake
+  install(EXPORT export_ik_solver_core
+          FILE export_ik_solver_core.cmake
           NAMESPACE ik_solver_core::
           DESTINATION ${EXPORT_DEST})
 
@@ -123,15 +118,15 @@ if(NOT USE_ROS1)
   # Config
   include(CMakePackageConfigHelpers)
   configure_package_config_file(
-    ${config_filename}.cmake.in ${config_filename}.cmake
+    ${CONFIG_FILENAME}.cmake.in ${CONFIG_FILENAME}.cmake
     INSTALL_DESTINATION ${CONFIG_DEST}
   )
-  write_basic_package_version_file(${config_filename}Version.cmake
+  write_basic_package_version_file(${CONFIG_FILENAME}Version.cmake
       VERSION ${PACKAGE_VERSION}
       COMPATIBILITY AnyNewerVersion)
 
-  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${config_filename}.cmake"
-                "${CMAKE_CURRENT_BINARY_DIR}/${config_filename}Version.cmake"
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_FILENAME}.cmake"
+                "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_FILENAME}Version.cmake"
           DESTINATION ${CONFIG_DEST}
   )
 
