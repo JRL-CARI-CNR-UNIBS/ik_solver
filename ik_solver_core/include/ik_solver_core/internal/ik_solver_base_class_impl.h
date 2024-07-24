@@ -49,16 +49,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Eigen/Core>
 #include <cstdio>
 #include <cstdlib>
+#include <string_view>
 
 #include <ik_solver_core/ik_solver_base_class.h>
 
-
-constexpr static char ENV_LOGGER_CONFIG_PATH[] = "IK_SOLVER_LOGGER_CONFIG_PATH";
 
 using namespace std::chrono_literals;
 
 namespace ik_solver
 {
+
+constexpr static std::string_view ENV_LOGGER_CONFIG_PATH = "IK_SOLVER_LOGGER_CONFIG_PATH";
 
 inline bool IkSolver::config(const std::string& params_ns)
 {
@@ -73,20 +74,20 @@ inline bool IkSolver::config(const std::string& params_ns)
 //    return false;
 //  }
   // TODO: check if exists the logger param file
-  // TODO: differentiate logger_id
-  char* logger_config_path = std::getenv(ENV_LOGGER_CONFIG_PATH);
+  char* logger_config_path = std::getenv(ENV_LOGGER_CONFIG_PATH.data());
 //  std::string logger_config_path();
   if(logger_config_path == nullptr)
   {
     fprintf(stderr, "%s[ERROR]: Missing environemnt variable IK_SOLVER_LOGGER_CONFIG_PATH!%s\n", cnr_logger::BOLDRED().c_str(), cnr_logger::RESET().c_str());
     return false;
   }
-  if (!logger_.init("ik_solver", logger_config_path, false, false))
+  std::stringstream logger_id;
+  logger_id << "ik_solver_" << std::chrono::system_clock::now().time_since_epoch().count();
+  if (!logger_.init(logger_id.str(), logger_config_path, false, false))
   {
     fprintf(stderr, "%s[ERROR]: Logger configuration failed: parameter file checked: %s%s\n", cnr_logger::BOLDRED().c_str(), logger_config_path, cnr_logger::RESET().c_str());
     return false;
   }
-  CNR_INFO(logger_, "LOGGER OK");
 
   std::map<std::string, std::string*> sparams{
     { params_ns_ + "base_frame", &base_frame_ },

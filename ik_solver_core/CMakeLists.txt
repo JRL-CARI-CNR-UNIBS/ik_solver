@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(ik_solver_core VERSION 0.0.0)
 
 set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 option(USE_ROS1 "Compile using ROS1 catkin and search for cnr_* libraries in catkin workspace" OFF)
 
@@ -132,13 +132,13 @@ if(NOT USE_ROS1)
 
 
   # make uninstall
-  add_custom_target("uninstall" COMMENT "Uninstall installed files")
-  add_custom_command(
-      TARGET "uninstall"
-      POST_BUILD
-      COMMENT "Uninstall files with install_manifest.txt"
-      COMMAND xargs rm -vf < install_manifest.txt || echo Nothing in
-              install_manifest.txt to be uninstalled!
-  )
+  # add_custom_target("uninstall" COMMENT "Uninstall installed files")
+  # add_custom_command(
+  #     TARGET "uninstall"
+  #     POST_BUILD
+  #     COMMENT "Uninstall files with install_manifest.txt"
+  #     COMMAND xargs rm -vf < install_manifest.txt || echo Nothing in
+  #             install_manifest.txt to be uninstalled!
+  # )
 
 endif()

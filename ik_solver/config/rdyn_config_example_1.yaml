@@ -6,12 +6,12 @@ rdyn_1:
   tool_frame: flange # destination frame of the IK (it should be rigid attached to flange_frame)
   desired_solutions: 32 # number of desired solution
   joint_names:
-  - joint_1
-  - joint_2
-  - joint_3
-  - joint_4
-  - joint_5
-  - joint_6
+  - joint1
+  - joint2
+  - joint3
+  - joint4
+  - joint5
+  - joint6
 
 rdyn_2:
   type: ik_solver::RosdynIkSolver
@@ -21,9 +21,9 @@ rdyn_2:
   tool_frame: flange # destination frame of the IK (it should be rigid attached to flange_frame)
   desired_solutions: 32 # number of desired solution
   joint_names:
-  - joint_1
-  - joint_2
-  - joint_3
-  - joint_4
-  - joint_5
-  - joint_6
+  - joint1
+  - joint2
+  - joint3
+  - joint4
+  - joint5
+  - joint6

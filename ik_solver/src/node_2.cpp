@@ -30,16 +30,21 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string>
 #include <rclcpp/rclcpp.hpp>
 #include <pluginlib/class_loader.hpp>
+#include <std_msgs/msg/string.hpp>
+
 #include <ik_solver_core/ik_solver_base_class.h>
 
 #include <ik_solver/internal/services_2.h>
 
+using namespace std::chrono_literals;
+
 // TODO: conversion into lifecycle node
 int main(int argc, char **argv)
 {
+  constexpr char robot_description_use_parameter[] {"use_parameter_robot_description"};
+
   rclcpp::init(argc, argv);
   rclcpp::Node::SharedPtr node = std::make_shared<rclcpp::Node>("ik_solver_node");
-//  ros::NodeHandle nh("~");
   pluginlib::ClassLoader<ik_solver::IkSolver> ik_loader("ik_solver", "ik_solver::IkSolver");
 
   std::string plugin_name;
@@ -51,26 +56,38 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  // TODO: get robot description from topic
-  // Get robot_description from param
-  node->declare_parameter("robot_description_holder", rclcpp::PARAMETER_STRING);
-  const std::string robot_description_holder = node->get_parameter_or("robot_description_holder", std::string("/robot_state_publisher"));
-  RCLCPP_DEBUG(node->get_logger(), "robot_description_holder: %s", robot_description_holder.c_str());
-  rclcpp::SyncParametersClient::SharedPtr parameters_client = std::make_shared<rclcpp::SyncParametersClient>(node, robot_description_holder);
-  while (!parameters_client->wait_for_service(1s)) {
-    if (!rclcpp::ok()) {
-      RCLCPP_ERROR(node->get_logger(), "Interrupted while waiting for the service. Exiting.");
-      rclcpp::shutdown();
+  // source name of the robot description
+  node->declare_parameter(robot_description_use_parameter, false);
+  std::string robot_description;
+  if(not node->get_parameter(robot_description_use_parameter).as_bool())
+  { // Get robot_description from topic
+    RCLCPP_INFO(node->get_logger(), "Recovering robot_description from topic");
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_robot_description = node->create_subscription<std_msgs::msg::String>("/robot_description", 1, [](const std_msgs::msg::String& msg){});
+    rclcpp::WaitSet wait_set;
+    wait_set.add_subscription(sub_robot_description);
+    rclcpp::WaitResultKind wait_result_kind;
+    do{
+      RCLCPP_DEBUG(node->get_logger(), "Waiting robot_description");
+      wait_result_kind = wait_set.wait(1s).kind();
+    } while(wait_result_kind != rclcpp::WaitResultKind::Ready);
+
+    std_msgs::msg::String msg; rclcpp::MessageInfo msg_info;
+    sub_robot_description->take(msg, msg_info);
+    robot_description = msg.data;
+  }
+  else
+  {
+    RCLCPP_INFO(node->get_logger(), "Recovering robot_description from parameter");
+    node->declare_parameter("robot_description", rclcpp::PARAMETER_STRING);
+    if(not node->has_parameter("robot_description"))
+    {
+      RCLCPP_FATAL(node->get_logger(), "robot_description parameter is missing. Cannot initialize IkSolver");
       return -1;
     }
-    RCLCPP_INFO(node->get_logger(), "service not available, waiting again...");
+    robot_description = node->get_parameter("robot_description").as_string();
   }
-  if(!parameters_client->has_parameter("robot_description"))
-  {
-    RCLCPP_ERROR(node->get_logger(), "Node %s does not have the robot_description parameter", robot_description_holder.c_str());
-    return -1;
-  }
-  const std::string robot_description = parameters_client->get_parameter<std::string>("robot_description");
+
+
   RCLCPP_DEBUG(node->get_logger(), "/robot_description: %s", robot_description.c_str());
   cnr::param::set(node->get_namespace()+std::string("/robot_description"), robot_description, what);
   RCLCPP_DEBUG(node->get_logger(), "what: %s", what.c_str());

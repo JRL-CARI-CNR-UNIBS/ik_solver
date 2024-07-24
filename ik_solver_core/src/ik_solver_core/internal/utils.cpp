@@ -55,7 +55,6 @@ std::string trim(const std::string& s, const std::string& what)
 std::string resolve_ns(const std::string& params_ns)
 {
   std::string ret;
-  // CNR_PARAM per ora non può gestire parametri privati
 
   bool is_private = params_ns.empty() ? false : params_ns[0] == '~';
   bool is_global = params_ns.empty() ? false : params_ns[0] == '/';

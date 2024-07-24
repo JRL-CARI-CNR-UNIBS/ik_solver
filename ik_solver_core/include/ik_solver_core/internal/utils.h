@@ -44,10 +44,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace std
 {
 // ===============
-inline std::string to_string(const std::string& s)
-{
-  return s;
-}
+// inline std::string to_string(const std::string& s)
+// {
+//   return s;
+// }
 
 /**
  * @brief

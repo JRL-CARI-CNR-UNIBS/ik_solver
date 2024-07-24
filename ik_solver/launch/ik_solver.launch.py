@@ -20,7 +20,6 @@ def generate_launch_description():
   return LaunchDescription([*launch_arg, OpaqueFunction(function=launch_setup)])
 
 def launch_setup(context, *args, **kwargs):
-  configfile = LaunchConfiguration("file")
   ret = from_config(context)
   return ret
 
