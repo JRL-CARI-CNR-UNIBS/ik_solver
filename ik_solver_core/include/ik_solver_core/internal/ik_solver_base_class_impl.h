@@ -82,7 +82,7 @@ inline bool IkSolver::config(const std::string& params_ns)
     return false;
   }
   std::stringstream logger_id;
-  logger_id << "ik_solver_" << std::chrono::system_clock::now().time_since_epoch().count();
+  logger_id << "ik_solver_" << reinterpret_cast<size_t>(this);
   if (!logger_.init(logger_id.str(), logger_config_path, false, false))
   {
     fprintf(stderr, "%s[ERROR]: Logger configuration failed: parameter file checked: %s%s\n", cnr_logger::BOLDRED().c_str(), logger_config_path, cnr_logger::RESET().c_str());
