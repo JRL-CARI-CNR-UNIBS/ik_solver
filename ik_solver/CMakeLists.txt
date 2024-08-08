@@ -87,7 +87,6 @@ elseif(ROS_VERSION EQUAL 2)
 
   find_package(tf2 REQUIRED)
   find_package(tf2_ros REQUIRED)
-  find_package(tf2_eigen REQUIRED)
   find_package(pluginlib REQUIRED)
 
   find_package(geometry_msgs REQUIRED)
@@ -158,7 +157,6 @@ if(ROS_VERSION EQUAL 2)
     rclcpp
     tf2
     tf2_ros
-    tf2_eigen
     pluginlib
     geometry_msgs
     std_srvs
