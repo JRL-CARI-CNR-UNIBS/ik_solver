@@ -42,6 +42,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ik_solver_msgs/srv/get_ik_array.hpp>
 #include <ik_solver_msgs/srv/get_fk_array.hpp>
 #include <ik_solver_msgs/srv/get_bound.hpp>
+#include <std_srvs/srv/trigger.hpp>
 
 #include <rclcpp/rclcpp.hpp>
 
