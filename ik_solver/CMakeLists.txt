@@ -44,7 +44,8 @@ if(ROS_VERSION EQUAL 1)
     find_package(cnr_logger REQUIRED)
     find_package(ik_solver_core REQUIRED)
     find_package(cnr_param REQUIRED)
-    set(LIB_NON_CATKIN cnr_param;cnr_logger;ik_solver_core)
+    find_package(cnr_yaml REQUIRED)
+    set(LIB_NON_CATKIN cnr_yaml;cnr_param;cnr_logger;ik_solver_core)
   endif()
 
   find_package(catkin REQUIRED COMPONENTS
@@ -82,11 +83,13 @@ elseif(ROS_VERSION EQUAL 2)
   find_package(ament_cmake REQUIRED)
   find_package(rclcpp REQUIRED)
 
+  find_package(cnr_yaml REQUIRED)
   find_package(cnr_param REQUIRED)
   find_package(cnr_logger REQUIRED)
 
   find_package(tf2 REQUIRED)
   find_package(tf2_ros REQUIRED)
+  find_package(tf2_eigen REQUIRED)
   find_package(pluginlib REQUIRED)
 
   find_package(geometry_msgs REQUIRED)
@@ -157,6 +160,7 @@ if(ROS_VERSION EQUAL 2)
     rclcpp
     tf2
     tf2_ros
+    tf2_eigen
     pluginlib
     geometry_msgs
     std_srvs
@@ -174,6 +178,27 @@ if(ROS_VERSION EQUAL 2)
   target_link_libraries(ik_solver_node PUBLIC
     ik_solver::ik_solver
     Eigen3::Eigen)
+endif()
+
+###########
+## TESTS ##
+###########
+if(ROS_VERSION EQUAL 2)
+  find_package(ament_cmake_gtest REQUIRED)
+  find_package(ros2_control_test_assets REQUIRED)
+
+  ament_add_gtest(test_node_ros2 test/test_node_2.cpp)
+  target_include_directories(test_node_ros2 PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  )
+  target_link_libraries(test_node_ros2
+    ik_solver::ik_solver
+    cnr_param::cnr_param)
+  ament_target_dependencies(test_node_ros2
+    rclcpp
+    ros2_control_test_assets
+  )
 endif()
 
 #############
