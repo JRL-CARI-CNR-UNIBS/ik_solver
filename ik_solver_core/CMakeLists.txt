@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 project(ik_solver_core VERSION 0.1.0)
 
 set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 option(USE_ROS1 "Compile using ROS1 catkin and search for cnr_* libraries in catkin workspace" OFF)
 
@@ -51,19 +51,18 @@ if(USE_ROS1)
   add_dependencies(${PROJECT_NAME}_utilities
     ${catkin_EXPORTED_TARGETS}
     ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${cnr_param_LIBRARIES}
-    ${cnr_logger_LIBRARIES})
+    ${cnr_param_LIBRARIES})
   add_dependencies(${PROJECT_NAME}
     ${catkin_EXPORTED_TARGETS}
     ${${PROJECT_NAME}_EXPORTED_TARGETS}
     ${cnr_param_LIBRARIES}
-    ${cnr_logger_LIBRARIES})
+    )
 endif()
 
 #Utils
 target_link_libraries(${PROJECT_NAME}_utilities PUBLIC 
-  ${cnr_logger_LIBRARIES}
-  ${cnr_param_LIBRARIES}
+  cnr_logger::cnr_logger
+  cnr_param::cnr_param
   Eigen3::Eigen
   Boost::filesystem Boost::system Boost::date_time
   ${YAML_CPP_LIBRARIES}
@@ -71,8 +70,6 @@ target_link_libraries(${PROJECT_NAME}_utilities PUBLIC
 # Core
 target_link_libraries(${PROJECT_NAME} INTERFACE 
   ${PROJECT_NAME}_utilities
-  ${cnr_logger_LIBRARIES}
-  ${cnr_param_LIBRARIES}
   ${urdfdom_LIBRARIES}
   ${urdfdom_headers_LIBRARIES}
   Eigen3::Eigen

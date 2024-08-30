@@ -38,16 +38,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <Eigen/Geometry>
 
+
 #include <cnr_param/cnr_param.h>
 #include <ik_solver_core/internal/types.h>
 
 namespace std
 {
 // ===============
-inline std::string to_string(const std::string& s)
-{
-  return s;
-}
+//inline std::string to_string(const std::string& s)
+//{
+//  return s;
+//}
 
 /**
  * @brief
