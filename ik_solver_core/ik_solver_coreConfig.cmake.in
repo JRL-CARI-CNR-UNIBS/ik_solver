@@ -1,0 +1,23 @@
+@PACKAGE_INIT@
+
+get_filename_component(ik_solver_core_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+
+include(CMakeFindDependencyMacro)
+find_dependency(cnr_param       REQUIRED)
+find_dependency(cnr_logger      REQUIRED)
+find_dependency(urdfdom         REQUIRED)
+find_dependency(urdfdom_headers REQUIRED)
+find_dependency(Eigen3          REQUIRED NO_MODULE)
+
+# Temporary - cnr_logger
+find_dependency(Boost           REQUIRED COMPONENTS date_time filesystem)
+
+include("${ik_solver_core_CMAKE_DIR}/export_ik_solver_core.cmake")
+
+set(ik_solver_core_FOUND TRUE)
+
+set_and_check(ik_solver_core_INCLUDE_DIRS "@CONFIG_INCLUDE_DIRS@")
+  
+set(ik_solver_core_LIBRARIES ik_solver_core::ik_solver_core ik_solver_core::ik_solver_core_utilities)
+
+check_required_components(ik_solver_core)

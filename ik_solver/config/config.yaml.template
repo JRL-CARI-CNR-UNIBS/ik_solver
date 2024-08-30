@@ -1,0 +1,7 @@
+ik_solver:
+  - package: "pkg1"    # Package which contain the configuration file
+    config: "cf1"      # Path from package share to config file
+    namespace: "n1"    # Namespace of the node (and of the config parameters)
+  - package: "pkg1"
+    config: "cf2"
+    namespace: "n2"
