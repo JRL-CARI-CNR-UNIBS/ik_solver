@@ -26,7 +26,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "ik_solver/internal/ik_solver_node_2.hpp"
+#include "ik_solver/internal/ik_solver_node.ros2.hpp"
 #include <rclcpp/rclcpp.hpp>
 
 int main(int argc, char **argv)

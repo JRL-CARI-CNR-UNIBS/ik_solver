@@ -45,7 +45,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // #include <ik_solver_core/ik_solver_base_class.h>
 #include <ik_solver/internal/types.h>
 #include <ik_solver/internal/utils.h>
-#include <ik_solver/internal/services_2.h>
+#include <ik_solver/internal/services.ros2.h>
 
 #include <ik_solver_core/internal/SafeQueue.h>
 

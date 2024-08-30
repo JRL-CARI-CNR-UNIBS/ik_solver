@@ -29,9 +29,10 @@ namespace test_ik_solver
     RCLCPP_INFO(this->logger_, "> Number of desired solutions: %d", desired_solutions);
     RCLCPP_INFO(this->logger_, "> Stall iterations: min (%d), max (%d)", min_stall_iterations, max_stall_iterations);
 
-    Solutions sol;
+    ik_solver::Solutions sol;
     sol.clear();
-    sol.configurations().push_back({1.0, 1.0, 1.0, 1.0, 1.0, 1.0});
+    sol.configurations().resize(1);
+    sol.configurations().at(0) << 1.0, 1.0, 1.0, 1.0, 1.0, 1.0;
     RCLCPP_INFO(this->logger_, "< Output solution configuration: {1.0, 1.0, 1.0, 1.0, 1.0, 1.0}");
     return sol;
   }

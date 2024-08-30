@@ -29,22 +29,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef IK_SOLVER__INTERNAL__IKSOLVER_BASE_CLASS_IMPL_H
 #define IK_SOLVER__INTERNAL__IKSOLVER_BASE_CLASS_IMPL_H
 
-#include <cmath>
-#include <functional>
 #include <iostream>
-#include <numeric>
 #include <ostream>
-#include <valarray>
 #include <cstddef>
-#include <cstdint>
 #include <sstream>
 #include <algorithm>
 #include <string>
-#include <chrono>
-#include <mutex>
-#include <tuple>
 #include <vector>
-#include <regex>
 
 #include <Eigen/Core>
 #include <cstdio>
@@ -61,7 +52,7 @@ namespace ik_solver
 
 constexpr static std::string_view ENV_LOGGER_CONFIG_PATH = "IK_SOLVER_LOGGER_CONFIG_PATH";
 
-inline bool IkSolver::config(const std::string& params_ns)
+inline bool IkSolverBase::config(const std::string& params_ns)
 {
   params_ns_ = ik_solver::resolve_ns(params_ns);
 
@@ -142,7 +133,7 @@ inline bool IkSolver::config(const std::string& params_ns)
   if (!cnr::param::get(pn, joint_names_, param_what))
   {
     CNR_DEBUG(logger_, "WHAT: %s", param_what.c_str());
-    CNR_ERROR(logger_,"[IkSolver::config] %s is not specified", pn.c_str());
+    CNR_ERROR(logger_,"[IkSolverBase::config] %s is not specified", pn.c_str());
     return false;
   }
   CNR_DEBUG(logger_, "joint names from param: OK");
@@ -186,12 +177,12 @@ inline bool IkSolver::config(const std::string& params_ns)
 }
 
 
-inline bool IkSolver::getFlangeTool()
+inline bool IkSolverBase::getFlangeTool()
 {
   return getTF(tool_frame_, flange_frame_, T_tool_flange_);
 }
 
-inline bool IkSolver::changeTool(const std::string &t_frame)
+inline bool IkSolverBase::changeTool(const std::string &t_frame)
 {
   Eigen::Affine3d T;
   if(!getTF(t_frame, flange_frame_, T))
@@ -204,7 +195,7 @@ inline bool IkSolver::changeTool(const std::string &t_frame)
   return true;
 }
 
-inline bool IkSolver::changeTool(const std::string &t_frame, const Eigen::Affine3d &T_tool_flange)
+inline bool IkSolverBase::changeTool(const std::string &t_frame, const Eigen::Affine3d &T_tool_flange)
 {
   CNR_DEBUG(logger_, "Changing tool without prior control of transformation");
   T_tool_flange_ = T_tool_flange;
@@ -212,7 +203,7 @@ inline bool IkSolver::changeTool(const std::string &t_frame, const Eigen::Affine
   return true;
 }
 
-// Eigen::Affine3d IkSolver::getFK(const Configuration& s)
+// Eigen::Affine3d IkSolverBase::getFK(const Configuration& s)
 // {
 //   Eigen::Affine3d I;
 //   I.setIdentity();

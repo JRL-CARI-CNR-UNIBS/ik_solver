@@ -52,9 +52,9 @@ Configurations getSeeds(const std::vector<std::string>& joint_names, const std::
   return seeds_eigen;
 }
 
+#if ROS_X == 1
 bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab)
 {
-#if ROS_X == 1
   tf::StampedTransform location_transform;
   ros::Time t0 = ros::Time(0);
   std::string tf_error;
@@ -77,30 +77,56 @@ bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d
 
   tf::poseTFToEigen(location_transform, T_ab);
   return true;
+}
+
 #elif ROS_X == 2
+
+bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab)
+{
   using namespace std::chrono_literals;
   geometry_msgs::msg::TransformStamped location_transform;
   tf2::TimePoint t0 = tf2::TimePointZero;
-  std::string tf_error;
   tf2_ros::Buffer buffer(std::make_shared<rclcpp::Clock>(RCL_SYSTEM_TIME));
+  tf2_ros::CreateTimerInterface::SharedPtr create_timer_interface;
+  buffer.setCreateTimerInterface(create_timer_interface);
   // Required to avoid TransformListener dtor bug
   // See: https://github.com/ros2/geometry2/issues/517
   rclcpp::Node::SharedPtr dummy_node = std::make_shared<rclcpp::Node>("__ik_solver_get_ik_"+std::to_string(reinterpret_cast<size_t>(getTF)));
   tf2_ros::TransformListener listener(buffer, dummy_node, false);
-  rclcpp::spin_some(dummy_node);
+  rclcpp::executors::SingleThreadedExecutor exec;
+  std::thread spin_thread([&dummy_node, &exec](){
+    exec.add_node(dummy_node);
+    exec.spin();
+    exec.remove_node(dummy_node);
+  });
+  bool ret {true};
   try
   {
-    location_transform = buffer.lookupTransform(a_name, b_name, t0, tf2::Duration(10s));
+    auto future = buffer.waitForTransform(a_name, b_name, t0, tf2::Duration(10s), [&location_transform](const tf2_ros::TransformStampedFuture& tff){
+      location_transform = tff.get();
+    });
+    future.wait();
+    if(!future.valid())
+    {
+      fprintf(stderr, "[WARNING] Timeout: Unable to find a transform from %s to %s", a_name.c_str(), b_name.c_str());
+      ret = false;
+    }
   }
   catch (...)
   {
-    fprintf(stderr, "[WARNING] Unable to find a transform from %s to %s, tf error=%s", a_name.c_str(), b_name.c_str(), tf_error.c_str());
-    return false;
+    fprintf(stderr, "[WARNING] Unable to find a transform from %s to %s", a_name.c_str(), b_name.c_str());
+    ret = false;
   }
 
-  dummy_node = nullptr; // Useless
-  T_ab = tf2::transformToEigen(location_transform);
-  return true;
+  if(ret)
+  {
+    T_ab = tf2::transformToEigen(location_transform);
+  }
+  exec.cancel();
+  spin_thread.join();
+
+  return ret;
+}
+
 #endif
-}
-}
+} // namespace ik_solver

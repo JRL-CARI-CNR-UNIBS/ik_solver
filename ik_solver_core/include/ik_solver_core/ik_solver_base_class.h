@@ -47,15 +47,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace ik_solver
 {
 
-class IkSolver
+class IkSolverBase
 {
 public:
 
-  IkSolver() = default;
-  IkSolver(const IkSolver&) = delete;
-  IkSolver(const IkSolver&&) = delete;
-  IkSolver(IkSolver&&) = delete;
-  virtual ~IkSolver() = default;
+  IkSolverBase() = default;
+  IkSolverBase(const IkSolverBase&) = delete;
+  IkSolverBase(const IkSolverBase&&) = delete;
+  IkSolverBase(IkSolverBase&&) = delete;
+  virtual ~IkSolverBase() = default;
 
   virtual bool config(const std::string& param_ns = "");
   

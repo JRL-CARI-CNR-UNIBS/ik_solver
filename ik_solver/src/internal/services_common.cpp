@@ -584,7 +584,7 @@ bool IkServicesBase::reconfigure(Trigger::Request* req, Trigger::Response* res)
 void IkServicesBase::changeTool(ik_solver_msgs::ChangeTool::Request *req, ik_solver_msgs::ChangeTool::Response *res)
 {
   Eigen::Affine3d T_tool_flange;
-  if(!ik_solver::getTF(req->tool, config().flange_frame(), T_tool_flange))
+  if(!getTF(req->tool, config().flange_frame(), T_tool_flange))
   {
     res->result = ik_solver_msgs::ChangeTool::Response::TOOL_NOT_FOUND;
     return;

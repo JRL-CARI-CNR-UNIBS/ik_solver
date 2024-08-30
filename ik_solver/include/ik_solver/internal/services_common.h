@@ -59,7 +59,7 @@ namespace ik_solver_msgs{
 }
 #endif
 
-#include <ik_solver_core/ik_solver_base_class.h>
+#include "ik_solver/ik_solver.hpp"
 
 namespace ik_solver
 {

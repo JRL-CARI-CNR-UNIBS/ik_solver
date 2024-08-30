@@ -74,8 +74,8 @@ if(ROS_VERSION EQUAL 1)
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
   )
-  list(APPEND IKSERVICES_SOURCE src/internal/services_1.cpp)
-  set(NODE_SOURCE src/node_1.cpp)
+  list(APPEND IKSERVICES_SOURCE src/internal/services.ros1.cpp)
+  set(NODE_SOURCE src/node.ros1.cpp)
 ###############
     ## ROS 2 ##
 ###############
@@ -98,8 +98,8 @@ elseif(ROS_VERSION EQUAL 2)
 
   find_package(ik_solver_core REQUIRED)
 
-  list(APPEND IKSERVICES_SOURCE src/internal/services_2.cpp)
-  set(NODE_SOURCE src/node_2.cpp)
+  list(APPEND IKSERVICES_SOURCE src/internal/services.ros2.cpp)
+  set(NODE_SOURCE src/node.ros2.cpp)
 endif()
 ###############
 ## END SETUP ##
@@ -117,7 +117,9 @@ endif()
 #############
 ## TARGETS ##
 #############
-add_library(${PROJECT_NAME} SHARED ${IKSERVICES_SOURCE} src/internal/utils.cpp src/internal/types.cpp)
+add_library(${PROJECT_NAME} SHARED ${IKSERVICES_SOURCE} src/internal/utils.cpp src/internal/types.cpp
+  include/ik_solver/ik_solver.hpp
+)
 target_compile_definitions(${PROJECT_NAME} PUBLIC
   _MAX_NUM_PARALLEL_IK_SOLVER=${MAX_NUM_PARALLEL_IK_SOLVER}
   -DROS_X=${ROS_VERSION})

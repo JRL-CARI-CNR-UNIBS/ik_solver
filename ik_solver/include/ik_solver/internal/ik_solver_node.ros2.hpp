@@ -7,9 +7,10 @@
 #include <pluginlib/class_loader.hpp>
 #include <std_msgs/msg/string.hpp>
 
-#include <ik_solver_core/ik_solver_base_class.h>
+// #include <ik_solver_core/ik_solver_base_class.h>
+#include <ik_solver/ik_solver.hpp>
 
-#include <ik_solver/internal/services_2.h>
+#include <ik_solver/internal/services.ros2.h>
 
 namespace ik_solver
 {

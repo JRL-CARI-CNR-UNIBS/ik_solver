@@ -1,7 +1,0 @@
-ik_solver:
-  - package: "ik_solver"
-    config: "examples/rdyn_config_example_1.yaml"
-    namespace: "rdyn_1"
-  - package: "ik_solver"
-    config: "examples/rdyn_config_example_1.yaml"
-    namespace: "rdyn_2"

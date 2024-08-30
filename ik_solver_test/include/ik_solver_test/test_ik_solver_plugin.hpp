@@ -1,7 +1,7 @@
 #ifndef TEST_IK_SOLVER_PLUGIN_HPP
 #define TEST_IK_SOLVER_PLUGIN_HPP
 
-#include "ik_solver_core/ik_solver_base_class.h"
+#include "ik_solver/ik_solver.hpp"
 
 #include <rclcpp/rclcpp.hpp>
 

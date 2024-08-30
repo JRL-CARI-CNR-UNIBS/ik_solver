@@ -1,15 +1,16 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.16)
 project(ik_solver_test)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_BUILD_TYPE DebWithRelInfo)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(ik_solver REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(pluginlib REQUIRED)
 
 add_library(test_ik_solver_plugin SHARED
   src/test_ik_solver_plugin.cpp)
@@ -23,7 +24,7 @@ target_link_libraries(test_ik_solver_plugin PUBLIC
 
 ament_target_dependencies(test_ik_solver_plugin PUBLIC
   rclcpp
-  pluginlib)
+)
 
 pluginlib_export_plugin_description_file(ik_solver test.plugin.xml)
 
@@ -47,5 +48,7 @@ install(TARGETS test_ik_solver_plugin
 
 install(DIRECTORY include/
         DESTINATION include)
+
+ament_export_targets(export_test_ik_solver_plugin)
 
 ament_package()

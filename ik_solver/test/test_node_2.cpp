@@ -1,4 +1,4 @@
-#include "ik_solver/internal/ik_solver_node_2.hpp"
+#include "ik_solver/internal/ik_solver_node.ros2.hpp"
 
 #include <gtest/gtest.h>
 #include <ros2_control_test_assets/descriptions.hpp>
