@@ -27,7 +27,6 @@ if __name__ == "__main__":
     service = prepend+service_name+'/get_ik'
 
     try:
-        # ik_locations_srv = rospy.ServiceProxy(service, ik_solver_msgs.srv.GetIk)
         ik_locations_srv = node.create_client(srv_name=service, srv_type=ik_solver_msgs.srv.GetIk)
         req = ik_solver_msgs.srv.GetIk.Request()
         req.target.pose.header.frame_id = tf_name
@@ -54,7 +53,6 @@ if __name__ == "__main__":
         for sol in resp.solution.configurations:
             node.get_logger().debug(f"- {sol.configuration}")
 
-        # r = rospy.Rate(len(resp.solution.configurations)/10) # all solution in 10 seconds
         while True:
             ik_sol.state.joint_state.position=resp.solution.configurations[idx].configuration
             state_pub.publish(ik_sol)

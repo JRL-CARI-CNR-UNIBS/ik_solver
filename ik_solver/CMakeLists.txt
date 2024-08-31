@@ -99,7 +99,7 @@ elseif(ROS_VERSION EQUAL 2)
   find_package(ik_solver_core REQUIRED)
 
   list(APPEND IKSERVICES_SOURCE src/internal/services.ros2.cpp)
-  set(NODE_SOURCE src/node.ros2.cpp)
+  set(NODE_SOURCE src/node.ros2.cpp include/ik_solver/internal/ik_solver_node.ros2.hpp)
 endif()
 ###############
 ## END SETUP ##

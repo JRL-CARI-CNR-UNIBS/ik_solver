@@ -1,5 +1,5 @@
-rdyn_1:
-  type: ik_solver::KukaIkSolver
+solver1:
+  type: ik_solver/KukaIkSolver
   base_frame: base # base frame of the chain
   flange_frame: flange # end frame of the chain
 
@@ -13,8 +13,8 @@ rdyn_1:
   - joint5
   - joint6
 
-rdyn_2:
-  type: ik_solver::RosdynIkSolver
+solver2:
+  type: ik_solver/RosdynIkSolver
   base_frame: base # base frame of the chain
   flange_frame: flange # end frame of the chain
 
