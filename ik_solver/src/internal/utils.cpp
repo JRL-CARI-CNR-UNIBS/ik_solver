@@ -87,8 +87,7 @@ bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d
   geometry_msgs::msg::TransformStamped location_transform;
   tf2::TimePoint t0 = tf2::TimePointZero;
   tf2_ros::Buffer buffer(std::make_shared<rclcpp::Clock>(RCL_SYSTEM_TIME));
-  tf2_ros::CreateTimerInterface::SharedPtr create_timer_interface;
-  buffer.setCreateTimerInterface(create_timer_interface);
+  buffer.setUsingDedicatedThread(true);
   // Required to avoid TransformListener dtor bug
   // See: https://github.com/ros2/geometry2/issues/517
   rclcpp::Node::SharedPtr dummy_node = std::make_shared<rclcpp::Node>("__ik_solver_get_ik_"+std::to_string(reinterpret_cast<size_t>(getTF)));
@@ -102,19 +101,18 @@ bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d
   bool ret {true};
   try
   {
-    auto future = buffer.waitForTransform(a_name, b_name, t0, tf2::Duration(10s), [&location_transform](const tf2_ros::TransformStampedFuture& tff){
-      location_transform = tff.get();
-    });
-    future.wait();
-    if(!future.valid())
-    {
-      fprintf(stderr, "[WARNING] Timeout: Unable to find a transform from %s to %s", a_name.c_str(), b_name.c_str());
-      ret = false;
-    }
+    location_transform = buffer.lookupTransform(a_name, b_name, t0, tf2::Duration(5s));
   }
-  catch (...)
+  catch (tf2::LookupException ex)
   {
-    fprintf(stderr, "[WARNING] Unable to find a transform from %s to %s", a_name.c_str(), b_name.c_str());
+    fprintf(stderr, "[WARNING] Timeout: Unable to find a transform from %s to %s\n", a_name.c_str(), b_name.c_str());
+    fprintf(stderr, "[WARNING] %s", ex.what());
+    ret = false;
+  }
+  catch(std::exception ex)
+  {
+    fprintf(stderr, "[WARNING] Unable to find a transform from %s to %s\n", a_name.c_str(), b_name.c_str());
+    fprintf(stderr, "[WARNING] %s", ex.what());
     ret = false;
   }
 
