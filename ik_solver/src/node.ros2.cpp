@@ -32,14 +32,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 int main(int argc, char **argv)
 {
   rclcpp::init(argc, argv);
-  ik_solver::IkSolverNode ik_node = ik_solver::IkSolverNode("ik_solver_node");
-  while(!ik_node.ready())
+  // ik_solver::IkSolverNode ik_node = ik_solver::IkSolverNode("ik_solver_node");
+  std::shared_ptr<ik_solver::IkSolverNode> ik_node = ik_solver::IkSolverNode::make_node("ik_solver_node");
+  while(!ik_node->ready())
   {
-    rclcpp::spin_some(ik_node.get_node_base_interface());
-    RCLCPP_INFO_THROTTLE(ik_node.get_logger(), *ik_node.get_clock(), 1000, "Waiting for configuration. Probably robot_description is missing");
-    ik_node.get_clock()->sleep_for(rclcpp::Duration::from_seconds(0.1));
+    RCLCPP_INFO_THROTTLE(ik_node->get_logger(), *ik_node->get_clock(), 1000, "Waiting for configuration. Probably robot_description is missing");
+    rclcpp::spin_some(ik_node->get_node_base_interface());
+    ik_node->get_clock()->sleep_for(rclcpp::Duration::from_seconds(0.1));
   };
+  RCLCPP_INFO(ik_node->get_logger(), "IK Solver node: READY");
   rclcpp::executors::MultiThreadedExecutor executor;
-  ik_node.setup_services_and_run(executor);
+  ik_node->setup_services_and_run(executor);
   return 0;
 }

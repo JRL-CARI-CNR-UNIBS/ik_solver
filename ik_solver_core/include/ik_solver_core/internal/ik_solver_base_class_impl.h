@@ -57,16 +57,9 @@ inline bool IkSolverBase::config(const std::string& params_ns)
   params_ns_ = ik_solver::resolve_ns(params_ns);
 
   std::string param_what;
-//  std::string logger_config_path;
-
-//  if(!cnr::param::get(params_ns_ + "logger_config_file", logger_config_path, param_what))
-//  {
-//    fprintf(stderr, "[ERROR]: Missing parameter %s", (params_ns_ + "logger_config_file").c_str());
-//    return false;
-//  }
   // TODO: check if exists the logger param file
   char* logger_config_path = std::getenv(ENV_LOGGER_CONFIG_PATH.data());
-//  std::string logger_config_path();
+
   if(logger_config_path == nullptr)
   {
     fprintf(stderr, "%s[ERROR]: Missing environemnt variable IK_SOLVER_LOGGER_CONFIG_PATH!%s\n", cnr_logger::BOLDRED().c_str(), cnr_logger::RESET().c_str());

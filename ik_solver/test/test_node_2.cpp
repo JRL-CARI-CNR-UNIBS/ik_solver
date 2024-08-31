@@ -10,8 +10,8 @@ TEST(IkSolverNode2Test, robot_description_from_param)
   rclcpp::NodeOptions opt = rclcpp::NodeOptions().append_parameter_override("robot_description", urdf).automatically_declare_parameters_from_overrides(true);
   std::string what;
   cnr::param::set("test_robot/type","ik_solver/TestIkSolver", what);
-  ik_solver::IkSolverNode ik_node("test_ik_solver_node", opt);
-  EXPECT_TRUE(ik_node.ready());
+  std::shared_ptr<ik_solver::IkSolverNode> ik_node = ik_solver::IkSolverNode::make_node("test_ik_solver_node", opt);
+  EXPECT_TRUE(ik_node->ready());
 }
 
 TEST(IkSolverNode2Test, robot_description_from_topic)
@@ -26,9 +26,9 @@ TEST(IkSolverNode2Test, robot_description_from_topic)
   rclcpp::NodeOptions opt = rclcpp::NodeOptions();
   std::string what;
   cnr::param::set("test_robot/type","ik_solver/TestIkSolver", what);
-  ik_solver::IkSolverNode ik_node("test_ik_solver_node", opt);
-  EXPECT_FALSE(ik_node.ready());
-  rclcpp::spin_some(ik_node.get_node_base_interface());
+  std::shared_ptr<ik_solver::IkSolverNode> ik_node = ik_solver::IkSolverNode::make_node("test_ik_solver_node", opt);
+  EXPECT_FALSE(ik_node->ready());
+  rclcpp::spin_some(ik_node->get_node_base_interface());
   dummy.get_clock()->sleep_for(std::chrono::seconds(1));
-  EXPECT_TRUE(ik_node.ready());
+  EXPECT_TRUE(ik_node->ready());
 }

@@ -18,7 +18,7 @@ using namespace std::chrono_literals;
 
 class IkSolverNode : public rclcpp::Node
 {
-public:
+private:
   IkSolverNode() = delete;
 
   IkSolverNode(const std::string& name, const rclcpp::NodeOptions& opt = rclcpp::NodeOptions()) :
@@ -43,7 +43,7 @@ public:
 
       // If not from parameters, get robot_description from topic
       RCLCPP_INFO(this->get_logger(), "Recovering robot_description from topic");
-      sub_robot_description_ = this->create_subscription<std_msgs::msg::String>("~/robot_description", 1,
+      sub_robot_description_ = this->create_subscription<std_msgs::msg::String>("~/robot_description", rclcpp::QoS(1).transient_local().reliable(),
           std::bind(&IkSolverNode::configure_after_robot_description, this, std::placeholders::_1));
     }
     else
@@ -53,6 +53,8 @@ public:
       configure_after_robot_description(rd_msg);
     }
   }
+
+public:
 
   bool ready()
   {
@@ -68,15 +70,26 @@ public:
     ex.remove_node(this->get_node_base_interface());
   }
 
+  static
+  std::shared_ptr<IkSolverNode> make_node(const std::string& name, const rclcpp::NodeOptions& opt = rclcpp::NodeOptions())
+  {
+    return std::shared_ptr<IkSolverNode>(new IkSolverNode(name, opt));
+  }
+
 protected:
+
+
   void configure_after_robot_description(const std_msgs::msg::String& msg)
   {
     auto robot_description = msg.data;
 
-    cnr::param::set(this->get_namespace()+std::string("/robot_description"), robot_description, param_what_);
+    if(!cnr::param::set(this->get_namespace()+std::string("/robot_description"), robot_description, param_what_))
+    {
+      RCLCPP_ERROR_STREAM(this->get_logger(), "Cannot set cnr::param(" << this->get_namespace() << std::string("/robot_description") << ") because: " << param_what_);
+    }
     RCLCPP_DEBUG(this->get_logger(), "set robot_description as cnr::param");
 
-    RCLCPP_DEBUG(get_logger(), "Creating %s (type %s)",get_namespace(), plugin_name_.c_str());
+    RCLCPP_INFO(get_logger(), "Creating %s (type %s)",get_namespace(), plugin_name_.c_str());
     for(std::size_t i=0;i<ik_solver::MAX_NUM_PARALLEL_IK_SOLVER;i++ )
     {
       ik_solvers_.at(i) = ik_loader_.createSharedInstance(plugin_name_);
@@ -88,7 +101,7 @@ protected:
       }
     }
 
-    RCLCPP_DEBUG(get_logger(), "%s (type %s) is ready to compute IK",get_namespace(),plugin_name_.c_str());
+    RCLCPP_INFO(get_logger(), "%s (type %s) is ready to compute IK",get_namespace(),plugin_name_.c_str());
     server_ready_ = true;
   }
 private:
