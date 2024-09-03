@@ -1,0 +1,9 @@
+<library path="test_ik_solver_plugin">
+  <class name="test_ik_solver/TestIkSolverPlugin"
+         type="test_ik_solver::TestIkSolverPlugin"
+         base_class_type="ik_solver::IkSolver">
+    <description>
+      Test plugin for IK solver
+    </description>
+  </class>
+</library>
