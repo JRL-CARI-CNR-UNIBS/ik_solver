@@ -83,7 +83,11 @@ bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d
   tf2::TimePoint t0 = tf2::TimePointZero;
   std::string tf_error;
   tf2_ros::Buffer buffer(std::make_shared<rclcpp::Clock>(RCL_SYSTEM_TIME));
-  tf2_ros::TransformListener listener(buffer);
+  // Required to avoid TransformListener dtor bug
+  // See: https://github.com/ros2/geometry2/issues/517
+  rclcpp::Node::SharedPtr dummy_node = std::make_shared<rclcpp::Node>("__ik_solver_get_ik_"+std::to_string(reinterpret_cast<size_t>(getTF)));
+  tf2_ros::TransformListener listener(buffer, dummy_node, false);
+  rclcpp::spin_some(dummy_node);
   try
   {
     location_transform = buffer.lookupTransform(a_name, b_name, t0, tf2::Duration(10s));
@@ -94,6 +98,7 @@ bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d
     return false;
   }
 
+  dummy_node = nullptr; // Useless
   T_ab = tf2::transformToEigen(location_transform);
   return true;
 #endif
