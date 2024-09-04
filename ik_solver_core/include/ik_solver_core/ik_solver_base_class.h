@@ -85,9 +85,11 @@ protected:
   urdf::ModelInterfaceSharedPtr model_;
 
   bool getFlangeTool();
+
+  virtual bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab) const = 0;
+
 };
 
-bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab);
 
 }  //  namespace ik_solver
 

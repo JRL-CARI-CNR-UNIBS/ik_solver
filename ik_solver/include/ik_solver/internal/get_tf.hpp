@@ -1,41 +1,10 @@
-#ifndef IK_SOLVER__IK_SOLVER
-#define IK_SOLVER__IK_SOLVER
+#ifndef IK_SOLVER__GET_TF_IMPL
+#define IK_SOLVER__GET_TF_IMPL
 
-#include "ik_solver_core/ik_solver_base_class.h"
-
-#if ROS_X == 1
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_; // CHECK!
-#elif ROS_X == 2
-#include <rclcpp/rclcpp.hpp>
-#include <tf2_eigen/tf2_eigen.hpp>
-#include <tf2_ros/transform_listener.h>
-#endif
+#include <ik_solver/ik_solver.hpp>
 
 namespace ik_solver
 {
-class IkSolver : public IkSolverBase
-{
-protected:
-
-#if ROS_X == 1
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_; // CHECK!
-#elif ROS_X == 2
-tf2_ros::Buffer::SharedPtr tf_buffer_;
-#endif
-
-public:
-  IkSolver() : IkSolverBase() {}
-  IkSolver(const IkSolver&) = delete;
-  IkSolver(const IkSolver&&) = delete;
-  IkSolver(IkSolver&&) = delete;
-  virtual ~IkSolver() = default;
-
-  void setBuffer(const tf2_ros::Buffer::SharedPtr& buffer){tf_buffer_=buffer;}
-
-  virtual bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab) const;
-
-};
-
 #if ROS_X == 1
 #include <tf/transform_listener.h>
 #include <tf_conversions/tf_eigen.h>
@@ -72,7 +41,7 @@ bool IkSolver::getTF(const std::string& a_name, const std::string& b_name, Eigen
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <tf2_ros/transform_listener.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
-inline bool IkSolver::getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab) const
+bool IkSolver::getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab) const
 {
   using namespace std::chrono_literals;
   geometry_msgs::msg::TransformStamped location_transform;
@@ -106,8 +75,5 @@ inline bool IkSolver::getTF(const std::string& a_name, const std::string& b_name
 
 #endif
 
-
 } // namespace ik_solver
-
-//#include <ik_solver/internal/get_tf.hpp>
-#endif // IK_SOLVER__IK_SOLVER
+#endif

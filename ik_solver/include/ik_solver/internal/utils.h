@@ -51,6 +51,7 @@ inline void from_eigen_to_pose(const Eigen::Affine3d& eig, Pose& pose)
 #endif
 }
 
+
 }
 
 #endif //IK_SOLVER__INTERNAL__UITLS_H

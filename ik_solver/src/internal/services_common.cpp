@@ -61,52 +61,38 @@ bool IkServicesBase::computeIK(ik_solver_msgs::GetIk::Request* req, ik_solver_ms
   // Frame {b}: robot base
   // Frame {r}: the frame id of the requested tool poses. It must be a solvable TF transform. No relative Transform.
   // TODO add check! Frame {t}: tool frame Frame {f}: flange frame
-  printf(  "IK DEBUG -Start computing\n");
-  fflush(stdout);
   Eigen::Affine3d T_b_r;
 
-  printf(  "IK DEBUG - BEFORE getTF\n");
-  fflush(stdout);
 
-  if (!getTF(config().base_frame(), req->target.pose.header.frame_id, T_b_r))
+  if (!config().getTF(config().base_frame(), req->target.pose.header.frame_id, T_b_r))
   {
     res->success = false;
     res->message = "Failed in getting the TF from '"+config().base_frame()+"' to '"+req->target.pose.header.frame_id+"'";
     printf(  "Error: %s", res->message.c_str());
     return true;
   }
-  printf(  "IK DEBUG - AFTER getTF\n");
-  fflush(stdout);
 
   Eigen::Affine3d T_r_t;
   from_pose_to_eigen(req->target.pose.pose, T_r_t);
 
-  printf(  "IK DEBUG -from_pose_to_eigen\n");
-  fflush(stdout);
 
   Eigen::Affine3d T_t_f = config().transform_from_flange_to_tool();
   Eigen::Affine3d T_b_f = T_b_r * T_r_t * T_t_f;
 
   Configurations seeds = ik_solver::getSeeds(config().joint_names(), req->seed_joint_names, req->target.seeds);
-  printf(  "IK DEBUG -getSeeds\n");
-  fflush(stdout);
 
   int desired_solutions =
       (req->max_number_of_solutions > 0) ? req->max_number_of_solutions : config().desired_solutions();
   int min_stall_iterations = (req->stall_iterations > 0) ? req->stall_iterations : config().min_stall_iterations();
   int max_stall_iterations = (req->stall_iterations > 0) ? req->stall_iterations : config().max_stall_iterations();
 
-  printf(  "IK DEBUG - BEFORE computeIkFunction\n");
-  fflush(stdout);
   Solutions solutions = computeIkFunction(ik_solvers_.front().get(), T_b_f, seeds, desired_solutions,
                                           min_stall_iterations, max_stall_iterations);
 
-  printf(  "IK DEBUG -computeIkFunction\n");
-  fflush(stdout);
   std::string msg = solutions.message().empty() ? "" : solutions.message();
 
-  printf(  "IK - Number of solutions %02zu, %s\n", solutions.configurations().size(), msg.c_str() );
-  fflush(stdout);
+  //printf(  "IK - Number of solutions %02zu, %s\n", solutions.configurations().size(), msg.c_str() );
+
 
   res->solution = ik_solver::cast(solutions);
   res->joint_names = config().joint_names();
@@ -144,7 +130,7 @@ bool IkServicesBase::computeIKArray(ik_solver_msgs::GetIkArray::Request* req, ik
     Eigen::Affine3d T_b_r;
     if (T_b_rp.count(t.pose.header.frame_id) == 0)
     {
-      if (!getTF(config().base_frame(), t.pose.header.frame_id, T_b_r))
+      if (!config().getTF(config().base_frame(), t.pose.header.frame_id, T_b_r))
       {
         return false;
       }
@@ -359,7 +345,7 @@ bool IkServicesBase::computeTransformations(const std::string& tip_frame, const 
   {
     T_tool_tip.setIdentity();
   }
-  else if (!getTF(config().tool_frame(), tip_frame, T_tool_tip))
+  else if (!config().getTF(config().tool_frame(), tip_frame, T_tool_tip))
   {
 //    ROS_ERROR("computeFKArray: error on computing TF from tool_name=%s, tip_frame=%s", config().tool_frame().c_str(),
 //              tip_frame.c_str());
@@ -369,7 +355,7 @@ bool IkServicesBase::computeTransformations(const std::string& tip_frame, const 
   }
 
   T_flange_tool = config().transform_from_flange_to_tool().inverse();
-  if (!getTF(reference_frame, config().base_frame(), T_poses_base))
+  if (!config().getTF(reference_frame, config().base_frame(), T_poses_base))
   {
     return false;
   }
@@ -597,7 +583,7 @@ bool IkServicesBase::reconfigure(Trigger::Request* req, Trigger::Response* res)
 void IkServicesBase::changeTool(ik_solver_msgs::ChangeTool::Request *req, ik_solver_msgs::ChangeTool::Response *res)
 {
   Eigen::Affine3d T_tool_flange;
-  if(!getTF(req->tool, config().flange_frame(), T_tool_flange))
+  if(!config().getTF(req->tool, config().flange_frame(), T_tool_flange))
   {
     res->result = ik_solver_msgs::ChangeTool::Response::TOOL_NOT_FOUND;
     return;

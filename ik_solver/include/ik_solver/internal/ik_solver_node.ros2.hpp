@@ -23,10 +23,15 @@ private:
 
   IkSolverNode(const std::string& name, const rclcpp::NodeOptions& opt = rclcpp::NodeOptions()) :
       rclcpp::Node(name, opt),
-      ik_loader_("ik_solver", "ik_solver::IkSolver"),
-      server_ready_(false)
+      server_ready_(false),
+      ik_loader_("ik_solver", "ik_solver::IkSolver")
   {
     std::string what;
+
+    RCLCPP_DEBUG(this->get_logger(), "Creating TF Buffer");
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    listener_  = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    RCLCPP_DEBUG(this->get_logger(), "Created TF Buffer");
 
     if(!cnr::param::get(std::string(get_namespace()) + "/type", plugin_name_, what))
     {
@@ -53,6 +58,9 @@ private:
       configure_after_robot_description(rd_msg);
     }
   }
+
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> listener_;
 
 public:
 
@@ -94,11 +102,13 @@ protected:
     {
       ik_solvers_.at(i) = ik_loader_.createSharedInstance(plugin_name_);
       RCLCPP_DEBUG(get_logger(), "Configuring %s (type %s)",get_namespace(), plugin_name_.c_str());
+      ik_solvers_.at(i)->setBuffer(tf_buffer_);
       if (!ik_solvers_.at(i)->config(get_namespace()))
       {
         RCLCPP_ERROR(get_logger(), "unable to configure %s (type %s)",get_namespace(), plugin_name_.c_str());
         // return 0;
       }
+
     }
 
     RCLCPP_INFO(get_logger(), "%s (type %s) is ready to compute IK",get_namespace(),plugin_name_.c_str());

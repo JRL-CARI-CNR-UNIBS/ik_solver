@@ -57,9 +57,11 @@ class GetIkNode(Node):
             self.get_logger().info(f'Service {self.service_name}/get_fk not available, waiting again...')
 
         n_errors=0
-        n_trials=100
+        n_trials=1000
         for index in range(0,n_trials):
 
+            if index%100 == 0:
+                self.get_logger().info(f'run {index} of {n_trials} with {n_errors} errors...')
             self.fk_req = GetFk.Request()
             self.fk_req.joint_names = joint_names
             self.fk_req.reference_frame = self.base_frame
@@ -116,7 +118,7 @@ class GetIkNode(Node):
                 #     self.get_logger().error(f"q ik = {q2}")
                 #     self.get_logger().error(f"diff = {q2-q}, difference without periodicity = {np.linalg.norm(difference_periodicity)}")
 
-        self.get_logger().info(f'run {n_trials} times with {n_errors}...')
+        self.get_logger().info(f'run {n_trials} times with {n_errors} errors...')
 
 def main(args=None):
     rclpy.init(args=args)
