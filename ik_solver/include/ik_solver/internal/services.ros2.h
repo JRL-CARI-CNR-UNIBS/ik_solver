@@ -41,6 +41,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ik_solver_msgs/srv/get_fk.hpp>
 #include <ik_solver_msgs/srv/get_ik_array.hpp>
 #include <ik_solver_msgs/srv/get_fk_array.hpp>
+#include <ik_solver_msgs/srv/get_frames.hpp>
 #include <ik_solver_msgs/srv/get_bound.hpp>
 #include <std_srvs/srv/trigger.hpp>
 
@@ -57,6 +58,7 @@ private:
   rclcpp::Service<ik_solver_msgs::srv::GetFk>::SharedPtr      fk_server_;
   rclcpp::Service<ik_solver_msgs::srv::GetFkArray>::SharedPtr fk_server_array_;
   rclcpp::Service<ik_solver_msgs::srv::GetBound>::SharedPtr   bound_server_array_;
+  rclcpp::Service<ik_solver_msgs::srv::GetFrames>::SharedPtr  frames_server_array_;
   rclcpp::Service<Trigger>::SharedPtr                         reconfigure_;
   rclcpp::Service<ik_solver_msgs::srv::ChangeTool>::SharedPtr change_tool_;
 
@@ -80,6 +82,8 @@ public:
   bool computeFKArray(const ik_solver_msgs::srv::GetFkArray::Request::SharedPtr req, ik_solver_msgs::srv::GetFkArray::Response::SharedPtr res);
 
   bool getBounds(const ik_solver_msgs::srv::GetBound::Request::SharedPtr req, ik_solver_msgs::srv::GetBound::Response::SharedPtr res);
+
+  bool getFrames(const ik_solver_msgs::GetFrames::Request::SharedPtr req, ik_solver_msgs::GetFrames::Response::SharedPtr res);
 
   bool reconfigure(const Trigger::Request::SharedPtr req, Trigger::Response::SharedPtr res);
 

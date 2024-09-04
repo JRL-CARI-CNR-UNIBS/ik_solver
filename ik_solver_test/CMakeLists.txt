@@ -46,9 +46,19 @@ install(TARGETS test_ik_solver_plugin
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib)
 
+# Install Python scripts
+install(
+  PROGRAMS
+  scripts/test_ik_fk.py  # List all your scripts here
+  DESTINATION lib/${PROJECT_NAME}
+)
+                            
 install(DIRECTORY include/
         DESTINATION include)
-
+        
+install(DIRECTORY launch config 
+        DESTINATION share/${PROJECT_NAME})
+        
 ament_export_targets(export_test_ik_solver_plugin)
 
 ament_package()

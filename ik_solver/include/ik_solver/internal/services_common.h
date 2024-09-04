@@ -21,6 +21,7 @@
 #include <ik_solver_msgs/GetIkArray.h>
 #include <ik_solver_msgs/GetFkArray.h>
 #include <ik_solver_msgs/GetBound.h>
+#include <ik_solver_msgs/GetFrames.h>
 #include <ik_solver_msgs/ChangeTool.h>
 #elif ROS_X == 2
 //#include <rclcpp/rclcpp.hpp>
@@ -29,6 +30,7 @@
 #include <ik_solver_msgs/srv/get_ik_array.hpp>
 #include <ik_solver_msgs/srv/get_fk_array.hpp>
 #include <ik_solver_msgs/srv/get_bound.hpp>
+#include <ik_solver_msgs/srv/get_frames.hpp>
 #include <ik_solver_msgs/srv/change_tool.hpp>
 namespace ik_solver_msgs{
   using namespace srv;
@@ -111,6 +113,8 @@ protected:
   bool computeFKArray(ik_solver_msgs::GetFkArray::Request* req, ik_solver_msgs::GetFkArray::Response* res);
 
   bool getBounds(ik_solver_msgs::GetBound::Request* req, ik_solver_msgs::GetBound::Response* res);
+
+  bool getFrames(ik_solver_msgs::srv::GetFrames::Request *req, ik_solver_msgs::srv::GetFrames::Response *res);
 
   bool reconfigure(Trigger::Request* req, Trigger::Response* res);
 

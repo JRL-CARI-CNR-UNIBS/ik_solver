@@ -61,7 +61,13 @@ bool IkServicesBase::computeIK(ik_solver_msgs::GetIk::Request* req, ik_solver_ms
   // Frame {b}: robot base
   // Frame {r}: the frame id of the requested tool poses. It must be a solvable TF transform. No relative Transform.
   // TODO add check! Frame {t}: tool frame Frame {f}: flange frame
+  printf(  "IK DEBUG -Start computing\n");
+  fflush(stdout);
   Eigen::Affine3d T_b_r;
+
+  printf(  "IK DEBUG - BEFORE getTF\n");
+  fflush(stdout);
+
   if (!getTF(config().base_frame(), req->target.pose.header.frame_id, T_b_r))
   {
     res->success = false;
@@ -69,22 +75,34 @@ bool IkServicesBase::computeIK(ik_solver_msgs::GetIk::Request* req, ik_solver_ms
     printf(  "Error: %s", res->message.c_str());
     return true;
   }
+  printf(  "IK DEBUG - AFTER getTF\n");
+  fflush(stdout);
+
   Eigen::Affine3d T_r_t;
   from_pose_to_eigen(req->target.pose.pose, T_r_t);
+
+  printf(  "IK DEBUG -from_pose_to_eigen\n");
+  fflush(stdout);
 
   Eigen::Affine3d T_t_f = config().transform_from_flange_to_tool();
   Eigen::Affine3d T_b_f = T_b_r * T_r_t * T_t_f;
 
   Configurations seeds = ik_solver::getSeeds(config().joint_names(), req->seed_joint_names, req->target.seeds);
+  printf(  "IK DEBUG -getSeeds\n");
+  fflush(stdout);
 
   int desired_solutions =
       (req->max_number_of_solutions > 0) ? req->max_number_of_solutions : config().desired_solutions();
   int min_stall_iterations = (req->stall_iterations > 0) ? req->stall_iterations : config().min_stall_iterations();
   int max_stall_iterations = (req->stall_iterations > 0) ? req->stall_iterations : config().max_stall_iterations();
 
+  printf(  "IK DEBUG - BEFORE computeIkFunction\n");
+  fflush(stdout);
   Solutions solutions = computeIkFunction(ik_solvers_.front().get(), T_b_f, seeds, desired_solutions,
                                           min_stall_iterations, max_stall_iterations);
 
+  printf(  "IK DEBUG -computeIkFunction\n");
+  fflush(stdout);
   std::string msg = solutions.message().empty() ? "" : solutions.message();
 
   printf(  "IK - Number of solutions %02zu, %s\n", solutions.configurations().size(), msg.c_str() );
@@ -536,6 +554,23 @@ bool IkServicesBase::getBounds(ik_solver_msgs::GetBound::Request* req, ik_solver
   return true;
 }
 
+/**
+ * @brief
+ *
+ * @param req
+ * @param res
+ * @return true
+ * @return false
+ */
+
+bool IkServicesBase::getFrames(ik_solver_msgs::GetFrames::Request* req, ik_solver_msgs::GetFrames::Response* res)
+{
+  res->base_frame   = config().base_frame();
+  res->flange_frame = config().flange_frame();
+  res->tool_frame   = config().tool_frame();
+
+  return true;
+}
 /**
  * @brief
  *

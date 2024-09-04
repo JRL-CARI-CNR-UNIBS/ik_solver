@@ -69,6 +69,7 @@ IkServices::IkServices(ros::NodeHandle& nh, IkSolversPool& ik_solvers) : nh_(nh)
   fk_server_ =          nh.advertiseService("get_fk", &IkServices::computeFK, this);
   fk_server_array_ =    nh.advertiseService("get_fk_array", &IkServices::computeFKArray, this);
   bound_server_array_ = nh.advertiseService("get_bounds", &IkServices::getBounds, this);
+  frames_server_array_= nh.advertiseService("get_frames", &IkServices::getFrames, this);
   reconfigure_ =        nh.advertiseService("reconfigure", &IkServices::reconfigure, this);
   change_tool_ =        nh.advertiseService("change_tool", &IkServices::changeTool, this);
 }
@@ -96,6 +97,11 @@ bool IkServices::computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_sol
 bool IkServices::getBounds(ik_solver_msgs::GetBound::Request& req, ik_solver_msgs::GetBound::Response& res)
 {
   return IkServicesBase::getBounds(&req, &res);
+}
+
+bool IkServices::getFrames(ik_solver_msgs::GetFrames::Request& req, ik_solver_msgs::GetFrames::Response& res)
+{
+  return IkServicesBase::getFrames(&req, &res);
 }
 
 bool IkServices::reconfigure(Trigger::Request& req, Trigger::Response& res)

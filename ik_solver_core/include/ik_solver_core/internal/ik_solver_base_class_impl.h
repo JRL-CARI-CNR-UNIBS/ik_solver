@@ -40,6 +40,7 @@ inline bool IkSolverBase::config(const std::string& params_ns)
     fprintf(stderr, "%s[ERROR]: Missing environemnt variable IK_SOLVER_LOGGER_CONFIG_PATH!%s\n", cnr_logger::BOLDRED().c_str(), cnr_logger::RESET().c_str());
     return false;
   }
+
   std::stringstream logger_id;
   logger_id << "ik_solver_" << reinterpret_cast<size_t>(this);
   if (!logger_.init(logger_id.str(), logger_config_path, false, false))
