@@ -3,6 +3,10 @@ repositories:
     type: git
     url: https://github.com/CNR-STIIMA-IRAS/cnr_logger.git
     version: master
+  cnr_yaml:
+    type: git
+    url: https://github.com/CNR-STIIMA-IRAS/cnr_yaml.git
+    version: master
   cnr_param:
     type: git
     url: https://github.com/CNR-STIIMA-IRAS/cnr_param.git

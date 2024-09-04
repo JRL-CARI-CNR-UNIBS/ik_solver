@@ -52,55 +52,5 @@ Configurations getSeeds(const std::vector<std::string>& joint_names, const std::
   return seeds_eigen;
 }
 
-bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab)
-{
-#if ROS_X == 1
-  tf::StampedTransform location_transform;
-  ros::Time t0 = ros::Time(0);
-  std::string tf_error;
-  tf::TransformListener listener;
-  if (!listener.waitForTransform(a_name, b_name, t0, ros::Duration(10), ros::Duration(0.01), &tf_error))
-  {
-    printf("[WARNING] Unable to find a transform from %s to %s, tf error=%s", a_name.c_str(), b_name.c_str(), tf_error.c_str());
-    return false;
-  }
 
-  try
-  {
-    listener.lookupTransform(a_name, b_name, t0, location_transform);
-  }
-  catch (...)
-  {
-    printf("[WARNING] Unable to find a transform from %s to %s, tf error=%s", a_name.c_str(), b_name.c_str(), tf_error.c_str());
-    return false;
-  }
-
-  tf::poseTFToEigen(location_transform, T_ab);
-  return true;
-#elif ROS_X == 2
-  using namespace std::chrono_literals;
-  geometry_msgs::msg::TransformStamped location_transform;
-  tf2::TimePoint t0 = tf2::TimePointZero;
-  std::string tf_error;
-  tf2_ros::Buffer buffer(std::make_shared<rclcpp::Clock>(RCL_SYSTEM_TIME));
-  // Required to avoid TransformListener dtor bug
-  // See: https://github.com/ros2/geometry2/issues/517
-  rclcpp::Node::SharedPtr dummy_node = std::make_shared<rclcpp::Node>("__ik_solver_get_ik_"+std::to_string(reinterpret_cast<size_t>(getTF)));
-  tf2_ros::TransformListener listener(buffer, dummy_node, false);
-  rclcpp::spin_some(dummy_node);
-  try
-  {
-    location_transform = buffer.lookupTransform(a_name, b_name, t0, tf2::Duration(10s));
-  }
-  catch (...)
-  {
-    fprintf(stderr, "[WARNING] Unable to find a transform from %s to %s, tf error=%s", a_name.c_str(), b_name.c_str(), tf_error.c_str());
-    return false;
-  }
-
-  dummy_node = nullptr; // Useless
-  T_ab = tf2::transformToEigen(location_transform);
-  return true;
-#endif
-}
-}
+} // namespace ik_solver

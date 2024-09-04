@@ -1,0 +1,18 @@
+solver1:
+  type: ik_solver/KukaIkSolver
+  base_frame: base_link # base frame of the chain
+  flange_frame: flange # end frame of the chain
+  tool_frame: flange # destination frame of the IK (it should be rigid attached to flange_frame)
+
+  max_stall_iterations: 1000
+  min_stall_iterations: 10
+  parallel_ik_mode: 2
+
+  desired_solutions: 8000 # number of desired solution
+  joint_names:
+  - joint1
+  - joint2
+  - joint3
+  - joint4
+  - joint5
+  - joint6

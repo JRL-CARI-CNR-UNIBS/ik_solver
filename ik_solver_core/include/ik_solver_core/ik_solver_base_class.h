@@ -7,35 +7,31 @@
 
 #include <string>
 
-#include <ros/ros.h>
-#include <tf/transform_listener.h>
+#include <cnr_logger/cnr_logger.h>
+#include <cnr_param/cnr_param.h>
+
 #include <Eigen/Geometry>
 
-#include <urdf/model.h>
+#include <urdf_model/model.h>
+#include <urdf_parser/urdf_parser.h>
 
-#include <ik_solver/internal/types.h>
+#include <ik_solver_core/internal/utils.h>
+#include <ik_solver_core/internal/types.h>
 
 namespace ik_solver
 {
 
-/**
- * @class IkSolver
- * @brief Base class for inverse kinematics solvers.
- *
- * This class provides a base implementation for inverse kinematics solvers.
- * Derived classes can inherit from this class to implement specific inverse
- * kinematics algorithms.
- */
-class IkSolver
+class IkSolverBase
 {
 public:
-  IkSolver() = default;
-  IkSolver(const IkSolver&) = delete;
-  IkSolver(const IkSolver&&) = delete;
-  IkSolver(IkSolver&&) = delete;
-  virtual ~IkSolver() = default;
 
-  virtual bool config(const ros::NodeHandle& nh, const std::string& param_ns = "");
+  IkSolverBase() = default;
+  IkSolverBase(const IkSolverBase&) = delete;
+  IkSolverBase(const IkSolverBase&&) = delete;
+  IkSolverBase(IkSolverBase&&) = delete;
+  virtual ~IkSolverBase() = default;
+
+  virtual bool config(const std::string& param_ns = "");
 
   // FK flange to base
   virtual Solutions getIk(const Eigen::Affine3d& T_base_flange, const Configurations& seeds,
@@ -60,12 +56,15 @@ public:
   const int& parallelize() const;
   const std::string param_namespace() const;
 
+  bool changeTool(const std::string& t_frame);
+  bool changeTool(const std::string& t_frame, const Eigen::Affine3d& T_tool_flange);
+
 protected:
+  cnr_logger::TraceLogger logger_;
+
   std::string params_ns_;
-  ros::NodeHandle robot_nh_;
 
   Eigen::Affine3d T_tool_flange_;
-  tf::TransformListener listener_;
   std::string base_frame_;
   std::string flange_frame_;
   std::string tool_frame_;
@@ -81,13 +80,19 @@ protected:
   int parallelize_ = 0;
   int exploit_solutions_as_seed_ = 0;
 
-  urdf::Model model_;
+  constexpr static int PARALLELIZE_DISABLE = 2;
+
+  urdf::ModelInterfaceSharedPtr model_;
 
   bool getFlangeTool();
+
+  virtual bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab) const = 0;
+
 };
+
 
 }  //  namespace ik_solver
 
-#include <ik_solver/internal/ik_solver_base_class_impl.h>
+#include <ik_solver_core/internal/ik_solver_base_class_impl.h>
 
 #endif  // IK_SOLVER__IKSOLVER_BASE_CLASS_H

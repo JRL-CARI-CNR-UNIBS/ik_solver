@@ -3,8 +3,8 @@
  */
 
 
-#ifndef IK_SOLVER_CORE__INTERNAL__UITLS_H
-#define IK_SOLVER_CORE__INTERNAL__UITLS_H
+#ifndef IK_SOLVER_CORE__INTERNAL__UTILS_H
+#define IK_SOLVER_CORE__INTERNAL__UTILS_H
 
 #include <numeric>
 #include <string>
@@ -15,17 +15,16 @@
 
 #include <Eigen/Geometry>
 
-
 #include <cnr_param/cnr_param.h>
 #include <ik_solver_core/internal/types.h>
 
 namespace std
 {
 // ===============
-//inline std::string to_string(const std::string& s)
-//{
-//  return s;
-//}
+// inline std::string to_string(const std::string& s)
+// {
+//   return s;
+// }
 
 /**
  * @brief
@@ -33,16 +32,17 @@ namespace std
  * @param ss
  * @return std::string
  */
-template<typename T>
-inline std::string to_string(const std::vector<T>& ss)
-{
-  std::stringstream ret;
-  ret << "[";
-  for (const auto& s : ss)
-    ret << s <<  ",";
-  ret << "]";
-  return ret.str();
-}
+// WARN: Already implemented in cnr_param
+// template<typename T>
+// inline std::string to_string(const std::vector<T>& ss)
+// {
+//   std::stringstream ret;
+//   ret << "[";
+//   for (const auto& s : ss)
+//     ret << s <<  ",";
+//   ret << "]";
+//   return ret.str();
+// }
 
 inline std::string to_string(const Eigen::Affine3d& mat)
 {
@@ -292,4 +292,4 @@ inline bool is_the_same(const std::vector<std::string>& lhs, const std::vector<s
 
 }
 
-#endif  // IK_SOLVER_CORE__INTERNAL__UITLS_H
+#endif  // IK_SOLVER_CORE__INTERNAL__UTILS_H

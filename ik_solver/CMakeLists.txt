@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.16)
 project(ik_solver)
 
 set(CMAKE_BUILD_TYPE Debug)
@@ -6,7 +6,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -20,6 +20,10 @@ endif()
 
 option(SEARCH_IN_CATKIN "search for _core and cnr_* dependencies in catkin (only if ROS_VERSION=1)" OFF)
 
+if(ROS_VERSION EQUAL 1)
+  message(ERROR "ROS 1 support is not stable! Use at your own risk!")
+endif()
+
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(Boost REQUIRED COMPONENTS system)
 
@@ -28,7 +32,10 @@ find_package(Boost REQUIRED COMPONENTS system)
 ## SETUP ##
 ###########
 set(IKSERVICES_SOURCE src/internal/services_common.cpp)
-## ROS 1
+
+###############
+    ## ROS 1 ##
+###############
 if(ROS_VERSION EQUAL 1)
   
   if(SEARCH_IN_CATKIN)
@@ -37,7 +44,8 @@ if(ROS_VERSION EQUAL 1)
     find_package(cnr_logger REQUIRED)
     find_package(ik_solver_core REQUIRED)
     find_package(cnr_param REQUIRED)
-    set(LIB_NON_CATKIN cnr_param;cnr_logger;ik_solver_core)
+    find_package(cnr_yaml REQUIRED)
+    set(LIB_NON_CATKIN cnr_yaml;cnr_param;cnr_logger;ik_solver_core)
   endif()
 
   find_package(catkin REQUIRED COMPONENTS
@@ -66,13 +74,16 @@ if(ROS_VERSION EQUAL 1)
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
   )
-  list(APPEND IKSERVICES_SOURCE src/internal/services_1.cpp)
-  set(NODE_SOURCE src/node_1.cpp)
-## ROS 2
+  list(APPEND IKSERVICES_SOURCE src/internal/services.ros1.cpp)
+  set(NODE_SOURCE src/node.ros1.cpp)
+###############
+    ## ROS 2 ##
+###############
 elseif(ROS_VERSION EQUAL 2)
   find_package(ament_cmake REQUIRED)
   find_package(rclcpp REQUIRED)
 
+  find_package(cnr_yaml REQUIRED)
   find_package(cnr_param REQUIRED)
   find_package(cnr_logger REQUIRED)
 
@@ -87,10 +98,12 @@ elseif(ROS_VERSION EQUAL 2)
 
   find_package(ik_solver_core REQUIRED)
 
-  list(APPEND IKSERVICES_SOURCE src/internal/services_2.cpp)
-  set(NODE_SOURCE src/node_2.cpp)
+  list(APPEND IKSERVICES_SOURCE src/internal/services.ros2.cpp)
+  set(NODE_SOURCE src/node.ros2.cpp include/ik_solver/internal/ik_solver_node.ros2.hpp)
 endif()
-########################
+###############
+## END SETUP ##
+###############
 
 include(ProcessorCount)
 ProcessorCount(N)
@@ -104,7 +117,9 @@ endif()
 #############
 ## TARGETS ##
 #############
-add_library(${PROJECT_NAME} SHARED ${IKSERVICES_SOURCE} src/internal/utils.cpp src/internal/types.cpp)
+add_library(${PROJECT_NAME} SHARED ${IKSERVICES_SOURCE} src/internal/utils.cpp src/internal/types.cpp
+  include/ik_solver/ik_solver.hpp
+)
 target_compile_definitions(${PROJECT_NAME} PUBLIC
   _MAX_NUM_PARALLEL_IK_SOLVER=${MAX_NUM_PARALLEL_IK_SOLVER}
   -DROS_X=${ROS_VERSION})
@@ -116,7 +131,9 @@ target_compile_definitions(${PROJECT_NAME}_node PUBLIC -DROS_X=${ROS_VERSION})
 ## LINK  ##
 ###########
 
-## ROS 1
+###############
+    ## ROS 1 ##
+###############
 if(ROS_VERSION EQUAL 1)
   add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
   target_link_libraries(${PROJECT_NAME}
@@ -137,7 +154,9 @@ if(ROS_VERSION EQUAL 1)
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 endif()
 
-## ROS 2
+###############
+    ## ROS 2 ##
+###############
 if(ROS_VERSION EQUAL 2)
   ament_target_dependencies(${PROJECT_NAME} PUBLIC
     rclcpp
@@ -149,19 +168,39 @@ if(ROS_VERSION EQUAL 2)
     std_srvs
     ik_solver_msgs
   )
-  target_link_libraries(${PROJECT_NAME} PUBLIC
+  target_link_libraries(ik_solver PUBLIC
     Eigen3::Eigen
-    ${ik_solver_core_LIBRARIES})
+    ik_solver_core::ik_solver_core)
+  add_library(ik_solver::ik_solver ALIAS ik_solver)
   target_include_directories(${PROJECT_NAME} PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
     )
-  add_dependencies(${PROJECT_NAME} ik_solver_core::ik_solver_core)
 
-  target_link_libraries(${PROJECT_NAME}_node PUBLIC
-    ${PROJECT_NAME}
-    Eigen3::Eigen
-    ${ik_solver_core_LIBRARIES})
+  target_link_libraries(ik_solver_node PUBLIC
+    ik_solver::ik_solver
+    Eigen3::Eigen)
+endif()
+
+###########
+## TESTS ##
+###########
+if(ROS_VERSION EQUAL 2)
+  find_package(ament_cmake_gtest REQUIRED)
+  find_package(ros2_control_test_assets REQUIRED)
+
+  ament_add_gtest(test_node_ros2 test/test_node_2.cpp)
+  target_include_directories(test_node_ros2 PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  )
+  target_link_libraries(test_node_ros2
+    ik_solver::ik_solver
+    cnr_param::cnr_param)
+  ament_target_dependencies(test_node_ros2
+    rclcpp
+    ros2_control_test_assets
+  )
 endif()
 
 #############
@@ -191,9 +230,6 @@ if(ROS_VERSION EQUAL 2)
                             ik_solver_msgs
                             ik_solver_core
                             )
-  ament_export_include_directories(
-    include
-  )
 
   install(TARGETS ${PROJECT_NAME}_node
       DESTINATION lib/${PROJECT_NAME})

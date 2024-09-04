@@ -5,8 +5,8 @@ get_filename_component(ik_solver_core_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PAT
 include(CMakeFindDependencyMacro)
 find_dependency(cnr_param       REQUIRED)
 find_dependency(cnr_logger      REQUIRED)
-find_dependency(urdfdom         REQUIRED)
-find_dependency(urdfdom_headers REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(urdfdom REQUIRED urdfdom IMPORTED_TARGET)
 find_dependency(Eigen3          REQUIRED NO_MODULE)
 
 # Temporary - cnr_logger
