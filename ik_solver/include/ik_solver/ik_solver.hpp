@@ -78,22 +78,29 @@ inline bool IkSolver::getTF(const std::string& a_name, const std::string& b_name
   geometry_msgs::msg::TransformStamped location_transform;
   tf2::TimePoint t0 = tf2::TimePointZero;
 
+
   bool ret {true};
-  try
+  for (size_t itrial=0;itrial<50;itrial++)
   {
-    location_transform = tf_buffer_->lookupTransform(a_name, b_name, t0, tf2::Duration(5s));
-  }
-  catch (tf2::LookupException ex)
-  {
-    fprintf(stderr, "[WARNING] Timeout: Unable to find a transform from %s to %s\n", a_name.c_str(), b_name.c_str());
-    fprintf(stderr, "[WARNING] %s", ex.what());
-    ret = false;
-  }
-  catch(std::exception ex)
-  {
-    fprintf(stderr, "[WARNING] Unable to find a transform from %s to %s\n", a_name.c_str(), b_name.c_str());
-    fprintf(stderr, "[WARNING] %s", ex.what());
-    ret = false;
+    try
+    {
+      location_transform = tf_buffer_->lookupTransform(a_name, b_name, t0, tf2::Duration(5s));
+    }
+    catch (tf2::LookupException ex)
+    {
+      fprintf(stderr, "[WARNING] Timeout: Unable to find a transform from %s to %s\n", a_name.c_str(), b_name.c_str());
+      fprintf(stderr, "[WARNING] %s", ex.what());
+      ret = false;
+    }
+    catch(std::exception ex)
+    {
+      fprintf(stderr, "[WARNING] Unable to find a transform from %s to %s\n", a_name.c_str(), b_name.c_str());
+      fprintf(stderr, "[WARNING] %s", ex.what());
+      ret = false;
+    }
+    if (ret)
+      break;
+    std::this_thread::sleep_for(0.1s);
   }
 
   if(ret)

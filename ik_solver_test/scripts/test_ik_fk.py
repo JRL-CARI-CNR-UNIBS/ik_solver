@@ -59,9 +59,10 @@ class GetIkNode(Node):
         n_errors=0
         n_trials=1000
         for index in range(0,n_trials):
+            self.get_logger().info(f'run {index} of {n_trials} with {n_errors} errors...')
 
-            if index%100 == 0:
-                self.get_logger().info(f'run {index} of {n_trials} with {n_errors} errors...')
+            #if index%10 == 0:
+            #    self.get_logger().info(f'run {index} of {n_trials} with {n_errors} errors...')
             self.fk_req = GetFk.Request()
             self.fk_req.joint_names = joint_names
             self.fk_req.reference_frame = self.base_frame
@@ -89,34 +90,17 @@ class GetIkNode(Node):
             q = np.array(self.fk_req.configuration.configuration)
 
             norma = infinity
-            norma_periodicity = infinity
             for conf in ik_res.solution.configurations:
                 q2 = np.array(conf.configuration)
                 difference = q - q2
-                difference_periodicity = (difference + np.pi) % (2 * np.pi) - np.pi
                 if np.linalg.norm(difference) < norma:
                     norma = np.linalg.norm(difference)
-                if np.linalg.norm(difference_periodicity) < norma_periodicity:
-                    norma_periodicity = np.linalg.norm(difference_periodicity)
 
             if norma > 1e-6:
                 if max(list(ik_res.solution.translation_residual_errors))>1e-6 or max(list(ik_res.solution.rotation_residual_errors))>=1e-6:
                     n_errors += 1
                     self.get_logger().error(f"error = {norma}")
                     self.get_logger().error(f"translation_residual_errors {max(list(ik_res.solution.translation_residual_errors))} rotation_residual_errors {max(list(ik_res.solution.rotation_residual_errors))} ")
-
-
-
-
-                # self.get_logger().error(f"q    = {q}")
-                # for conf in ik_res.solution.configurations:
-                #     q2 = np.array(conf.configuration)
-                #     # Compute the difference
-                #     difference = q - q2
-                #     difference = (difference + np.pi) % (2 * np.pi) - np.pi
-                #
-                #     self.get_logger().error(f"q ik = {q2}")
-                #     self.get_logger().error(f"diff = {q2-q}, difference without periodicity = {np.linalg.norm(difference_periodicity)}")
 
         self.get_logger().info(f'run {n_trials} times with {n_errors} errors...')
 
