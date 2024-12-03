@@ -16,10 +16,9 @@ from tables.idxutils import infinity
 
 
 class GetIkNode(Node):
-    def __init__(self, service_name, tf_name):
+    def __init__(self, service_name):
         super().__init__('get_ik')
         self.service_name = service_name
-        self.tf_name = tf_name
 
         self.state_pub = self.create_publisher(DisplayRobotState, '/ik_solution', 10)
 
@@ -82,6 +81,7 @@ class GetIkNode(Node):
 
             self.req = GetIk.Request()
             self.req.target.pose=fk_res.pose
+            self.req.target.seeds=[self.fk_req.configuration]
 
             self.future = self.ik_client.call_async(self.req)
             rclpy.spin_until_future_complete(self, self.future)
@@ -96,11 +96,19 @@ class GetIkNode(Node):
                 if np.linalg.norm(difference) < norma:
                     norma = np.linalg.norm(difference)
 
+            self.get_logger().info(f"found {len(ik_res.solution.configurations)} solutions")
             if norma > 1e-6:
-                if max(list(ik_res.solution.translation_residual_errors))>1e-6 or max(list(ik_res.solution.rotation_residual_errors))>=1e-6:
+
+                if len(ik_res.solution.translation_residual_errors)==0 or len(ik_res.solution.rotation_residual_errors)==0:
+                    self.get_logger().error(f"error = {norma}")
+                    self.get_logger().error(f"no solution found")
+                    n_errors += 1
+                elif max(list(ik_res.solution.translation_residual_errors))>1e-6 or max(list(ik_res.solution.rotation_residual_errors))>=1e-6:
                     n_errors += 1
                     self.get_logger().error(f"error = {norma}")
                     self.get_logger().error(f"translation_residual_errors {max(list(ik_res.solution.translation_residual_errors))} rotation_residual_errors {max(list(ik_res.solution.rotation_residual_errors))} ")
+                else:
+                    self.get_logger().warning(f"error = {norma}, max error: {max(list(ik_res.solution.translation_residual_errors))} (tra) {max(list(ik_res.solution.rotation_residual_errors))} (rot)")
 
         self.get_logger().info(f'run {n_trials} times with {n_errors} errors...')
 
@@ -108,13 +116,12 @@ def main(args=None):
     rclpy.init(args=args)
 
     if len(sys.argv) < 3:
-        print("Usage: ros2 run ik_solver get_tf_ik [namespace] [tf_name]")
+        print("Usage: ros2 run ik_solver get_tf_ik [namespace]")
         return
 
     service_name = sys.argv[1]
-    tf_name = sys.argv[2]
 
-    node = GetIkNode(service_name, tf_name)
+    node = GetIkNode(service_name)
     #rclpy.spin(node)
 
     node.destroy_node()

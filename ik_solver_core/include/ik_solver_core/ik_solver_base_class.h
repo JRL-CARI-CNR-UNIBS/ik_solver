@@ -63,6 +63,7 @@ protected:
   cnr_logger::TraceLogger logger_;
 
   std::string params_ns_;
+  std::string robot_description_;
 
   Eigen::Affine3d T_tool_flange_;
   std::string base_frame_;

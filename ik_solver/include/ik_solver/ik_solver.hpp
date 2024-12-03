@@ -77,9 +77,14 @@ inline bool IkSolver::getTF(const std::string& a_name, const std::string& b_name
   using namespace std::chrono_literals;
   geometry_msgs::msg::TransformStamped location_transform;
   tf2::TimePoint t0 = tf2::TimePointZero;
-
-
   bool ret {true};
+
+  if (!tf_buffer_)
+  {
+    fprintf(stderr, "[ERROR] TF buffer is not set");
+    ret = false;
+  }
+
   for (size_t itrial=0;itrial<50;itrial++)
   {
     try

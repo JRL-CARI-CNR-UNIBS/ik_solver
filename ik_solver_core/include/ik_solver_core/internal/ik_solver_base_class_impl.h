@@ -81,8 +81,8 @@ inline bool IkSolverBase::config(const std::string& params_ns)
   }
   CNR_DEBUG(logger_, "Flange->Tool transform: OK");
 
-  std::string robot_description;
-  if(!cnr::param::get(params_ns_ + "/robot_description", robot_description, param_what))
+
+  if(!cnr::param::get(params_ns_ + "/robot_description", robot_description_, param_what))
   {
     CNR_ERROR(logger_, "IkSolver: Missing robot_description parameter\n%s",param_what.c_str());
     return false;
@@ -90,7 +90,7 @@ inline bool IkSolverBase::config(const std::string& params_ns)
   CNR_DEBUG(logger_, "robot_description from param: OK");
 
   // model_.initParam("robot_description");
-  model_ = urdf::parseURDF(robot_description);
+  model_ = urdf::parseURDF(robot_description_);
   if(model_ == nullptr)
   {
     CNR_ERROR(logger_, "Cannot load robot_description!");

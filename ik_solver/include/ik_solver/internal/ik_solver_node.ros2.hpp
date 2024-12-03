@@ -40,10 +40,9 @@ private:
       return;
     }
 
-    std::string robot_description;
     // try obtaining robot_description from ros parameters
     this->declare_parameter("robot_description", rclcpp::PARAMETER_STRING);
-    if(!this->get_parameter("robot_description", robot_description))
+    if(!this->get_parameter("robot_description", robot_description_))
     {
 
       // If not from parameters, get robot_description from topic
@@ -54,7 +53,7 @@ private:
     else
     {
       std_msgs::msg::String rd_msg;
-      rd_msg.data = robot_description;
+      rd_msg.data = robot_description_;
       configure_after_robot_description(rd_msg);
     }
   }
@@ -89,9 +88,9 @@ protected:
 
   void configure_after_robot_description(const std_msgs::msg::String& msg)
   {
-    auto robot_description = msg.data;
+    robot_description_ = msg.data;
 
-    if(!cnr::param::set(this->get_namespace()+std::string("/robot_description"), robot_description, param_what_))
+    if(!cnr::param::set(this->get_namespace()+std::string("/robot_description"), robot_description_, param_what_))
     {
       RCLCPP_ERROR_STREAM(this->get_logger(), "Cannot set cnr::param(" << this->get_namespace() << std::string("/robot_description") << ") because: " << param_what_);
     }
@@ -114,6 +113,9 @@ protected:
     RCLCPP_INFO(get_logger(), "%s (type %s) is ready to compute IK",get_namespace(),plugin_name_.c_str());
     server_ready_ = true;
   }
+protected:
+  std::string robot_description_;
+
 private:
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_robot_description_;
   std::string param_what_;
