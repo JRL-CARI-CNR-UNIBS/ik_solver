@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # ik solver
 
 The package is interconnected to the [`ik_solver_msgs``](https:/github.com/JRL-CARI-CNR-UNIBS/ik_solver_msgs.git) package. 
@@ -149,7 +148,6 @@ joint_names:                  # name of the whole chain
 min_stall_iterations: 500      # This parameter is overridden by the stall_iterations in the GetIk service if it is different from 0
 max_stall_iterations: 3000
 ```
-=======
 # IK Solver
 
 **IkSolver** is a solver-agnostic interface for inverse kinematics solvers, both numerical and analytical. It is compatible with both ROS1 and ROS2.
@@ -286,4 +284,3 @@ rosrun ik_solver get_tf_ik.py <plugin_name> <tf_name>
 python3 <path_to_ik_solver_package>/scripts/get_tf_ik_ros2.py <plugin_name> <tf_name>
 ```
 The node publish a `moveit_msgs/DisplayRobotState` topic called `ik_solution`. The robot state shows cyclically the IK solution.
->>>>>>> 42d95c992cd93fcc7bf11e099fe169c0f1b483c2
