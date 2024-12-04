@@ -1,6 +1,25 @@
 # ik solver
 
-The package is interconnected to the [`ik_solver_msgs``](https:/github.com/JRL-CARI-CNR-UNIBS/ik_solver_msgs.git) package. 
+The package is interconnected to the [`ik_solver_msgs`](https:/github.com/JRL-CARI-CNR-UNIBS/ik_solver_msgs.git) package. 
+
+# Requirements
+
+This packages require the utility set of packages [`cnr_common`](https://github.com/JRL-CARI-CNR-UNIBS/cnr_common). These libraries do not depend on ROS.
+
+The environment variable `IK_SOLVER_LOGGER_CONFIG_PATH` should be set with the path to an appropriate `cnr_logger` configuration file. An example is provided [here](https://github.com/JRL-CARI-CNR-UNIBS/ik_solver/blob/master/ik_solver_core/config/default_logger.yaml).
+In the future, this requirement will be removed.
+
+# Usage
+
+To simplify the setup process of multiple `ik_solver_node` servers, la `launch` file is provided. The launcher will load a `yaml` file containing the parameters as explained [below](#the-configuration-file) and will launch a solver server for each namespaced set of parameters.
+
+To launch the ROS2 version
+
+```bash
+ros2 launch ik_solver ik_solver.launch.py config:=/path/to/config.yaml
+```
+
+A ROS1 launcher is provided but it is not stable yet.
 
 # IK Solver ROS Node
 
@@ -22,9 +41,15 @@ The package provides a node named `ik_server_node` that exposes several services
 The node implements a pool of threads that offers access to the solver capabilities. 
 The pool of thread dimension is set by the variable `MAX_NUM_PARALLEL_IK_SOLVER` in the `CMakeLists.txt`. 
 
+## Packages structure
+
+The framework is based on two packages:
+* `ik_solver_core`, provide a ros-free core of the framework, such as the `IkSolverBase` abstract class which can be inherited to create ros-free plugins.
+* `ik_solver`, is the ROS wrapper, compatible with both ROS1 and ROS2. Services and Nodes are defined here. Also, a convenience class `IKSolver`, inhereting `IkSolverBase`, is provided to simplify interfacing with `tf2`
+
 ## The IK Solver Plugin
 
-The package implements an interface to a generic solver of the IK. The abstract class `IkSolver` is designed to allow an easy plugin inheritance.
+The package implements an interface to a generic solver of the IK. The abstract class `IkSolverBase` is designed to allow an easy plugin inheritance.
 The header file shows the basic functionalities of the plugin. It reads the URDF and extracts some useful information. Two abstract functions are then exposed for derived plugins.
 
 The parameters that control the behavior of the class are loaded during the configuration. The configuration is done: 
@@ -35,17 +60,23 @@ The parameters that control the behavior of the class are loaded during the conf
 
 A few parameters can be overridden by the service parameters (see below).
 
-Below the abstract base class is reported. 
+**Note:** If the plugin will be used with ROS, it is suggested to inherit from `IkSolver` instead of `IkSolverBase`.
+
+Below the abstract base classes are reported. 
 
 ```cpp
-class IkSolver
+/*
+  ik_solver_core/include/ik_solver_core/ik_solver_base_class.h
+*/
+
+class IkSolverBase
 {
 public:
-  IkSolver() = default;
-  IkSolver(const IkSolver&) = delete;
-  IkSolver(const IkSolver&&) = delete;
-  IkSolver(IkSolver&&) = delete;
-  virtual ~IkSolver() = default;
+  IkSolverBase() = default;
+  IkSolverBase(const IkSolverBase&) = delete;
+  IkSolverBase(const IkSolverBase&&) = delete;
+  IkSolverBase(IkSolverBase&&) = delete;
+  virtual ~IkSolverBase() = default;
 
   virtual bool config(const ros::NodeHandle& nh, const std::string& param_ns = "");
 
@@ -99,6 +130,37 @@ protected:
 };
 ```
 
+```cpp
+/*
+  ik_solver/include/ik_solver/ik_solver.hpp
+*/
+
+#if ROS_X == 1
+  using Tf2BufferPtr = std::unique_ptr<tf2_ros::Buffer>;
+#elif ROS_X == 2
+  using Tf2BufferPtr = tf2_ros::Buffer::SharedPtr;
+#endif
+
+namespace ik_solver
+{
+class IkSolver : public IkSolverBase
+{
+protected:
+  Tf2BufferPtr tf_buffer_;
+public:
+  IkSolver() : IkSolverBase() {}
+  IkSolver(const IkSolver&) = delete;
+  IkSolver(const IkSolver&&) = delete;
+  IkSolver(IkSolver&&) = delete;
+  virtual ~IkSolver() = default;
+
+  void setBuffer(const tf2_ros::Buffer::SharedPtr& buffer){tf_buffer_=buffer;}
+
+  virtual bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab) const;
+
+};
+```
+
 
 ## The configuration file
 
@@ -112,175 +174,42 @@ An example of a configuration file with the parameters needed by the plugin and 
 #
 ###################################################
 
-# This param is inherited from the ik_solver base class.
-# This param tells the plugin loader to load the 
-# SPECIFIC_PLUGIN
-type: ik_solver/SPECIFIC_PLUGIN
+# Every structure name is considered as the namespace of a new ik_solver node. Mulitple structure creates multiple nodes.
+solver_namespace:
 
-# Parameters used by the ik_solver node. The node creates a number of parallel threads for
-# speed up the IK and FK computation.
-# If the parallel mode is active, the speed is very high, but the previous IK solution cannot be exploited
-# If the parallel mode is off, you can select if the previous IK solution is used as seed for the next IK solution
-# or not
-# NOTE:
-#   parallel_ik_mode and update_recursively_seeds are the default value. 
-#   These values can be overridden using the service messages each time the service are called.
-#   
-parallel_ik_mode: 2           # 0 default, 1 force parallelization, 2 disable parallelization
-update_recursively_seeds: 1   # 0 default, 1 force update, 2 disable update !!! If paralle_ik_mode is 2, this is neglected
+  # This param is inherited from the ik_solver_base class.
+  # This param tells the plugin loader to load the 
+  # SPECIFIC_PLUGIN
+  type: ik_solver/SPECIFIC_PLUGIN
 
-# Parameters inherited from the base class
-# NOTE: here the parameter are for the whole chain, i.e., both axis and robot arm chain
-group_name: manipulator
-base_frame: world             # base frame of the chain
-flange_frame: flange          # end frame of the chain
-desired_solutions: 32         # number of desired solution
-                              # This parameter is overridden by the max_number_of_solutions in the GetIk service if it is different from 0
-joint_names:                  # name of the whole chain 
-- joint_7
-- joint_1
-- joint_2
-- joint_3
-- joint_4
-- joint_5
-- joint_6
+  # Parameters used by the ik_solver node. The node creates a number of parallel threads for
+  # speed up the IK and FK computation.
+  # If the parallel mode is active, the speed is very high, but the previous IK solution cannot be exploited
+  # If the parallel mode is off, you can select if the previous IK solution is used as seed for the next IK solution
+  # or not
+  # NOTE:
+  #   parallel_ik_mode and update_recursively_seeds are the default value. 
+  #   These values can be overridden using the service messages each time the service are called.
+  #   
+  parallel_ik_mode: 2           # 0 default, 1 force parallelization, 2 disable parallelization
+  update_recursively_seeds: 1   # 0 default, 1 force update, 2 disable update !!! If paralle_ik_mode is 2, this is neglected
 
-min_stall_iterations: 500      # This parameter is overridden by the stall_iterations in the GetIk service if it is different from 0
-max_stall_iterations: 3000
-```
-# IK Solver
-
-**IkSolver** is a solver-agnostic interface for inverse kinematics solvers, both numerical and analytical. It is compatible with both ROS1 and ROS2.
-
-The solvers are provided as ROS-plugins.
-
-The library implements parallel computation routines.
-
-## Dependencies
-
-A `.repo` file compatible with `vcstool` is provided with all the dependencies
-
-- [cnr_param](https://github.com/CNR-STIIMA-IRAS/cnr_param): ROS-free parameter handling
-- [cnr_logger](https://github.com/CNR-STIIMA-IRAS/cnr_logger.git): ROS-free logger library
-
-## Usage
-
-### Installation
-
-#### Get dependencies
-```bash
-vcs import < ik_solver/ik_solver.repo
-```
-
-#### ROS 1 (catkin_tools)
-```bash
-## Move ros-free libraries
-export INSTALL_LOCATION=/path/to/install/location
-### cnr_logger
-mv cnr_logger /path/outside/workspace
-cd /path/outside/workspace; cd cnr_logger
-mkdir build; cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=$INSTALL_LOCATION -DUSE_ROS1=OFF
-make; make install
-
-### cnr_param
-mv cnr_param  /path/outside/workspace
-cd /path/outside/workspace; cd cnr_logger
-mkdir build; cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=$INSTALL_LOCATION -DUSE_ROS1=OFF
-make; make install
-
-## Build
-catkin build -cs --cmake-args -DUSE_ROS1=ON
-```
-**Note:**
-- `CMAKE_PREFIX_PATH` must contain `$INSTALL_LOCATION`;
-- `LD_LIBRARY_PATH` must contain `$INSTALL_LOCATION/lib`
-
-#### ROS 2 (colcon)
-```bash
-colcon build --symlink-install --continue-on-error --cmake-args -DUSE_ROS1=OFF
-```
-
-### Services
-
-The following services are provided through the "ik_solver_node":
-
-- `get_ik`: calls the computation of ik related to a single pose
-- `get_ik_array`: calls the computation of ik related to a multiple poses
-- `get_fk`: calls the computation of the forward kinematics for a single configuration
-- `get_fk_array`: calls the computation of the forward kinematics for multiple configuration
-
-Several utility services are provided:
-
-- `get_bounds`: get joint bounds
-- `change_tool`: change the tool frame
-
-### Run server
-
-```bash
-# ROS1 : WIP
-roslaunch ik_solver ik_solver_1.py plugin='[<plugin_pkg_name_1>, <plugin_pkg_name_2>, ...]' config='[<config_filename_plugin_1>, <config_filename_plugin_2>, ...]'
-```
-
-```bash
-# ROS2
-ros2 launch ik_solver ik_solver.launch.py file:="path/to/config/file"
-```
-
-The config file has the following structure:
-
-```yaml
-ik_solver:
-  - package: "pkg1"    # Package which contain the configuration file
-    config: "cf1"      # Path from package share to config file
-    namespace: "n1"    # Namespace of the node (and of the config parameters)
-  - package: "pkg1"
-    config: "cf2"
-    namespace: "n2"
-```
-
-#### Example
-```bash
-ros2 launch ik_solver ik_solver.launch.py file:=ik_solver/config/config_example.yaml
-```
-
-### Environment Variables
-```bash
-# Path to a valid directory in which save the parameters
-export CNR_PARAM_ROOT_DIRECTORY="/tmp"
-
-# Path to a valid cnr_logger config file
-export IK_SOLVER_LOGGER_CONFIG_PATH="/path/to/repository/ik_solver/ik_solver/config/default_logger.yaml"
-```
-
-## Plugin configuration
-
-Each plugin must contain a YAML file with the following configuration:
-
-```yaml
-package_name:
-  type: ik_solver::CustomIkSolver # ROS Plugin Name
-  base_frame: base # base frame of the chain
-  flange_frame: flange # end frame of the chain
-
-  tool_frame: tool # destination frame of the IK (it should be rigid attached to flange_frame)
-  desired_solutions: 32 # number of desired solution
-  joint_names:
+  # Parameters inherited from the base class
+  # NOTE: here the parameter are for the whole chain, i.e., both axis and robot arm chain
+  group_name: manipulator
+  base_frame: world             # base frame of the chain
+  flange_frame: flange          # end frame of the chain
+  desired_solutions: 32         # number of desired solution
+                                # This parameter is overridden by the max_number_of_solutions in the GetIk service if it is different from 0
+  joint_names:                  # name of the whole chain 
+  - joint_7
   - joint_1
   - joint_2
   - joint_3
   - joint_4
   - joint_5
   - joint_6
-```
 
-## Test
-run the node `get_tf_ik.py` providing the name of the IK server and the name of the desired tf. Example:
-```bash
-# ROS1
-rosrun ik_solver get_tf_ik.py <plugin_name> <tf_name>
-# ROS2
-python3 <path_to_ik_solver_package>/scripts/get_tf_ik_ros2.py <plugin_name> <tf_name>
+  min_stall_iterations: 500      # This parameter is overridden by the stall_iterations in the GetIk service if it is different from 0
+  max_stall_iterations: 3000
 ```
-The node publish a `moveit_msgs/DisplayRobotState` topic called `ik_solution`. The robot state shows cyclically the IK solution.

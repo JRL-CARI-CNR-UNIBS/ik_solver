@@ -5,6 +5,8 @@ namespace_1:
 
   tool_frame: <tool> # destination frame of the IK (it should be rigid attached to flange_frame)
   desired_solutions: 32 # number of desired solution
+  parallel_ik_mode: 1
+  update_recursively_seeds: 1
   joint_names:
   - joint1
   - joint2
