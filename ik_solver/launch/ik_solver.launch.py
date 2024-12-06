@@ -48,7 +48,7 @@ def launch_setup(context, *args, **kwargs):
         for yaml_node in yaml_struct.keys():
 
           # Ignore ROS parameters
-          if 'ros__parameters' in yaml_struct[yaml_node].keys():
+          if 'ros__parameters' in yaml_struct[yaml_node]:
             continue
 
           # Launch ik_solver_node after parameters has been properly loaded
