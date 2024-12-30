@@ -37,7 +37,7 @@ set(IKSERVICES_SOURCE src/internal/services_common.cpp)
     ## ROS 1 ##
 ###############
 if(ROS_VERSION EQUAL 1)
-  
+
   if(SEARCH_IN_CATKIN)
     set(LIB_IN_CATKIN cnr_param;cnr_logger;ik_solver_core)
   else()
@@ -234,7 +234,7 @@ if(ROS_VERSION EQUAL 2)
   install(TARGETS ${PROJECT_NAME}_node
       DESTINATION lib/${PROJECT_NAME})
 
-  install(DIRECTORY launch config
+  install(DIRECTORY launch
     DESTINATION share/${PROJECT_NAME})
 
   ament_package()
