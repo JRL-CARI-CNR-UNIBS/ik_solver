@@ -1,0 +1,88 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-8023a88fc8f1f97a6d08.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "ik_solver_core",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ik_solver_core::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ik_solver_core-Debug-ad93388604c1ab7a6547.json",
+					"name" : "ik_solver_core",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ik_solver_core_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ik_solver_core_uninstall-Debug-52f2e9fafec17768109c.json",
+					"name" : "ik_solver_core_uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ik_solver_core_utilities::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ik_solver_core_utilities-Debug-3c94d607614f95fd713a.json",
+					"name" : "ik_solver_core_utilities",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-Debug-585d4c21bdd7879b1f9e.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/galileo/projects/merlin2_ws/src/cnr/ik_solver/build-ik_solver_core-Desktop-Debug",
+		"source" : "/home/galileo/projects/merlin2_ws/src/cnr/ik_solver/ik_solver_core"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 3
+	}
+}

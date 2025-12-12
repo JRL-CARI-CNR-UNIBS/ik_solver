@@ -1,0 +1,106 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"install"
+		],
+		"files" : 
+		[
+			"CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 104,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 110,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 115,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 128,
+				"parent" : 0
+			}
+		]
+	},
+	"installers" : 
+	[
+		{
+			"backtrace" : 1,
+			"component" : "Unspecified",
+			"destination" : "lib",
+			"paths" : 
+			[
+				"libik_solver_core_utilities.so"
+			],
+			"targetId" : "ik_solver_core_utilities::@6890427a1f51a3e7e1df",
+			"targetIndex" : 2,
+			"type" : "target"
+		},
+		{
+			"backtrace" : 2,
+			"component" : "Unspecified",
+			"destination" : "share/cmake/ik_solver_core",
+			"exportName" : "export_ik_solver_core",
+			"exportTargets" : 
+			[
+				{
+					"id" : "ik_solver_core::@6890427a1f51a3e7e1df",
+					"index" : 0
+				},
+				{
+					"id" : "ik_solver_core_utilities::@6890427a1f51a3e7e1df",
+					"index" : 2
+				}
+			],
+			"paths" : 
+			[
+				"CMakeFiles/Export/share/cmake/ik_solver_core/export_ik_solver_core.cmake"
+			],
+			"type" : "export"
+		},
+		{
+			"backtrace" : 3,
+			"component" : "Unspecified",
+			"destination" : "include",
+			"paths" : 
+			[
+				"include/ik_solver_core"
+			],
+			"type" : "directory"
+		},
+		{
+			"backtrace" : 4,
+			"component" : "Unspecified",
+			"destination" : "share/cmake/ik_solver_core",
+			"paths" : 
+			[
+				"/home/galileo/projects/merlin2_ws/src/cnr/ik_solver/build-ik_solver_core-Desktop-Debug/ik_solver_coreConfig.cmake",
+				"/home/galileo/projects/merlin2_ws/src/cnr/ik_solver/build-ik_solver_core-Desktop-Debug/ik_solver_coreConfigVersion.cmake"
+			],
+			"type" : "file"
+		}
+	],
+	"paths" : 
+	{
+		"build" : ".",
+		"source" : "."
+	}
+}

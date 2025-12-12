@@ -46,8 +46,16 @@ private:
     {
 
       // If not from parameters, get robot_description from topic
+      std::string robot_description_topic;
+      if(!cnr::param::get(std::string(get_namespace()) + "/robot_description_topic", robot_description_topic, what))
+      {
+        RCLCPP_WARN(get_logger(), "%s/robot_description_topic is not defined. Default: %s/robot_description", get_namespace(), get_namespace());
+        RCLCPP_DEBUG_STREAM(get_logger(), what);
+        robot_description_topic = "~/robot_description";
+      }
+
       RCLCPP_INFO(this->get_logger(), "Recovering robot_description from topic");
-      sub_robot_description_ = this->create_subscription<std_msgs::msg::String>("~/robot_description", rclcpp::QoS(1).transient_local().reliable(),
+      sub_robot_description_ = this->create_subscription<std_msgs::msg::String>(robot_description_topic, rclcpp::QoS(1).transient_local().reliable(),
           std::bind(&IkSolverNode::configure_after_robot_description, this, std::placeholders::_1));
     }
     else

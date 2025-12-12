@@ -150,7 +150,7 @@ Configurations getMultiplicity(const Configurations& sol, const Configuration& u
 std::vector<int> outOfBound(const Configuration& c, const Configuration& ub, const Configuration& lb)
 {
   std::vector<int> out_of_bound;
-  for (int iax = 0; iax < lb.rows(); iax++)
+  for (int iax = 0; iax < lb.size(); iax++)
   {
     if ((c(iax) < lb(iax)) || (c(iax) > ub(iax)) || (std::isnan(c(iax))))
     {
