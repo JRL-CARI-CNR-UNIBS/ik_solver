@@ -115,6 +115,11 @@ if(NOT USE_ROS1)
   install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}
           DESTINATION include)
 
+
+  install(DIRECTORY config
+    DESTINATION share/${PROJECT_NAME})
+
+
   # Config
   include(CMakePackageConfigHelpers)
   configure_package_config_file(

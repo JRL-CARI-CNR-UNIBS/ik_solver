@@ -41,6 +41,30 @@ public:
   // FK base to flange
   virtual Eigen::Affine3d getFK(const Configuration& s) = 0;
 
+  Solutions computeIk(const Eigen::Affine3d& T_world_tool,
+                      const Eigen::Affine3d& T_world_base,
+                      const Eigen::Affine3d& T_tool_flange,
+                      const Configurations& seeds,
+                      const int& desired_solutions = -1,
+                      const int& min_stall_iterations = -1,
+                      const int& max_stall_iterations = -1);
+
+  Eigen::Affine3d computeFk(const Configuration& s,
+                            const Eigen::Affine3d& T_world_base,
+                            const Eigen::Affine3d& T_flange_tool);
+
+  Solutions computeIk(const Eigen::Affine3d& T_world_tool,
+                      const std::string& world_frame,
+                      const std::string& tool_frame,
+                      const Configurations& seeds,
+                      const int& desired_solutions = -1,
+                      const int& min_stall_iterations = -1,
+                      const int& max_stall_iterations = -1);
+
+  Eigen::Affine3d computeFk(const Configuration& s,
+                             const std::string& world_frame,
+                             const std::string& base_frame);
+
   const std::vector<std::string>& joint_names() const;
   const std::string& base_frame() const;
   const std::string& flange_frame() const;
@@ -58,6 +82,8 @@ public:
 
   bool changeTool(const std::string& t_frame);
   bool changeTool(const std::string& t_frame, const Eigen::Affine3d& T_tool_flange);
+
+  virtual bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab) const = 0;
 
 protected:
   cnr_logger::TraceLogger logger_;
@@ -87,7 +113,6 @@ protected:
 
   bool getFlangeTool();
 
-  virtual bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab) const = 0;
 
 };
 

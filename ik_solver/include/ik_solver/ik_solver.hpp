@@ -81,7 +81,7 @@ inline bool IkSolver::getTF(const std::string& a_name, const std::string& b_name
 
   if (!tf_buffer_)
   {
-    fprintf(stderr, "[ERROR] TF buffer is not set");
+    fprintf(stderr, "[ERROR] TF buffer is not set, did you call setBuffer()?\n");
     ret = false;
   }
 

@@ -68,6 +68,7 @@ inline bool IkSolverBase::config(const std::string& params_ns)
     { params_ns_ + "parallel_ik_mode", { &parallelize_, PARALLELIZE_DISABLE } },
   };
 
+  CNR_DEBUG(logger_, "Configuring IkSolver with parameters from namespace: %s", params_ns_.c_str());
   if (!get_and_default(iparams))
   {
     return false;
@@ -155,7 +156,7 @@ inline const std::string& IkSolverBase::base_frame() const
 }
 inline const std::string& IkSolverBase::flange_frame() const
 {
-  return IkSolverBase::flange_frame_;
+  return flange_frame_;
 }
 inline const std::string& IkSolverBase::tool_frame() const
 {
@@ -234,6 +235,71 @@ inline bool IkSolverBase::changeTool(const std::string &t_frame, const Eigen::Af
 //   I.setIdentity();
 //   return I;
 // }
+
+
+inline Solutions IkSolverBase::computeIk(const Eigen::Affine3d& T_world_tool,
+                                  const Eigen::Affine3d& T_base_world,
+                                  const Eigen::Affine3d& T_tool_flange,
+                                  const Configurations& seeds,
+                                  const int& desired_solutions,
+                                  const int& min_stall_iterations,
+                                  const int& max_stall_iterations)
+{
+  Eigen::Affine3d T_base_flange = T_base_world * T_world_tool * T_tool_flange;
+  return getIk(T_base_flange, seeds, desired_solutions, min_stall_iterations, max_stall_iterations);
+}
+
+inline Eigen::Affine3d IkSolverBase::computeFk(const Configuration& s,
+                                        const Eigen::Affine3d& T_world_base,
+                                        const Eigen::Affine3d& T_flange_tool)
+{
+  Eigen::Affine3d T_base_flange = getFK(s);
+  Eigen::Affine3d T_world_tool = T_world_base * T_base_flange * T_flange_tool;
+  return T_world_tool;
+}
+
+inline Solutions IkSolverBase::computeIk(const Eigen::Affine3d& T_world_tool,
+                                  const std::string& world_frame,
+                                  const std::string& tool_frame,
+                                  const Configurations& seeds,
+                                  const int& desired_solutions,
+                                  const int& min_stall_iterations,
+                                  const int& max_stall_iterations)
+{
+  Eigen::Affine3d T_base_world;
+  if (!getTF(base_frame_, world_frame, T_base_world))
+  {
+    CNR_ERROR(logger_, "computeIk: error on computing TF from %s to %s", base_frame_.c_str(), world_frame.c_str());
+    return Solutions();
+  }
+  Eigen::Affine3d T_tool_flange;
+  if (!getTF(tool_frame, flange_frame_, T_tool_flange))
+  {
+    CNR_ERROR(logger_, "computeIk: error on computing TF from %s to %s", tool_frame.c_str(), flange_frame_.c_str());
+    return Solutions();
+  }
+  return computeIk(T_world_tool, T_base_world, T_tool_flange, seeds, desired_solutions, min_stall_iterations,
+                   max_stall_iterations);
+}
+
+inline Eigen::Affine3d IkSolverBase::computeFk(const Configuration& s,
+                                        const std::string& world_frame,
+                                        const std::string& base_frame)
+{
+  Eigen::Affine3d T_world_base;
+  if (!getTF(world_frame, base_frame_, T_world_base))
+  {
+    CNR_ERROR(logger_, "computeFk: error on computing TF from %s to %s", world_frame.c_str(), base_frame_.c_str());
+    return Eigen::Affine3d();
+  }
+  Eigen::Affine3d T_flange_tool;
+  if (!getTF(flange_frame_, tool_frame_, T_flange_tool))
+  {
+    CNR_ERROR(logger_, "computeFk: error on computing TF from %s to %s", flange_frame_.c_str(), tool_frame_.c_str());
+    return Eigen::Affine3d();
+  }
+  return computeFk(s, T_world_base, T_flange_tool);
+}
 
 }  // end namespace ik_solver
 
