@@ -28,6 +28,7 @@ int main(int argc, char **argv)
   rclcpp::init(argc, argv);
   // ik_solver::IkSolverNode ik_node = ik_solver::IkSolverNode("ik_solver_node");
   std::shared_ptr<ik_solver::IkSolverNode> ik_node = ik_solver::IkSolverNode::make_node("ik_solver_node");
+
   while(!ik_node->ready())
   {
     RCLCPP_INFO_THROTTLE(ik_node->get_logger(), *ik_node->get_clock(), 1000, "Waiting for configuration. Probably robot_description is missing");
