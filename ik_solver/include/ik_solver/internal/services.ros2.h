@@ -55,6 +55,7 @@ class IkServices : public IkServicesBase
 private:
   rclcpp::Service<ik_solver_msgs::srv::GetIk>::SharedPtr      ik_server_;
   rclcpp::Service<ik_solver_msgs::srv::GetIkArray>::SharedPtr ik_server_array_;
+  rclcpp::Service<ik_solver_msgs::srv::GetIkArray>::SharedPtr task_redundant_ik_server_array_;
   rclcpp::Service<ik_solver_msgs::srv::GetFk>::SharedPtr      fk_server_;
   rclcpp::Service<ik_solver_msgs::srv::GetFkArray>::SharedPtr fk_server_array_;
   rclcpp::Service<ik_solver_msgs::srv::GetBound>::SharedPtr   bound_server_array_;
@@ -78,6 +79,8 @@ public:
   bool computeFK(const ik_solver_msgs::srv::GetFk::Request::SharedPtr req, ik_solver_msgs::srv::GetFk::Response::SharedPtr res);
 
   bool computeIKArray(const ik_solver_msgs::srv::GetIkArray::Request::SharedPtr req, ik_solver_msgs::srv::GetIkArray::Response::SharedPtr res);
+
+  bool computeTaskRedundantIKArray(const ik_solver_msgs::srv::GetIkArray::Request::SharedPtr req, ik_solver_msgs::srv::GetIkArray::Response::SharedPtr res);
 
   bool computeFKArray(const ik_solver_msgs::srv::GetFkArray::Request::SharedPtr req, ik_solver_msgs::srv::GetFkArray::Response::SharedPtr res);
 

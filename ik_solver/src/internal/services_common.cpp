@@ -2,6 +2,7 @@
  * SPDX-License-Identifier:    Apache-2.0
  */
 
+#include <array>
 #include <functional>
 #include <algorithm>
 #include <cinttypes>
@@ -11,6 +12,7 @@
 #include <iostream>
 #include <iterator>
 #include <optional>
+#include <random>
 #include <Eigen/Geometry>
 #include <thread>
 #include <vector>
@@ -174,6 +176,152 @@ bool IkServicesBase::computeIKArray(ik_solver_msgs::GetIkArray::Request* req, ik
                                                      config().min_stall_iterations(), config().max_stall_iterations()));
   }
   res->joint_names = config().joint_names();
+
+  return true;
+}
+
+//========================================================================================
+namespace
+{
+std::vector<double> gridAxisValues(double min_v, double max_v, double step)
+{
+  std::vector<double> values;
+  if (step <= 0.0 || max_v <= min_v)
+  {
+    values.push_back(min_v);
+    return values;
+  }
+  for (double v = min_v; v <= max_v + 1e-9; v += step)
+  {
+    values.push_back(v);
+  }
+  return values;
+}
+
+Eigen::Affine3d buildPerturbation(double dx, double dy, double dz, double roll, double pitch, double yaw)
+{
+  return Eigen::Translation3d(dx, dy, dz) * Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()) *
+         Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY()) * Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitX());
+}
+}  // namespace
+
+/**
+ * @brief Reads the 'task_reduntant' parameters (namespace under the solver's param namespace) and
+ * builds the set of pose perturbations to be applied to each requested target. Two mutually exclusive
+ * modes are supported, selected by the string parameter 'task_reduntant/type':
+ *  - "grid": for each axis (x,y,z,roll,pitch,yaw) reads min/max/step and builds the cartesian product.
+ *  - "random": for each axis reads mean/standard_deviation and draws 'task_reduntant/n_samples' samples.
+ * An axis that is not configured defaults to a single perturbation value of 0 on that axis.
+ */
+std::vector<Eigen::Affine3d> IkServicesBase::computeTaskRedundantPerturbations() const
+{
+  const std::string ns = config().param_namespace() + "task_reduntant/";
+  std::string what;
+
+  std::string type = "grid";
+  cnr::param::get(ns + "type", type, what);
+
+  static const std::array<std::string, 6> axes = { "x", "y", "z", "roll", "pitch", "yaw" };
+
+  std::vector<Eigen::Affine3d> perturbations;
+
+  if (type == "random")
+  {
+    std::array<double, 6> mean{};
+    std::array<double, 6> stddev{};
+    for (size_t i = 0; i < axes.size(); i++)
+    {
+      cnr::param::get(ns + axes.at(i) + "/mean", mean.at(i), what);
+      cnr::param::get(ns + axes.at(i) + "/standard_deviation", stddev.at(i), what);
+    }
+
+    int n_samples = 1;
+    cnr::param::get(ns + "n_samples", n_samples, what);
+    n_samples = std::max(n_samples, 1);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::array<std::normal_distribution<double>, 6> dist;
+    for (size_t i = 0; i < axes.size(); i++)
+    {
+      dist.at(i) = std::normal_distribution<double>(mean.at(i), stddev.at(i));
+    }
+
+    perturbations.reserve(static_cast<size_t>(n_samples));
+    for (int s = 0; s < n_samples; s++)
+    {
+      std::array<double, 6> sample{};
+      for (size_t i = 0; i < axes.size(); i++)
+      {
+        sample.at(i) = stddev.at(i) > 0.0 ? dist.at(i)(gen) : mean.at(i);
+      }
+      perturbations.push_back(
+          buildPerturbation(sample[0], sample[1], sample[2], sample[3], sample[4], sample[5]));
+    }
+  }
+  else
+  {
+    std::array<std::vector<double>, 6> values;
+    for (size_t i = 0; i < axes.size(); i++)
+    {
+      double min_v = 0.0, max_v = 0.0, step = 1.0;
+      cnr::param::get(ns + axes.at(i) + "/min", min_v, what);
+      cnr::param::get(ns + axes.at(i) + "/max", max_v, what);
+      cnr::param::get(ns + axes.at(i) + "/step", step, what);
+      values.at(i) = gridAxisValues(min_v, max_v, step);
+    }
+
+    for (double x : values[0])
+      for (double y : values[1])
+        for (double z : values[2])
+          for (double roll : values[3])
+            for (double pitch : values[4])
+              for (double yaw : values[5])
+              {
+                perturbations.push_back(buildPerturbation(x, y, z, roll, pitch, yaw));
+              }
+  }
+
+  return perturbations;
+}
+
+//========================================================================================
+/**
+ * @brief Same request/response type as computeIKArray. Generates n pose*perturbation variants of the
+ * request (see computeTaskRedundantPerturbations), solves each of them with computeIKArray and appends
+ * the resulting solutions.
+ *
+ * @param req
+ * @param res
+ * @return true
+ * @return false
+ */
+bool IkServicesBase::computeTaskRedundantIKArray(ik_solver_msgs::GetIkArray::Request* req,
+                                                 ik_solver_msgs::GetIkArray::Response* res)
+{
+  std::vector<Eigen::Affine3d> perturbations = computeTaskRedundantPerturbations();
+
+  res->solutions.clear();
+  res->joint_names = config().joint_names();
+
+  for (const auto& T_pert : perturbations)
+  {
+    ik_solver_msgs::GetIkArray::Request perturbed_req = *req;
+    for (auto& t : perturbed_req.targets)
+    {
+      Eigen::Affine3d T_r_t;
+      from_pose_to_eigen(t.pose.pose, T_r_t);
+      T_r_t = T_r_t * T_pert;
+      from_eigen_to_pose(T_r_t, t.pose.pose);
+    }
+
+    ik_solver_msgs::GetIkArray::Response perturbed_res;
+    if (!computeIKArray(&perturbed_req, &perturbed_res))
+    {
+      return false;
+    }
+    res->solutions.insert(res->solutions.end(), perturbed_res.solutions.begin(), perturbed_res.solutions.end());
+  }
 
   return true;
 }
