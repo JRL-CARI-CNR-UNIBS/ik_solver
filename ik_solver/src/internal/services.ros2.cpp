@@ -65,7 +65,7 @@ IkServices::IkServices(rclcpp::Node::SharedPtr& nh, IkSolversPool& ik_solvers) :
   using namespace std::placeholders;
   ik_server_ =          nh->create_service<ik_solver_msgs::srv::GetIk>     ("get_ik",       std::bind(&IkServices::computeIK     , this, _1, _2));
   ik_server_array_ =    nh->create_service<ik_solver_msgs::srv::GetIkArray>("get_ik_array", std::bind(&IkServices::computeIKArray, this, _1, _2));
-  task_redundant_ik_server_array_ = nh->create_service<ik_solver_msgs::srv::GetIkArray>("get_task_reduntant_ik_array", std::bind(&IkServices::computeTaskRedundantIKArray, this, _1, _2));
+  task_redundant_ik_server_array_ = nh->create_service<ik_solver_msgs::srv::GetIkArray>("get_task_redundant_ik_array", std::bind(&IkServices::computeTaskRedundantIKArray, this, _1, _2));
   fk_server_ =          nh->create_service<ik_solver_msgs::srv::GetFk>     ("get_fk",       std::bind(&IkServices::computeFK     , this, _1, _2));
   fk_server_array_ =    nh->create_service<ik_solver_msgs::srv::GetFkArray>("get_fk_array", std::bind(&IkServices::computeFKArray, this, _1, _2));
   bound_server_array_ = nh->create_service<ik_solver_msgs::srv::GetBound>  ("get_bounds",   std::bind(&IkServices::getBounds     , this, _1, _2));

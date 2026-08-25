@@ -58,10 +58,10 @@ class GetTaskRedundantIkArrayNode(Node):
         fk_res = self.future.result()
 
         self.task_redundant_client = self.create_client(
-            GetIkArray, f'/{self.service_name}/get_task_reduntant_ik_array')
+            GetIkArray, f'/{self.service_name}/get_task_redundant_ik_array')
         while not self.task_redundant_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info(
-                f'Service {self.service_name}/get_task_reduntant_ik_array not available, waiting again...')
+                f'Service {self.service_name}/get_task_redundant_ik_array not available, waiting again...')
 
         target = IkTarget()
         target.pose = fk_res.pose

@@ -30,7 +30,7 @@ The package provides a node named `ik_server_node` that exposes several services
 * `~get_ik_array` of type [`ik_solver_msgs/GetIkArray.srv`](https:/github.com/JRL-CARI-CNR-UNIBS/ik_solver_msgs/tree/parallel-ik/srv/GetIkArray.srv)
  that computes the set of feasible joint configurations corresponding to a set of Cartesian poses. 
 
-* `~get_task_reduntant_ik_array` of type [`ik_solver_msgs/GetIkArray.srv`](https:/github.com/JRL-CARI-CNR-UNIBS/ik_solver_msgs/tree/parallel-ik/srv/GetIkArray.srv), same request/response as `~get_ik_array`. It perturbs each requested target pose (x/y/z/roll/pitch/yaw) according to the `task_reduntant` parameters (grid sweep or random sampling, see [the configuration file](#the-configuration-file)), solves IK for every perturbed pose, and returns the concatenation of all the resulting solutions.
+* `~get_task_redundant_ik_array` of type [`ik_solver_msgs/GetIkArray.srv`](https:/github.com/JRL-CARI-CNR-UNIBS/ik_solver_msgs/tree/parallel-ik/srv/GetIkArray.srv), same request/response as `~get_ik_array`. It perturbs each requested target pose (x/y/z/roll/pitch/yaw) according to the `task_redundant` parameters (grid sweep or random sampling, see [the configuration file](#the-configuration-file)), solves IK for every perturbed pose, and returns the concatenation of all the resulting solutions.
 
 * `~get_fk` of type [`ik_solver_msgs/GetFk.srv`](https:/github.com/JRL-CARI-CNR-UNIBS/ik_solver_msgs/tree/parallel-ik/srv/GetFk.srv) that computes the Cartesian pose corresponding to a single joint configuration. 
 
@@ -216,7 +216,7 @@ solver_namespace:
   max_stall_iterations: 3000
 ```
 
-A runnable example, with two solvers and the `task_reduntant` parameters used by `~get_task_reduntant_ik_array`, is provided in [`ik_solver/examples/config.example.yaml`](ik_solver/examples/config.example.yaml):
+A runnable example, with two solvers and the `task_redundant` parameters used by `~get_task_redundant_ik_array`, is provided in [`ik_solver/examples/config.example.yaml`](ik_solver/examples/config.example.yaml):
 
 ```yaml
 solver1:
@@ -234,8 +234,8 @@ solver1:
   - joint5
   - joint6
 
-  # parameters used by the "get_task_reduntant_ik_array" service
-  task_reduntant:
+  # parameters used by the "get_task_redundant_ik_array" service
+  task_redundant:
     type: grid # "grid" or "random"
     # grid mode: each axis is swept from min to max (inclusive) with the given step.
     # An axis that is not listed is not perturbed (single value 0).
@@ -282,7 +282,7 @@ The `ik_solver_test` package provides Python scripts to exercise a running `ik_s
   ros2 run ik_solver_test test_ik_fk.py <namespace>
   ```
 
-* `test_task_redundant_ik_array.py` computes a random target pose via `~get_fk`, calls `~get_task_reduntant_ik_array` on it, and logs the number of solutions and the max translation/rotation residual error found for each pose perturbation.
+* `test_task_redundant_ik_array.py` computes a random target pose via `~get_fk`, calls `~get_task_redundant_ik_array` on it, and logs the number of solutions and the max translation/rotation residual error found for each pose perturbation.
 
   ```bash
   ros2 run ik_solver_test test_task_redundant_ik_array.py <namespace>

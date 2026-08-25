@@ -6,6 +6,7 @@
 #define IK_SOLVER__INTERNAL__SERVICES_COMMON_H
 
 #include <memory>
+#include <string>
 #include <vector>
 #include <array>
 #include <Eigen/Geometry>
@@ -112,7 +113,7 @@ protected:
 
   bool computeTaskRedundantIKArray(ik_solver_msgs::GetIkArray::Request* req, ik_solver_msgs::GetIkArray::Response* res);
 
-  std::vector<Eigen::Affine3d> computeTaskRedundantPerturbations() const;
+  bool computeTaskRedundantPerturbations(std::vector<Eigen::Affine3d>& perturbations, std::string& error) const;
 
   bool computeFKArray(ik_solver_msgs::GetFkArray::Request* req, ik_solver_msgs::GetFkArray::Response* res);
 

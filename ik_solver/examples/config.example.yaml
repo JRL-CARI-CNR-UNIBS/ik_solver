@@ -13,8 +13,8 @@ solver1:
   - joint5
   - joint6
 
-  # parameters used by the "get_task_reduntant_ik_array" service
-  task_reduntant:
+  # parameters used by the "get_task_redundant_ik_array" service
+  task_redundant:
     type: grid # "grid" or "random"
     # grid mode: each axis is swept from min to max (inclusive) with the given step.
     # An axis that is not listed is not perturbed (single value 0).

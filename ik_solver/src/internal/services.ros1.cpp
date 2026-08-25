@@ -66,7 +66,7 @@ IkServices::IkServices(ros::NodeHandle& nh, IkSolversPool& ik_solvers) : nh_(nh)
 {
   ik_server_ =          nh.advertiseService("get_ik", &IkServices::computeIK, this);
   ik_server_array_ =    nh.advertiseService("get_ik_array", &IkServices::computeIKArray, this);
-  task_redundant_ik_server_array_ = nh.advertiseService("get_task_reduntant_ik_array", &IkServices::computeTaskRedundantIKArray, this);
+  task_redundant_ik_server_array_ = nh.advertiseService("get_task_redundant_ik_array", &IkServices::computeTaskRedundantIKArray, this);
   fk_server_ =          nh.advertiseService("get_fk", &IkServices::computeFK, this);
   fk_server_array_ =    nh.advertiseService("get_fk_array", &IkServices::computeFKArray, this);
   bound_server_array_ = nh.advertiseService("get_bounds", &IkServices::getBounds, this);

@@ -183,19 +183,29 @@ bool IkServicesBase::computeIKArray(ik_solver_msgs::GetIkArray::Request* req, ik
 //========================================================================================
 namespace
 {
-std::vector<double> gridAxisValues(double min_v, double max_v, double step)
+bool gridAxisValues(double min_v, double max_v, double step, std::vector<double>& values, std::string& error)
 {
-  std::vector<double> values;
-  if (step <= 0.0 || max_v <= min_v)
+  values.clear();
+  if (max_v < min_v)
+  {
+    error = "max (" + std::to_string(max_v) + ") is lower than min (" + std::to_string(min_v) + ")";
+    return false;
+  }
+  if (max_v == min_v)
   {
     values.push_back(min_v);
-    return values;
+    return true;
+  }
+  if (step <= 0.0)
+  {
+    error = "step (" + std::to_string(step) + ") must be positive when max > min";
+    return false;
   }
   for (double v = min_v; v <= max_v + 1e-9; v += step)
   {
     values.push_back(v);
   }
-  return values;
+  return true;
 }
 
 Eigen::Affine3d buildPerturbation(double dx, double dy, double dz, double roll, double pitch, double yaw)
@@ -206,24 +216,30 @@ Eigen::Affine3d buildPerturbation(double dx, double dy, double dz, double roll, 
 }  // namespace
 
 /**
- * @brief Reads the 'task_reduntant' parameters (namespace under the solver's param namespace) and
+ * @brief Reads the 'task_redundant' parameters (namespace under the solver's param namespace) and
  * builds the set of pose perturbations to be applied to each requested target. Two mutually exclusive
- * modes are supported, selected by the string parameter 'task_reduntant/type':
+ * modes are supported, selected by the string parameter 'task_redundant/type':
  *  - "grid": for each axis (x,y,z,roll,pitch,yaw) reads min/max/step and builds the cartesian product.
- *  - "random": for each axis reads mean/standard_deviation and draws 'task_reduntant/n_samples' samples.
+ *  - "random": for each axis reads mean/standard_deviation and draws 'task_redundant/n_samples' samples.
  * An axis that is not configured defaults to a single perturbation value of 0 on that axis.
+ *
+ * @param perturbations output set of pose perturbations
+ * @param error output error message, set only if the function returns false
+ * @return false if a configured range/step/standard_deviation is invalid (reversed range, non-positive
+ * step on a non-degenerate range, or negative standard deviation)
  */
-std::vector<Eigen::Affine3d> IkServicesBase::computeTaskRedundantPerturbations() const
+bool IkServicesBase::computeTaskRedundantPerturbations(std::vector<Eigen::Affine3d>& perturbations,
+                                                        std::string& error) const
 {
-  const std::string ns = config().param_namespace() + "task_reduntant/";
+  perturbations.clear();
+
+  const std::string ns = config().param_namespace() + "task_redundant/";
   std::string what;
 
   std::string type = "grid";
   cnr::param::get(ns + "type", type, what);
 
   static const std::array<std::string, 6> axes = { "x", "y", "z", "roll", "pitch", "yaw" };
-
-  std::vector<Eigen::Affine3d> perturbations;
 
   if (type == "random")
   {
@@ -233,6 +249,12 @@ std::vector<Eigen::Affine3d> IkServicesBase::computeTaskRedundantPerturbations()
     {
       cnr::param::get(ns + axes.at(i) + "/mean", mean.at(i), what);
       cnr::param::get(ns + axes.at(i) + "/standard_deviation", stddev.at(i), what);
+      if (stddev.at(i) < 0.0)
+      {
+        error = "task_redundant/" + axes.at(i) + "/standard_deviation (" + std::to_string(stddev.at(i)) +
+                ") must not be negative";
+        return false;
+      }
     }
 
     int n_samples = 1;
@@ -268,7 +290,12 @@ std::vector<Eigen::Affine3d> IkServicesBase::computeTaskRedundantPerturbations()
       cnr::param::get(ns + axes.at(i) + "/min", min_v, what);
       cnr::param::get(ns + axes.at(i) + "/max", max_v, what);
       cnr::param::get(ns + axes.at(i) + "/step", step, what);
-      values.at(i) = gridAxisValues(min_v, max_v, step);
+      std::string axis_error;
+      if (!gridAxisValues(min_v, max_v, step, values.at(i), axis_error))
+      {
+        error = "task_redundant/" + axes.at(i) + ": " + axis_error;
+        return false;
+      }
     }
 
     for (double x : values[0])
@@ -282,7 +309,7 @@ std::vector<Eigen::Affine3d> IkServicesBase::computeTaskRedundantPerturbations()
               }
   }
 
-  return perturbations;
+  return true;
 }
 
 //========================================================================================
@@ -299,7 +326,14 @@ std::vector<Eigen::Affine3d> IkServicesBase::computeTaskRedundantPerturbations()
 bool IkServicesBase::computeTaskRedundantIKArray(ik_solver_msgs::GetIkArray::Request* req,
                                                  ik_solver_msgs::GetIkArray::Response* res)
 {
-  std::vector<Eigen::Affine3d> perturbations = computeTaskRedundantPerturbations();
+  std::vector<Eigen::Affine3d> perturbations;
+  std::string error;
+  if (!computeTaskRedundantPerturbations(perturbations, error))
+  {
+    printf("%s[ERROR] computeTaskRedundantIKArray: invalid task_redundant parameters: %s%s\n",
+           cnr_logger::RED().c_str(), error.c_str(), cnr_logger::RESET().c_str());
+    return false;
+  }
 
   res->solutions.clear();
   res->joint_names = config().joint_names();
