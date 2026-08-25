@@ -50,6 +50,8 @@ install(TARGETS test_ik_solver_plugin
 install(
   PROGRAMS
   scripts/test_ik_fk.py  # List all your scripts here
+  scripts/test_task_redundant_ik_array.py
+  scripts/visualize_task_redundant_ik_array.py
   DESTINATION lib/${PROJECT_NAME}
 )
                             
