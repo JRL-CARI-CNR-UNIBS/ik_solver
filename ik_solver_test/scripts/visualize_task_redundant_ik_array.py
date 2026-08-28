@@ -84,7 +84,7 @@ class VisualizeTaskRedundantIkArrayNode(Node):
             conf for solution in res.solutions for conf in solution.configurations
         ]
         self.get_logger().info(
-            f'received {len(configurations)} configurations over {len(res.solutions)} pose perturbations, '
+            f'received {len(configurations)} configurations across {len(res.solutions)} targets, '
             f'publishing one every {self.period}s on /display_robot_state '
             f'(add a RobotState display in RViz2 subscribed to that topic)')
 
