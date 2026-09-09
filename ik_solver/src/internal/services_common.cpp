@@ -349,6 +349,11 @@ namespace ik_solver
       }
     }
 
+    flat_req.targets.clear();
+    flat_req.targets.shrink_to_fit();
+    flat_res.solutions.clear();
+    flat_res.solutions.shrink_to_fit();
+
     return true;
   }
 
@@ -501,6 +506,15 @@ namespace ik_solver
     {
       std::cerr << __PRETTY_FUNCTION__ << ":" << __LINE__ << ":" << e.what() << std::endl;
     }
+
+    ik_args.clear();
+    ik_args.shrink_to_fit();
+    ik_sol_promises.clear();
+    ik_sol_promises.shrink_to_fit();
+    ik_sol_futures.clear();
+    ik_sol_futures.shrink_to_fit();
+    ik_sol_futures_got.clear();
+    ik_sol_futures_got.shrink_to_fit();
 
     return ret;
   }
