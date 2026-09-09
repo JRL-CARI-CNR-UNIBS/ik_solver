@@ -28,6 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <functional>
 #include <algorithm>
+#include <malloc.h>
 #include <cinttypes>
 #include <cstdio>
 #include <exception>
@@ -65,6 +66,7 @@ IkServices::IkServices(rclcpp::Node::SharedPtr& nh, IkSolversPool& ik_solvers) :
   using namespace std::placeholders;
   ik_server_ =          nh->create_service<ik_solver_msgs::srv::GetIk>     ("get_ik",       std::bind(&IkServices::computeIK     , this, _1, _2));
   ik_server_array_ =    nh->create_service<ik_solver_msgs::srv::GetIkArray>("get_ik_array", std::bind(&IkServices::computeIKArray, this, _1, _2));
+  task_redundant_ik_server_array_ = nh->create_service<ik_solver_msgs::srv::GetIkArray>("get_task_reduntant_ik_array", std::bind(&IkServices::computeTaskRedundantIKArray, this, _1, _2));
   fk_server_ =          nh->create_service<ik_solver_msgs::srv::GetFk>     ("get_fk",       std::bind(&IkServices::computeFK     , this, _1, _2));
   fk_server_array_ =    nh->create_service<ik_solver_msgs::srv::GetFkArray>("get_fk_array", std::bind(&IkServices::computeFKArray, this, _1, _2));
   bound_server_array_ = nh->create_service<ik_solver_msgs::srv::GetBound>  ("get_bounds",   std::bind(&IkServices::getBounds     , this, _1, _2));
@@ -78,22 +80,37 @@ IkServices::IkServices(rclcpp::Node::SharedPtr& nh, IkSolversPool& ik_solvers) :
 
 bool IkServices::computeIK(const ik_solver_msgs::GetIk::Request::SharedPtr req, ik_solver_msgs::GetIk::Response::SharedPtr res)
 {
-  return IkServicesBase::computeIK(req.get(), res.get());
+  bool ret = IkServicesBase::computeIK(req.get(), res.get());
+  malloc_trim(0);
+  return ret;
 }
 
 bool IkServices::computeIKArray(const ik_solver_msgs::GetIkArray::Request::SharedPtr req, ik_solver_msgs::GetIkArray::Response::SharedPtr res)
 {
-  return IkServicesBase::computeIKArray(req.get(), res.get());
+  bool ret = IkServicesBase::computeIKArray(req.get(), res.get());
+  malloc_trim(0);
+  return ret;
+}
+
+bool IkServices::computeTaskRedundantIKArray(const ik_solver_msgs::GetIkArray::Request::SharedPtr req, ik_solver_msgs::GetIkArray::Response::SharedPtr res)
+{
+  bool ret = IkServicesBase::computeTaskRedundantIKArray(req.get(), res.get());
+  malloc_trim(0);
+  return ret;
 }
 
 bool IkServices::computeFK(const ik_solver_msgs::GetFk::Request::SharedPtr req, ik_solver_msgs::GetFk::Response::SharedPtr res)
 {
-  return IkServicesBase::computeFK(req.get(), res.get());
+  bool ret = IkServicesBase::computeFK(req.get(), res.get());
+  malloc_trim(0);
+  return ret;
 }
 
 bool IkServices::computeFKArray(const ik_solver_msgs::GetFkArray::Request::SharedPtr req, ik_solver_msgs::GetFkArray::Response::SharedPtr res)
 {
-  return IkServicesBase::computeFKArray(req.get(), res.get());
+  bool ret = IkServicesBase::computeFKArray(req.get(), res.get());
+  malloc_trim(0);
+  return ret;
 }
 
 bool IkServices::getBounds(const ik_solver_msgs::GetBound::Request::SharedPtr req, ik_solver_msgs::GetBound::Response::SharedPtr res)

@@ -110,6 +110,10 @@ protected:
 
   bool computeIKArray(ik_solver_msgs::GetIkArray::Request* req, ik_solver_msgs::GetIkArray::Response* res);
 
+  bool computeTaskRedundantIKArray(ik_solver_msgs::GetIkArray::Request* req, ik_solver_msgs::GetIkArray::Response* res);
+
+  std::vector<Eigen::Affine3d> computeTaskRedundantPerturbations() const;
+
   bool computeFKArray(ik_solver_msgs::GetFkArray::Request* req, ik_solver_msgs::GetFkArray::Response* res);
 
   bool getBounds(ik_solver_msgs::GetBound::Request* req, ik_solver_msgs::GetBound::Response* res);

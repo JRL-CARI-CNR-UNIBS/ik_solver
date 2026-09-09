@@ -30,6 +30,8 @@ The package provides a node named `ik_server_node` that exposes several services
 * `~get_ik_array` of type [`ik_solver_msgs/GetIkArray.srv`](https:/github.com/JRL-CARI-CNR-UNIBS/ik_solver_msgs/tree/parallel-ik/srv/GetIkArray.srv)
  that computes the set of feasible joint configurations corresponding to a set of Cartesian poses. 
 
+* `~get_task_reduntant_ik_array` of type [`ik_solver_msgs/GetIkArray.srv`](https:/github.com/JRL-CARI-CNR-UNIBS/ik_solver_msgs/tree/parallel-ik/srv/GetIkArray.srv), same request/response as `~get_ik_array`. It perturbs each requested target pose (x/y/z/roll/pitch/yaw) according to the `task_reduntant` parameters (grid sweep or random sampling, see [the configuration file](#the-configuration-file)), solves IK for every perturbed pose, and returns the concatenation of all the resulting solutions.
+
 * `~get_fk` of type [`ik_solver_msgs/GetFk.srv`](https:/github.com/JRL-CARI-CNR-UNIBS/ik_solver_msgs/tree/parallel-ik/srv/GetFk.srv) that computes the Cartesian pose corresponding to a single joint configuration. 
 
 * `~get_fk_array` of type [`ik_solver_msgs/GetFkArray.srv`](https:/github.com/JRL-CARI-CNR-UNIBS/ik_solver_msgs/tree/parallel-ik/srv/GetFkArray.srv) that computes the Cartesian poses corresponding to a set of joint configurations. 
@@ -213,3 +215,81 @@ solver_namespace:
   min_stall_iterations: 500      # This parameter is overridden by the stall_iterations in the GetIk service if it is different from 0
   max_stall_iterations: 3000
 ```
+
+A runnable example, with two solvers and the `task_reduntant` parameters used by `~get_task_reduntant_ik_array`, is provided in [`ik_solver/examples/config.example.yaml`](ik_solver/examples/config.example.yaml):
+
+```yaml
+solver1:
+  type: ik_solver/KukaIkSolver
+  base_frame: base # base frame of the chain
+  flange_frame: flange # end frame of the chain
+
+  tool_frame: flange # destination frame of the IK (it should be rigid attached to flange_frame)
+  desired_solutions: 32 # number of desired solution
+  joint_names:
+  - joint1
+  - joint2
+  - joint3
+  - joint4
+  - joint5
+  - joint6
+
+  # parameters used by the "get_task_reduntant_ik_array" service
+  task_reduntant:
+    type: grid # "grid" or "random"
+    # grid mode: each axis is swept from min to max (inclusive) with the given step.
+    # An axis that is not listed is not perturbed (single value 0).
+    x:
+      min: -0.01
+      max: 0.01
+      step: 0.01
+    yaw:
+      min: -0.5
+      max: 0.5
+      step: 0.25
+    # random mode: each axis is sampled n_samples times from a normal distribution.
+    # n_samples: 20
+    # x:
+    #   mean: 0.0
+    #   standard_deviation: 0.01
+    # yaw:
+    #   mean: 0.0
+    #   standard_deviation: 0.2
+
+solver2:
+  type: ik_solver/RosdynIkSolver
+  base_frame: base # base frame of the chain
+  flange_frame: flange # end frame of the chain
+
+  tool_frame: flange # destination frame of the IK (it should be rigid attached to flange_frame)
+  desired_solutions: 32 # number of desired solution
+  joint_names:
+  - joint1
+  - joint2
+  - joint3
+  - joint4
+  - joint5
+  - joint6
+```
+
+# Testing (`ik_solver_test`)
+
+The `ik_solver_test` package provides Python scripts to exercise a running `ik_solver` node, given its namespace (e.g. `solver1` from the configuration file above):
+
+* `test_ik_fk.py` runs repeated FK→IK round-trips (`~get_fk` then `~get_ik`) on random valid joint configurations and reports IK residual errors, to sanity-check a solver plugin.
+
+  ```bash
+  ros2 run ik_solver_test test_ik_fk.py <namespace>
+  ```
+
+* `test_task_redundant_ik_array.py` computes a random target pose via `~get_fk`, calls `~get_task_reduntant_ik_array` on it, and logs the number of solutions and the max translation/rotation residual error found for each pose perturbation.
+
+  ```bash
+  ros2 run ik_solver_test test_task_redundant_ik_array.py <namespace>
+  ```
+
+* `visualize_task_redundant_ik_array.py` does the same call as above, then publishes each resulting joint configuration as a `moveit_msgs/DisplayRobotState` on `/display_robot_state`, one every `period_s` seconds (default `1.0`), so the redundant IK solutions can be visualized in RViz2 by adding a **RobotState** display (from `moveit_ros_visualization`) subscribed to that topic.
+
+  ```bash
+  ros2 run ik_solver_test visualize_task_redundant_ik_array.py <namespace> [period_s]
+  ```

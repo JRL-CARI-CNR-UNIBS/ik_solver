@@ -57,6 +57,7 @@ class IkServices : public IkServicesBase
 private:
   ros::ServiceServer ik_server_;
   ros::ServiceServer ik_server_array_;
+  ros::ServiceServer task_redundant_ik_server_array_;
   ros::ServiceServer fk_server_;
   ros::ServiceServer fk_server_array_;
   ros::ServiceServer bound_server_array_;
@@ -80,6 +81,8 @@ public:
   bool computeFK(ik_solver_msgs::GetFk::Request& req, ik_solver_msgs::GetFk::Response& res);
 
   bool computeIKArray(ik_solver_msgs::GetIkArray::Request& req, ik_solver_msgs::GetIkArray::Response& res);
+
+  bool computeTaskRedundantIKArray(ik_solver_msgs::GetIkArray::Request& req, ik_solver_msgs::GetIkArray::Response& res);
 
   bool computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_solver_msgs::GetFkArray::Response& res);
 
