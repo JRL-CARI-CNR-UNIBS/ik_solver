@@ -203,7 +203,9 @@ namespace ik_solver
    * builds the set of pose perturbations to be applied to each requested target. Two mutually exclusive
    * modes are supported, selected by the string parameter 'task_reduntant/type':
    *  - "grid": for each axis (x,y,z,roll,pitch,yaw) reads min/max/step and builds the cartesian product.
-   *  - "random": for each axis reads mean/standard_deviation and draws 'task_reduntant/n_samples' samples.
+   *  - "random": for each axis reads mean/standard_deviation and draws 'task_reduntant/n_samples' samples,
+   *    optionally seeded deterministically via 'task_reduntant/seed' (falls back to a non-deterministic
+   *    seed when unset).
    * An axis that is not configured defaults to a single perturbation value of 0 on that axis.
    */
   std::vector<Eigen::Affine3d> IkServicesBase::computeTaskRedundantPerturbations() const
@@ -232,8 +234,20 @@ namespace ik_solver
       cnr::param::get(ns + "n_samples", n_samples, what);
       n_samples = std::max(n_samples, 1);
 
-      std::random_device rd;
-      std::mt19937 gen(rd());
+      // Optional deterministic seed (task_reduntant/seed) for reproducible sampling, e.g. when
+      // comparing Optuna trials that rely on Common Random Numbers. Falls back to a
+      // non-deterministic seed, as before, when unset.
+      int seed = 0;
+      std::mt19937 gen;
+      if (cnr::param::get(ns + "seed", seed, what))
+      {
+        gen.seed(static_cast<std::mt19937::result_type>(seed));
+      }
+      else
+      {
+        std::random_device rd;
+        gen.seed(rd());
+      }
       std::array<std::normal_distribution<double>, 6> dist;
       for (size_t i = 0; i < axes.size(); i++)
       {
