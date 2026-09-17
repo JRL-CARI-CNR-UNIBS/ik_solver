@@ -53,88 +53,91 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace ik_solver
 {
 
-//========================================================================================
+  //========================================================================================
 
-/**
- * @brief Construct a new Ik Services:: Ik Services object
- *
- * @param nh
- * @param ik_solvers
- */
-IkServices::IkServices(rclcpp::Node::SharedPtr& nh, IkSolversPool& ik_solvers) : nh_(nh), IkServicesBase(ik_solvers)
-{
-  using namespace std::placeholders;
-  ik_server_ =          nh->create_service<ik_solver_msgs::srv::GetIk>     ("get_ik",       std::bind(&IkServices::computeIK     , this, _1, _2));
-  ik_server_array_ =    nh->create_service<ik_solver_msgs::srv::GetIkArray>("get_ik_array", std::bind(&IkServices::computeIKArray, this, _1, _2));
-  task_redundant_ik_server_array_ = nh->create_service<ik_solver_msgs::srv::GetIkArray>("get_task_reduntant_ik_array", std::bind(&IkServices::computeTaskRedundantIKArray, this, _1, _2));
-  fk_server_ =          nh->create_service<ik_solver_msgs::srv::GetFk>     ("get_fk",       std::bind(&IkServices::computeFK     , this, _1, _2));
-  fk_server_array_ =    nh->create_service<ik_solver_msgs::srv::GetFkArray>("get_fk_array", std::bind(&IkServices::computeFKArray, this, _1, _2));
-  bound_server_array_ = nh->create_service<ik_solver_msgs::srv::GetBound>  ("get_bounds",   std::bind(&IkServices::getBounds     , this, _1, _2));
-  frames_server_array_= nh->create_service<ik_solver_msgs::srv::GetFrames> ("get_frames",   std::bind(&IkServices::getFrames     , this, _1, _2));
-  reconfigure_ =        nh->create_service<std_srvs::srv::Trigger>         ("reconfigure",  std::bind(&IkServices::reconfigure   , this, _1, _2));
-  change_tool_ =        nh->create_service<ik_solver_msgs::srv::ChangeTool>("change_tool",  std::bind(&IkServices::changeTool    , this, _1, _2));
+  /**
+   * @brief Construct a new Ik Services:: Ik Services object
+   *
+   * @param nh
+   * @param ik_solvers
+   */
+  IkServices::IkServices(rclcpp::Node::SharedPtr &nh, IkSolversPool &ik_solvers) : nh_(nh), IkServicesBase(ik_solvers)
+  {
+    using namespace std::placeholders;
+    ik_server_ = nh->create_service<ik_solver_msgs::srv::GetIk>("get_ik", std::bind(&IkServices::computeIK, this, _1, _2));
+    ik_server_array_ = nh->create_service<ik_solver_msgs::srv::GetIkArray>("get_ik_array", std::bind(&IkServices::computeIKArray, this, _1, _2));
+    task_redundant_ik_server_array_ = nh->create_service<ik_solver_msgs::srv::GetIkArray>("get_task_reduntant_ik_array", std::bind(&IkServices::computeTaskRedundantIKArray, this, _1, _2));
+    fk_server_ = nh->create_service<ik_solver_msgs::srv::GetFk>("get_fk", std::bind(&IkServices::computeFK, this, _1, _2));
+    fk_server_array_ = nh->create_service<ik_solver_msgs::srv::GetFkArray>("get_fk_array", std::bind(&IkServices::computeFKArray, this, _1, _2));
+    bound_server_array_ = nh->create_service<ik_solver_msgs::srv::GetBound>("get_bounds", std::bind(&IkServices::getBounds, this, _1, _2));
+    frames_server_array_ = nh->create_service<ik_solver_msgs::srv::GetFrames>("get_frames", std::bind(&IkServices::getFrames, this, _1, _2));
+    reconfigure_ = nh->create_service<std_srvs::srv::Trigger>("reconfigure", std::bind(&IkServices::reconfigure, this, _1, _2));
+    change_tool_ = nh->create_service<ik_solver_msgs::srv::ChangeTool>("change_tool", std::bind(&IkServices::changeTool, this, _1, _2));
+    set_initial_conf_server_ = nh->create_service<ik_solver_msgs::srv::SetInitialConfiguration>("set_initial_configuration", std::bind(&IkServices::setInitialConfiguration, this, _1, _2));
 
-  RCLCPP_DEBUG(nh->get_logger(), "IkServices created");
-}
+    RCLCPP_DEBUG(nh->get_logger(), "IkServices created");
+  }
 
+  bool IkServices::computeIK(const ik_solver_msgs::GetIk::Request::SharedPtr req, ik_solver_msgs::GetIk::Response::SharedPtr res)
+  {
+    bool ret = IkServicesBase::computeIK(req.get(), res.get());
+    malloc_trim(0);
+    return ret;
+  }
 
-bool IkServices::computeIK(const ik_solver_msgs::GetIk::Request::SharedPtr req, ik_solver_msgs::GetIk::Response::SharedPtr res)
-{
-  bool ret = IkServicesBase::computeIK(req.get(), res.get());
-  malloc_trim(0);
-  return ret;
-}
+  bool IkServices::computeIKArray(const ik_solver_msgs::GetIkArray::Request::SharedPtr req, ik_solver_msgs::GetIkArray::Response::SharedPtr res)
+  {
+    bool ret = IkServicesBase::computeIKArray(req.get(), res.get());
+    malloc_trim(0);
+    return ret;
+  }
 
-bool IkServices::computeIKArray(const ik_solver_msgs::GetIkArray::Request::SharedPtr req, ik_solver_msgs::GetIkArray::Response::SharedPtr res)
-{
-  bool ret = IkServicesBase::computeIKArray(req.get(), res.get());
-  malloc_trim(0);
-  return ret;
-}
+  bool IkServices::computeTaskRedundantIKArray(const ik_solver_msgs::GetIkArray::Request::SharedPtr req, ik_solver_msgs::GetIkArray::Response::SharedPtr res)
+  {
+    bool ret = IkServicesBase::computeTaskRedundantIKArray(req.get(), res.get());
+    malloc_trim(0);
+    return ret;
+  }
 
-bool IkServices::computeTaskRedundantIKArray(const ik_solver_msgs::GetIkArray::Request::SharedPtr req, ik_solver_msgs::GetIkArray::Response::SharedPtr res)
-{
-  bool ret = IkServicesBase::computeTaskRedundantIKArray(req.get(), res.get());
-  malloc_trim(0);
-  return ret;
-}
+  bool IkServices::computeFK(const ik_solver_msgs::GetFk::Request::SharedPtr req, ik_solver_msgs::GetFk::Response::SharedPtr res)
+  {
+    bool ret = IkServicesBase::computeFK(req.get(), res.get());
+    malloc_trim(0);
+    return ret;
+  }
 
-bool IkServices::computeFK(const ik_solver_msgs::GetFk::Request::SharedPtr req, ik_solver_msgs::GetFk::Response::SharedPtr res)
-{
-  bool ret = IkServicesBase::computeFK(req.get(), res.get());
-  malloc_trim(0);
-  return ret;
-}
+  bool IkServices::computeFKArray(const ik_solver_msgs::GetFkArray::Request::SharedPtr req, ik_solver_msgs::GetFkArray::Response::SharedPtr res)
+  {
+    bool ret = IkServicesBase::computeFKArray(req.get(), res.get());
+    malloc_trim(0);
+    return ret;
+  }
 
-bool IkServices::computeFKArray(const ik_solver_msgs::GetFkArray::Request::SharedPtr req, ik_solver_msgs::GetFkArray::Response::SharedPtr res)
-{
-  bool ret = IkServicesBase::computeFKArray(req.get(), res.get());
-  malloc_trim(0);
-  return ret;
-}
+  bool IkServices::getBounds(const ik_solver_msgs::GetBound::Request::SharedPtr req, ik_solver_msgs::GetBound::Response::SharedPtr res)
+  {
+    return IkServicesBase::getBounds(req.get(), res.get());
+  }
 
-bool IkServices::getBounds(const ik_solver_msgs::GetBound::Request::SharedPtr req, ik_solver_msgs::GetBound::Response::SharedPtr res)
-{
-  return IkServicesBase::getBounds(req.get(), res.get());
-}
+  bool IkServices::getFrames(const ik_solver_msgs::GetFrames::Request::SharedPtr req, ik_solver_msgs::GetFrames::Response::SharedPtr res)
+  {
+    return IkServicesBase::getFrames(req.get(), res.get());
+  }
 
-bool IkServices::getFrames(const ik_solver_msgs::GetFrames::Request::SharedPtr req, ik_solver_msgs::GetFrames::Response::SharedPtr res)
-{
-  return IkServicesBase::getFrames(req.get(), res.get());
-}
+  bool IkServices::reconfigure(const Trigger::Request::SharedPtr req, Trigger::Response::SharedPtr res)
+  {
+    return IkServicesBase::reconfigure(req.get(), res.get());
+  }
 
-bool IkServices::reconfigure(const Trigger::Request::SharedPtr req, Trigger::Response::SharedPtr res)
-{
-  return IkServicesBase::reconfigure(req.get(), res.get());
-}
+  void IkServices::changeTool(ik_solver_msgs::ChangeTool::Request::SharedPtr req, ik_solver_msgs::ChangeTool::Response::SharedPtr res)
+  {
+    IkServicesBase::changeTool(req.get(), res.get());
+    RCLCPP_INFO(nh_->get_logger(), "Change Tool Result: %d", res->result);
+    return;
+  }
 
-void IkServices::changeTool(ik_solver_msgs::ChangeTool::Request::SharedPtr req, ik_solver_msgs::ChangeTool::Response::SharedPtr res)
-{
-  IkServicesBase::changeTool(req.get(), res.get());
-  RCLCPP_INFO(nh_->get_logger(), "Change Tool Result: %d", res->result);
-  return;
-}
+  bool IkServices::setInitialConfiguration(const ik_solver_msgs::srv::SetInitialConfiguration::Request::SharedPtr req, ik_solver_msgs::srv::SetInitialConfiguration::Response::SharedPtr res)
+  {
+    return IkServicesBase::setInitialConfiguration(req.get(), res.get());
+  }
 
-
-
-}  // namespace ik_solver
+} // namespace ik_solver

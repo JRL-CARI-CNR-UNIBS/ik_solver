@@ -36,7 +36,7 @@ import geometry_msgs.msg
 import moveit_msgs.msg
 import sensor_msgs.msg
 from ik_solver_msgs.msg import Configuration, IkTarget
-from ik_solver_msgs.srv import GetBound, GetFk, GetFrames, GetIk, GetIkArray
+from ik_solver_msgs.srv import GetBound, GetFk, GetFrames, GetIk, GetIkArray, SetInitialConfiguration
 
 
 class RawTerminal:
@@ -121,6 +121,7 @@ class TaskRedundantIkVisualizerNode(Node):
         self.fk_client = None
         self.task_redundant_client = None
         self.base_ik_client = None
+        self.set_init_conf_client = None
 
         # State management for solutions
         self.current_configurations: List[List[float]] = []
@@ -255,8 +256,50 @@ class TaskRedundantIkVisualizerNode(Node):
                 )
                 return False
 
+        # 5. Discover set_initial_configuration service (optional)
+        set_init_candidates = [
+            f'{ns_prefix}set_initial_configuration',
+            'set_initial_configuration',
+        ]
+        set_init_srv_name = self._resolve_service_name(
+            set_init_candidates, 'ik_solver_msgs/srv/SetInitialConfiguration'
+        )
+        self.set_init_conf_client = self.create_client(
+            SetInitialConfiguration, set_init_srv_name
+        )
+        self.get_logger().info(f"Using set_initial_configuration service: '{set_init_srv_name}'")
+
         self.get_logger().info(f"Initialized services in mode: '{self.mode}'")
         return True
+
+    def set_initial_configuration(self, conf: List[float]) -> bool:
+        """Call set_initial_configuration service on the IK server."""
+        if self.set_init_conf_client is None:
+            self.get_logger().error("set_initial_configuration client is not initialized.")
+            return False
+
+        if not self.set_init_conf_client.wait_for_service(timeout_sec=2.0):
+            self.get_logger().error("set_initial_configuration service is not available.")
+            return False
+
+        req = SetInitialConfiguration.Request()
+        req.configuration = Configuration()
+        req.configuration.configuration = [float(c) for c in conf]
+
+        future = self.set_init_conf_client.call_async(req)
+        rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+        if not future.done() or future.result() is None:
+            self.get_logger().error("Failed to call set_initial_configuration service.")
+            return False
+
+        res = future.result()
+        if res.success:
+            formatted_conf = [round(float(c), 3) for c in conf]
+            self.get_logger().info(f"Updated initial_conf on server: {formatted_conf} - {res.message}")
+            return True
+        else:
+            self.get_logger().error(f"Failed to update initial_conf: {res.message}")
+            return False
 
     def initialize_robot_info(self) -> bool:
         """Fetch joint boundaries and coordinate frames from ik_solver."""
@@ -395,6 +438,23 @@ class TaskRedundantIkVisualizerNode(Node):
                 for conf in sol.configurations
             ]
 
+        # Filter out configurations that are physically the same (equivalent modulo 2*pi)
+        raw_count = len(solutions)
+        unique_solutions = []
+        for sol in solutions:
+            is_dup = False
+            for u in unique_solutions:
+                diffs = [
+                    abs((a - b + np.pi) % (2.0 * np.pi) - np.pi)
+                    for a, b in zip(sol, u)
+                ]
+                if all(d <= 1e-3 for d in diffs):
+                    is_dup = True
+                    break
+            if not is_dup:
+                unique_solutions.append(sol)
+        solutions = unique_solutions
+
         with self.lock:
             self.current_configurations = solutions
             self.current_index = 0 if solutions else -1
@@ -407,7 +467,10 @@ class TaskRedundantIkVisualizerNode(Node):
         pos_str = f"({p.x:.3f}, {p.y:.3f}, {p.z:.3f})"
         mode_label = "Base IK" if self.mode == "base" else "Task-Redundant IK"
         if solutions:
-            print(f"\n[{mode_label}] Target Pos: {pos_str} -> Found {len(solutions)} solution(s).")
+            if raw_count != len(solutions):
+                print(f"\n[{mode_label}] Target Pos: {pos_str} -> Found {raw_count} solution(s) ({len(solutions)} unique).")
+            else:
+                print(f"\n[{mode_label}] Target Pos: {pos_str} -> Found {len(solutions)} unique solution(s).")
             self.publish_current_state()
         else:
             print(f"\n[{mode_label}] Target Pos: {pos_str} -> 0 solutions found. Press SPACE to sample another.")
@@ -564,6 +627,13 @@ def parse_arguments():
         default=10.0,
         help="RViz state republish rate in Hz (default: 10.0)",
     )
+    parser.add_argument(
+        '--initial-conf',
+        nargs='+',
+        type=float,
+        default=None,
+        help="Update the initial configuration on the server at runtime (e.g. --initial-conf 0.0 -1.57 1.57 -1.57 -1.57 0.0)",
+    )
     return parser.parse_args()
 
 
@@ -576,6 +646,7 @@ def print_banner(mode: str):
     print("   [SPACE]     : Show NEXT configuration (samples new target at end)")
     print("   [n / r]     : Sample a NEW random joint configuration and solve")
     print("   [m / t]     : TOGGLE solver mode (Base IK <-> Task-Redundant IK)")
+    print("   [i]         : Set CURRENT configuration as initial_conf on solver")
     print("   [p / b]     : Show PREVIOUS configuration")
     print("   [q/ESC/C-c] : Quit")
     print("=" * 70)
@@ -620,6 +691,11 @@ def main(args=None):
         rclpy.shutdown()
         return 1
 
+    # Optional initial configuration update from CLI
+    if parsed.initial_conf is not None:
+        print(f"Applying initial configuration from CLI: {parsed.initial_conf}")
+        node.set_initial_configuration(parsed.initial_conf)
+
     print_banner(node.mode)
 
     # Spin the node in a background thread for ROS 2 callbacks / timers
@@ -653,6 +729,14 @@ def main(args=None):
             # 'm' or 't': Toggle mode between Base IK and Task-Redundant IK
             elif key in ('m', 'M', 't', 'T'):
                 node.toggle_mode()
+
+            # 'i': Set active configuration as initial_conf on server
+            elif key in ('i', 'I'):
+                if node.active_config is not None:
+                    print("\n[USER] Updating server initial_conf to currently displayed configuration...")
+                    node.set_initial_configuration(node.active_config)
+                else:
+                    print("\nNo configuration currently active to set as initial_conf.")
 
             # 'p' or 'b' or Up/Left arrow: Previous configuration
             elif key in ('p', 'P', 'b', 'B', '\x1b[A', '\x1b[D'):

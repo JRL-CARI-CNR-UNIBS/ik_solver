@@ -38,6 +38,8 @@ The package provides a node named `ik_server_node` that exposes several services
 
 * `~get_bounds` of type [`ik_solver_msgs/GetBound.srv`](https:/github.com/JRL-CARI-CNR-UNIBS/ik_solver_msgs/tree/parallel-ik/srv/GetBound.srv) that get the SW boundaries of the joint ranges. 
 
+* `~set_initial_configuration` of type `ik_solver_msgs/SetInitialConfiguration.srv` that sets or updates the home / initial joint configuration at runtime. When `filter_duplicates` is enabled in task-redundant IK, equivalent configurations modulo $2\pi$ are pruned, keeping the one closest in joint-space Euclidean distance to this initial configuration.
+
 * `~reconfigure` of type `std_srvs/Trigger.srv` that allows to reconfigure the ik solver.
     
 The node implements a pool of threads that offers access to the solver capabilities. 
@@ -214,6 +216,13 @@ solver_namespace:
 
   min_stall_iterations: 500      # This parameter is overridden by the stall_iterations in the GetIk service if it is different from 0
   max_stall_iterations: 3000
+
+  # Duplicate filtering & initial configuration (task-redundant IK):
+  # If filter_duplicates is true, solutions that represent the same physical robot pose
+  # (modulo 2pi on revolute joints) are filtered out, keeping only the configuration
+  # that minimizes Euclidean distance in joint space to initial_conf (or target seed).
+  filter_duplicates: true
+  initial_conf: [1.570796, -2.094395, 2.007129, -1.570796, -1.570796, 0.0] # e.g. [90°, -120°, 115°, -90°, -90°, 0°]
 ```
 
 A runnable example, with two solvers and the `task_reduntant` parameters used by `~get_task_reduntant_ik_array`, is provided in [`ik_solver/examples/config.example.yaml`](ik_solver/examples/config.example.yaml):
@@ -298,6 +307,7 @@ The `ik_solver_test` package provides Python scripts to exercise a running `ik_s
   - Each press of the **SPACE** button advances to the next solution configuration; once all solutions for the target are shown, pressing SPACE automatically requests a new random target configuration.
   - Press `n` or `r` to sample a new random target immediately.
   - Press `m` or `t` to toggle between **Base IK** and **Task-Redundant IK** dynamically at runtime.
+  - Press `i` to set the currently displayed configuration as the new `initial_conf` on the IK server at runtime.
 
   ```bash
   # Task-redundant IK mode (default)
@@ -307,6 +317,9 @@ The `ik_solver_test` package provides Python scripts to exercise a running `ik_s
   ros2 run ik_solver visualizer_script.py [namespace] --base
   # or
   ros2 run ik_solver visualizer_script.py [namespace] --mode base
+
+  # Optional: supply initial configuration to server on startup
+  ros2 run ik_solver visualizer_script.py [namespace] --initial-conf 1.5708 -2.0944 2.0071 -1.5708 -1.5708 0.0
   ```
 
 

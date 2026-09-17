@@ -3,6 +3,7 @@
  */
 
 #include <array>
+#include <cmath>
 #include <functional>
 #include <algorithm>
 #include <cinttypes>
@@ -303,6 +304,46 @@ namespace ik_solver
    * @return true
    * @return false
    */
+  namespace
+  {
+
+    inline double wrapTo2Pi(double angle)
+    {
+      double v = std::fmod(angle, 2.0 * M_PI);
+      if (v < 0.0)
+        v += 2.0 * M_PI;
+      return v;
+    }
+
+    inline bool areConfigurationsEquivalent(const std::vector<double> &q1,
+                                            const std::vector<double> &q2,
+                                            const std::vector<bool> &revolute,
+                                            double tolerance = 1e-3)
+    {
+      if (q1.size() != q2.size())
+        return false;
+
+      for (size_t i = 0; i < q1.size(); ++i)
+      {
+        bool is_rev = (i < revolute.size()) ? revolute[i] : true;
+        double diff = q1[i] - q2[i];
+        if (is_rev)
+        {
+          double diff_mod = std::remainder(diff, 2.0 * M_PI);
+          if (std::abs(diff_mod) > tolerance)
+            return false;
+        }
+        else
+        {
+          if (std::abs(diff) > tolerance)
+            return false;
+        }
+      }
+      return true;
+    }
+
+  } // namespace
+
   bool IkServicesBase::computeTaskRedundantIKArray(ik_solver_msgs::GetIkArray::Request *req,
                                                    ik_solver_msgs::GetIkArray::Response *res)
   {
@@ -344,10 +385,85 @@ namespace ik_solver
       return false;
     }
 
-    // 3. Unflatten and accumulate solutions back into the respective targets
-    for (size_t p = 0; p < perturbations.size(); ++p)
+    // 3. Check duplicate filtering parameter
+    loadTaskRedundantParams();
+
+    if (!filter_duplicates_)
     {
-      for (size_t t_idx = 0; t_idx < req->targets.size(); ++t_idx)
+      for (size_t p = 0; p < perturbations.size(); ++p)
+      {
+        for (size_t t_idx = 0; t_idx < req->targets.size(); ++t_idx)
+        {
+          size_t flat_idx = p * req->targets.size() + t_idx;
+          const auto &sol = flat_res.solutions[flat_idx];
+
+          if (sol.configurations.empty())
+          {
+            continue;
+          }
+
+          res->solutions[t_idx].configurations.insert(
+              res->solutions[t_idx].configurations.end(),
+              sol.configurations.begin(), sol.configurations.end());
+
+          if (sol.translation_residual_errors.size() == sol.configurations.size())
+          {
+            res->solutions[t_idx].translation_residual_errors.insert(
+                res->solutions[t_idx].translation_residual_errors.end(),
+                sol.translation_residual_errors.begin(), sol.translation_residual_errors.end());
+          }
+          if (sol.rotation_residual_errors.size() == sol.configurations.size())
+          {
+            res->solutions[t_idx].rotation_residual_errors.insert(
+                res->solutions[t_idx].rotation_residual_errors.end(),
+                sol.rotation_residual_errors.begin(), sol.rotation_residual_errors.end());
+          }
+        }
+      }
+
+      flat_req.targets.clear();
+      flat_req.targets.shrink_to_fit();
+      flat_res.solutions.clear();
+      flat_res.solutions.shrink_to_fit();
+
+      return true;
+    }
+
+    // 3. Unflatten and accumulate unique solutions back into the respective targets,
+    // keeping the duplicate configuration that is closest to initial_conf / seed
+    const auto &revolute = config().revolute();
+    constexpr double tolerance = 1e-3;
+    constexpr double bucket_size = 0.05; // ~2.86 degrees
+    const int num_buckets = static_cast<int>(std::ceil(2.0 * M_PI / bucket_size)) + 1;
+
+    for (size_t t_idx = 0; t_idx < req->targets.size(); ++t_idx)
+    {
+      auto &target_sol = res->solutions[t_idx];
+      std::vector<std::vector<size_t>> buckets(num_buckets);
+
+      // Determine reference configuration for this target
+      std::vector<double> ref_conf = initial_conf_;
+      if (t_idx < req->targets.size() && !req->targets[t_idx].seeds.empty() &&
+          !req->targets[t_idx].seeds[0].configuration.empty())
+      {
+        ref_conf = req->targets[t_idx].seeds[0].configuration;
+      }
+
+      auto computeDistSq = [&ref_conf](const std::vector<double> &q) -> double
+      {
+        if (ref_conf.empty())
+          return 0.0;
+        double d2 = 0.0;
+        size_t n = std::min(q.size(), ref_conf.size());
+        for (size_t i = 0; i < n; ++i)
+        {
+          double diff = q[i] - ref_conf[i];
+          d2 += diff * diff;
+        }
+        return d2;
+      };
+
+      for (size_t p = 0; p < perturbations.size(); ++p)
       {
         size_t flat_idx = p * req->targets.size() + t_idx;
         const auto &sol = flat_res.solutions[flat_idx];
@@ -357,9 +473,87 @@ namespace ik_solver
           continue;
         }
 
-        res->solutions[t_idx].configurations.insert(
-            res->solutions[t_idx].configurations.end(),
-            sol.configurations.begin(), sol.configurations.end());
+        bool has_tra_err = (sol.translation_residual_errors.size() == sol.configurations.size());
+        bool has_rot_err = (sol.rotation_residual_errors.size() == sol.configurations.size());
+
+        for (size_t c_idx = 0; c_idx < sol.configurations.size(); ++c_idx)
+        {
+          const auto &cand_conf = sol.configurations[c_idx].configuration;
+          if (cand_conf.empty())
+          {
+            continue;
+          }
+
+          // Bucket based on joint 0 to accelerate collision/duplicate searching
+          double theta0 = (revolute.empty() || revolute[0]) ? wrapTo2Pi(cand_conf[0]) : cand_conf[0];
+          int b = static_cast<int>(std::floor(theta0 / bucket_size)) % num_buckets;
+          if (b < 0)
+          {
+            b += num_buckets;
+          }
+
+          int b_prev = (b - 1 + num_buckets) % num_buckets;
+          int b_next = (b + 1) % num_buckets;
+
+          bool is_duplicate = false;
+          size_t matched_acc_idx = 0;
+          const int check_buckets[3] = {b, b_prev, b_next};
+
+          for (int check_b : check_buckets)
+          {
+            for (size_t acc_idx : buckets[check_b])
+            {
+              const auto &existing_conf = target_sol.configurations[acc_idx].configuration;
+              if (areConfigurationsEquivalent(cand_conf, existing_conf, revolute, tolerance))
+              {
+                is_duplicate = true;
+                matched_acc_idx = acc_idx;
+                break;
+              }
+            }
+            if (is_duplicate)
+            {
+              break;
+            }
+          }
+
+          if (is_duplicate)
+          {
+            // If duplicate, keep whichever is closer to ref_conf (initial_conf)
+            if (!ref_conf.empty())
+            {
+              double cand_d2 = computeDistSq(cand_conf);
+              double exist_d2 = computeDistSq(target_sol.configurations[matched_acc_idx].configuration);
+              if (cand_d2 < exist_d2)
+              {
+                target_sol.configurations[matched_acc_idx] = sol.configurations[c_idx];
+                if (has_tra_err && matched_acc_idx < target_sol.translation_residual_errors.size())
+                {
+                  target_sol.translation_residual_errors[matched_acc_idx] = sol.translation_residual_errors[c_idx];
+                }
+                if (has_rot_err && matched_acc_idx < target_sol.rotation_residual_errors.size())
+                {
+                  target_sol.rotation_residual_errors[matched_acc_idx] = sol.rotation_residual_errors[c_idx];
+                }
+              }
+            }
+          }
+          else
+          {
+            size_t new_idx = target_sol.configurations.size();
+            target_sol.configurations.push_back(sol.configurations[c_idx]);
+            if (has_tra_err)
+            {
+              target_sol.translation_residual_errors.push_back(sol.translation_residual_errors[c_idx]);
+            }
+            if (has_rot_err)
+            {
+              target_sol.rotation_residual_errors.push_back(sol.rotation_residual_errors[c_idx]);
+            }
+
+            buckets[b].push_back(new_idx);
+          }
+        }
       }
     }
 
@@ -778,6 +972,7 @@ namespace ik_solver
         return 0;
       }
     }
+    loadTaskRedundantParams();
     return true;
   }
 
@@ -794,6 +989,46 @@ namespace ik_solver
     std::for_each(ik_solvers_.begin(), ik_solvers_.end(), [&req, &T_tool_flange](std::shared_ptr<IkSolver> &solver)
                   { solver->changeTool(req->tool, T_tool_flange); });
     res->result = ik_solver_msgs::ChangeTool::Response::SUCCESS;
+  }
+
+  void IkServicesBase::loadTaskRedundantParams()
+  {
+    std::string what;
+    std::string ns = config().param_namespace();
+    if (!ns.empty() && ns.back() != '/')
+    {
+      ns += "/";
+    }
+
+    if (!cnr::param::get(ns + "filter_duplicates", filter_duplicates_, what))
+    {
+      if (!cnr::param::get(ns + "task_reduntant/filter_duplicates", filter_duplicates_, what))
+      {
+        cnr::param::get(ns + "task_redundant/filter_duplicates", filter_duplicates_, what);
+      }
+    }
+
+    if (!initial_conf_set_manually_)
+    {
+      std::vector<double> conf;
+      if (cnr::param::get(ns + "initial_conf", conf, what) ||
+          cnr::param::get(ns + "initial_configuration", conf, what) ||
+          cnr::param::get(ns + "task_reduntant/initial_conf", conf, what) ||
+          cnr::param::get(ns + "task_redundant/initial_conf", conf, what))
+      {
+        initial_conf_ = conf;
+      }
+    }
+  }
+
+  bool IkServicesBase::setInitialConfiguration(ik_solver_msgs::SetInitialConfiguration::Request *req,
+                                               ik_solver_msgs::SetInitialConfiguration::Response *res)
+  {
+    initial_conf_ = req->configuration.configuration;
+    initial_conf_set_manually_ = true;
+    res->success = true;
+    res->message = "Initial configuration updated successfully.";
+    return true;
   }
 
 } // namespace ik_solver
