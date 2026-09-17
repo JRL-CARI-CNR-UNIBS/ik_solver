@@ -13,6 +13,14 @@ solver1:
   - joint5
   - joint6
 
+  min_stall_iterations: 100
+  max_stall_iterations: 100000
+  parallel_ik_mode: 2
+
+  # Duplicate filtering & initial configuration (task-redundant IK):
+  filter_duplicates: true
+  initial_conf: [0.0, -1.5708, 1.5708, -1.5708, -1.5708, 0.0]
+
   # parameters used by the "get_task_reduntant_ik_array" service
   task_reduntant:
     type: grid # "grid" or "random"
