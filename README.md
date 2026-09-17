@@ -293,3 +293,20 @@ The `ik_solver_test` package provides Python scripts to exercise a running `ik_s
   ```bash
   ros2 run ik_solver_test visualize_task_redundant_ik_array.py <namespace> [period_s]
   ```
+
+* `visualizer_script.py` (also available as `viusalizer_script.py`) calls the IK service sending a random joint configuration and displays the results on RViz. Supports both the base IK solver and task-redundant IK solver:
+  - Each press of the **SPACE** button advances to the next solution configuration; once all solutions for the target are shown, pressing SPACE automatically requests a new random target configuration.
+  - Press `n` or `r` to sample a new random target immediately.
+  - Press `m` or `t` to toggle between **Base IK** and **Task-Redundant IK** dynamically at runtime.
+
+  ```bash
+  # Task-redundant IK mode (default)
+  ros2 run ik_solver visualizer_script.py [namespace]
+
+  # Base IK mode
+  ros2 run ik_solver visualizer_script.py [namespace] --base
+  # or
+  ros2 run ik_solver visualizer_script.py [namespace] --mode base
+  ```
+
+
