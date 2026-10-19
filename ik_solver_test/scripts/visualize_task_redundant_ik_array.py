@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+"""Show the task-redundant IK solutions of a random pose in RViz.
+
+Computes the FK of a random configuration, calls ~get_task_redundant_ik_array on that pose,
+and publishes each solution as a moveit_msgs/DisplayRobotState on /display_robot_state,
+one every period_s seconds.
+
+Usage: ros2 run ik_solver_test visualize_task_redundant_ik_array.py <namespace> [period_s]
+"""
 
 import sys
 import time

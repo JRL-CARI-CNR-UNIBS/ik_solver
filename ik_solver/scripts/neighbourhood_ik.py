@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""ROS 1 service ~/neighbourhood_ik (ik_solver_msgs/NeighbourhoodPyramidIk).
+
+Samples poses inside a pyramid in front of a TF frame (distance, width, resolution and
+orientation given in the request), solves their IK with /get_ik_array, and returns the
+solutions together with the unreachable poses.
+"""
 import rospy
 import geometry_msgs.msg
 import ik_solver_msgs.srv

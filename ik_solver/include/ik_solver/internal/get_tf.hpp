@@ -1,3 +1,7 @@
+/**
+ * @file get_tf.hpp
+ * @brief Old implementation of IkSolver::getTF(). Not included anywhere: the current one is in ik_solver.hpp.
+ */
 #ifndef IK_SOLVER__GET_TF_IMPL
 #define IK_SOLVER__GET_TF_IMPL
 

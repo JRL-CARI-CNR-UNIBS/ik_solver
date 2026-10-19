@@ -26,6 +26,10 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/**
+ * @file services.ros2.h
+ * @brief ROS 2 services of the IK solver node.
+ */
 #ifndef IK_SOLVER__INTERNAL__SERVICES_H
 #define IK_SOLVER__INTERNAL__SERVICES_H
 
@@ -50,6 +54,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace ik_solver
 {
 
+  /**
+   * @brief ROS 2 services of the IK solver node.
+   *
+   * Advertised services (relative to the node namespace):
+   * @c get_ik, @c get_ik_array, @c get_task_redundant_ik_array, @c get_fk, @c get_fk_array,
+   * @c get_bounds, @c get_frames, @c reconfigure, @c change_tool, @c set_initial_configuration.
+   * The services exist as long as this object exists.
+   */
   class IkServices : public IkServicesBase
   {
   private:
@@ -73,26 +85,61 @@ namespace ik_solver
     IkServices(const IkServices &&) = delete;
     ~IkServices() = default;
 
+    /**
+     * @brief Create the services.
+     * @param nh Node.
+     * @param ik_solvers Configured solver pool.
+     */
     IkServices(rclcpp::Node::SharedPtr &nh, IkSolversPool &ik_solvers);
 
+    /**
+     * @copydoc IkServicesBase::computeIK
+     */
     bool computeIK(const ik_solver_msgs::srv::GetIk::Request::SharedPtr req, ik_solver_msgs::srv::GetIk::Response::SharedPtr res);
 
+    /**
+     * @copydoc IkServicesBase::computeFK
+     */
     bool computeFK(const ik_solver_msgs::srv::GetFk::Request::SharedPtr req, ik_solver_msgs::srv::GetFk::Response::SharedPtr res);
 
+    /**
+     * @copydoc IkServicesBase::computeIKArray
+     */
     bool computeIKArray(const ik_solver_msgs::srv::GetIkArray::Request::SharedPtr req, ik_solver_msgs::srv::GetIkArray::Response::SharedPtr res);
 
+    /**
+     * @copydoc IkServicesBase::computeTaskRedundantIKArray
+     */
     bool computeTaskRedundantIKArray(const ik_solver_msgs::srv::GetIkArray::Request::SharedPtr req, ik_solver_msgs::srv::GetIkArray::Response::SharedPtr res);
 
+    /**
+     * @copydoc IkServicesBase::computeFKArray
+     */
     bool computeFKArray(const ik_solver_msgs::srv::GetFkArray::Request::SharedPtr req, ik_solver_msgs::srv::GetFkArray::Response::SharedPtr res);
 
+    /**
+     * @copydoc IkServicesBase::getBounds
+     */
     bool getBounds(const ik_solver_msgs::srv::GetBound::Request::SharedPtr req, ik_solver_msgs::srv::GetBound::Response::SharedPtr res);
 
+    /**
+     * @copydoc IkServicesBase::getFrames
+     */
     bool getFrames(const ik_solver_msgs::GetFrames::Request::SharedPtr req, ik_solver_msgs::GetFrames::Response::SharedPtr res);
 
+    /**
+     * @copydoc IkServicesBase::reconfigure
+     */
     bool reconfigure(const Trigger::Request::SharedPtr req, Trigger::Response::SharedPtr res);
 
+    /**
+     * @copydoc IkServicesBase::changeTool
+     */
     void changeTool(ik_solver_msgs::srv::ChangeTool::Request::SharedPtr req, ik_solver_msgs::srv::ChangeTool::Response::SharedPtr res);
 
+    /**
+     * @brief SetInitialConfiguration service.
+     */
     bool setInitialConfiguration(const ik_solver_msgs::srv::SetInitialConfiguration::Request::SharedPtr req, ik_solver_msgs::srv::SetInitialConfiguration::Response::SharedPtr res);
   };
 

@@ -26,6 +26,10 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/**
+ * @file services.ros1.h
+ * @brief ROS 1 services of the IK solver node (not maintained).
+ */
 #ifndef IK_SOLVER__INTERNAL__SERVICES_H
 #define IK_SOLVER__INTERNAL__SERVICES_H
 

@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""Test of the ~get_task_redundant_ik_array service of an ik_solver node.
+
+Builds target poses from the FK of random configurations, calls the service, and logs the
+number of solutions and the maximum translation/rotation residual for each target.
+
+Usage: ros2 run ik_solver_test test_task_redundant_ik_array.py <namespace>
+"""
 
 import sys
 

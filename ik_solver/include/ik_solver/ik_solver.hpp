@@ -1,3 +1,7 @@
+/**
+ * @file ik_solver.hpp
+ * @brief ROS base class of the IK solver plugins.
+ */
 #ifndef IK_SOLVER__IK_SOLVER
 #define IK_SOLVER__IK_SOLVER
 
@@ -13,6 +17,13 @@
 
 namespace ik_solver
 {
+/**
+ * @brief Base class of the IK solver plugins, loaded with pluginlib.
+ *
+ * Adds to IkSolverBase the TF lookup through a tf2 buffer. A plugin derives from this
+ * class, implements config(), getIk() and getFK(), and is exported with
+ * @c PLUGINLIB_EXPORT_CLASS(my_ns::MySolver, ik_solver::IkSolver).
+ */
 class IkSolver : public IkSolverBase
 {
 protected:
@@ -20,7 +31,7 @@ protected:
 #if ROS_X == 1
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_; // CHECK!
 #elif ROS_X == 2
-tf2_ros::Buffer::SharedPtr tf_buffer_;
+tf2_ros::Buffer::SharedPtr tf_buffer_;  ///< TF buffer used by getTF().
 #endif
 
 public:
@@ -30,8 +41,18 @@ public:
   IkSolver(IkSolver&&) = delete;
   virtual ~IkSolver() = default;
 
+  /**
+   * @brief Set the TF buffer. It must be called before config().
+   */
   void setBuffer(const tf2_ros::Buffer::SharedPtr& buffer){tf_buffer_=buffer;}
 
+  /**
+   * @brief Get the pose of @p b_name in @p a_name from TF (up to 50 attempts of 5 s).
+   * @param a_name Reference frame.
+   * @param b_name Target frame.
+   * @param[out] T_ab Pose of b in a.
+   * @return False if the transform is not available or the buffer is not set.
+   */
   virtual bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab) const;
 
 };

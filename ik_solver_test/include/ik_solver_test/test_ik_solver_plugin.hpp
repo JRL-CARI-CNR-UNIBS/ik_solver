@@ -1,3 +1,7 @@
+/**
+ * @file test_ik_solver_plugin.hpp
+ * @brief Dummy IK solver plugin used to test the node and the services.
+ */
 #ifndef TEST_IK_SOLVER_PLUGIN_HPP
 #define TEST_IK_SOLVER_PLUGIN_HPP
 
@@ -9,6 +13,12 @@ namespace test_ik_solver
 {
 using namespace ik_solver;
 
+/**
+ * @brief Dummy IK solver that logs its inputs.
+ *
+ * getIk() always returns one configuration with all joints at 1.0, and getFK() returns the identity.
+ * It is also a minimal example of a solver plugin.
+ */
 class TestIkSolver : public ik_solver::IkSolver
 {
 public:

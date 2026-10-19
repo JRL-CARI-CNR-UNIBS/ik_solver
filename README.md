@@ -334,3 +334,9 @@ The `ik_solver_test` package provides Python scripts to exercise a running `ik_s
   ```
 
 
+
+# Tutorial and API documentation
+
+* [docs/TUTORIAL.md](docs/TUTORIAL.md): start a server, query it from the command line and from Python, use the task-redundant IK, and write a new solver plugin.
+* [docs/API.md](docs/API.md): API reference of the classes, functions and scripts (generated from the Doxygen comments).
+* The code is documented with Doxygen. From the repository folder run `doxygen Doxyfile` and open `doxygen/html/index.html`.

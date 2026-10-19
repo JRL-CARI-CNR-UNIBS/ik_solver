@@ -1,3 +1,7 @@
+/**
+ * @file ik_solver_node.ros2.hpp
+ * @brief ROS 2 node that loads an IK solver plugin and offers the IK/FK services.
+ */
 #ifndef IK_SOLVER__IK_SOLVER_NODE_2
 #define IK_SOLVER__IK_SOLVER_NODE_2
 
@@ -16,6 +20,23 @@ namespace ik_solver
 {
 using namespace std::chrono_literals;
 
+/**
+ * @brief ROS 2 node that loads an IK solver plugin and offers the IK/FK services.
+ *
+ * The plugin name is read from the parameter @c <namespace>/type. The URDF is read from
+ * the ROS parameter @c robot_description or, if missing, from the topic given by
+ * @c <namespace>/robot_description_topic (default @c ~/robot_description). Then
+ * MAX_NUM_PARALLEL_IK_SOLVER instances of the plugin are created and configured.
+ *
+ * Usage:
+ * @code
+ * auto node = ik_solver::IkSolverNode::make_node("ik_solver_node");
+ * while (!node->ready())
+ *   rclcpp::spin_some(node->get_node_base_interface());
+ * rclcpp::executors::MultiThreadedExecutor executor;
+ * node->setup_services_and_run(executor);
+ * @endcode
+ */
 class IkSolverNode : public rclcpp::Node
 {
 private:
@@ -71,11 +92,18 @@ private:
 
 public:
 
+  /**
+   * @brief True when the solvers are created and configured.
+   */
   bool ready()
   {
     return server_ready_;
   }
 
+  /**
+   * @brief Advertise the services and spin the executor (blocking).
+   * @param ex Executor; a multi-threaded executor allows concurrent requests.
+   */
   void setup_services_and_run(rclcpp::Executor& ex)
   {
     rclcpp::Node::SharedPtr s_ptr = shared_from_this();
@@ -86,6 +114,12 @@ public:
   }
 
   static
+  /**
+   * @brief Create the node.
+   * @param name Node name.
+   * @param opt Node options.
+   * @return The node.
+   */
   std::shared_ptr<IkSolverNode> make_node(const std::string& name, const rclcpp::NodeOptions& opt = rclcpp::NodeOptions())
   {
     return std::shared_ptr<IkSolverNode>(new IkSolverNode(name, opt));
@@ -94,6 +128,9 @@ public:
 protected:
 
 
+  /**
+   * @brief Store the URDF, then create and configure the solver pool.
+   */
   void configure_after_robot_description(const std_msgs::msg::String& msg)
   {
     robot_description_ = msg.data;
