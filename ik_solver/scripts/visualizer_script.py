@@ -3,7 +3,7 @@
 IK Visualizer Script for RViz.
 
 Supports both:
-- Task-Redundant IK solver (get_task_reduntant_ik_array / ik_task_redundant)
+- Task-Redundant IK solver (get_task_redundant_ik_array / ik_task_redundant)
 - Base IK solver (get_ik)
 
 This script samples a random joint configuration, calls the selected IK service,
@@ -212,10 +212,10 @@ class TaskRedundantIkVisualizerNode(Node):
                 redundant_srv_name = f'/{ns_prefix}{redundant_srv_name}'
         else:
             redundant_candidates = [
-                f'{ns_prefix}get_task_reduntant_ik_array',
+                f'{ns_prefix}get_task_redundant_ik_array',
                 f'{ns_prefix}get_task_redundant_ik_array',
                 f'{ns_prefix}ik_task_redundant',
-                'get_task_reduntant_ik_array',
+                'get_task_redundant_ik_array',
                 'get_task_redundant_ik_array',
                 'ik_task_redundant',
             ]
@@ -601,7 +601,7 @@ def parse_arguments():
         '-s', '--service',
         type=str,
         default=None,
-        help="Explicit IK service name (e.g. '/solver1/get_task_reduntant_ik_array' or '/solver1/get_ik')",
+        help="Explicit IK service name (e.g. '/solver1/get_task_redundant_ik_array' or '/solver1/get_ik')",
     )
     parser.add_argument(
         '--bounds-service',

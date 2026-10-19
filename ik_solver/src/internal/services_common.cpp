@@ -200,19 +200,30 @@ namespace ik_solver
   } // namespace
 
   /**
-   * @brief Reads the 'task_reduntant' parameters (namespace under the solver's param namespace) and
+   * @brief Reads the 'task_redundant' parameters (namespace under the solver's param namespace) and
    * builds the set of pose perturbations to be applied to each requested target. Two mutually exclusive
-   * modes are supported, selected by the string parameter 'task_reduntant/type':
+   * modes are supported, selected by the string parameter 'task_redundant/type':
    *  - "grid": for each axis (x,y,z,roll,pitch,yaw) reads min/max/step and builds the cartesian product.
-   *  - "random": for each axis reads mean/standard_deviation and draws 'task_reduntant/n_samples' samples,
-   *    optionally seeded deterministically via 'task_reduntant/seed' (falls back to a non-deterministic
+   *  - "random": for each axis reads mean/standard_deviation and draws 'task_redundant/n_samples' samples,
+   *    optionally seeded deterministically via 'task_redundant/seed' (falls back to a non-deterministic
    *    seed when unset).
    * An axis that is not configured defaults to a single perturbation value of 0 on that axis.
    */
   std::vector<Eigen::Affine3d> IkServicesBase::computeTaskRedundantPerturbations() const
   {
-    const std::string ns = config().param_namespace() + "task_reduntant/";
     std::string what;
+    // "task_redundant" is the parameter name. The misspelled "task_reduntant" is still accepted
+    // for backward compatibility with existing configuration files.
+    std::string base = config().param_namespace();
+    if (!base.empty() && base.back() != '/')
+    {
+      base += "/";
+    }
+    std::string ns = base + "task_redundant/";
+    if (!cnr::param::has(base + "task_redundant", what) && cnr::param::has(base + "task_reduntant", what))
+    {
+      ns = base + "task_reduntant/";
+    }
 
     std::string type = "grid";
     cnr::param::get(ns + "type", type, what);
@@ -235,7 +246,7 @@ namespace ik_solver
       cnr::param::get(ns + "n_samples", n_samples, what);
       n_samples = std::max(n_samples, 1);
 
-      // Optional deterministic seed (task_reduntant/seed) for reproducible sampling, e.g. when
+      // Optional deterministic seed (task_redundant/seed) for reproducible sampling, e.g. when
       // comparing Optuna trials that rely on Common Random Numbers. Falls back to a
       // non-deterministic seed, as before, when unset.
       int seed = 0;
@@ -1002,9 +1013,9 @@ namespace ik_solver
 
     if (!cnr::param::get(ns + "filter_duplicates", filter_duplicates_, what))
     {
-      if (!cnr::param::get(ns + "task_reduntant/filter_duplicates", filter_duplicates_, what))
+      if (!cnr::param::get(ns + "task_redundant/filter_duplicates", filter_duplicates_, what))
       {
-        cnr::param::get(ns + "task_redundant/filter_duplicates", filter_duplicates_, what);
+        cnr::param::get(ns + "task_reduntant/filter_duplicates", filter_duplicates_, what);
       }
     }
 
@@ -1013,8 +1024,8 @@ namespace ik_solver
       std::vector<double> conf;
       if (cnr::param::get(ns + "initial_conf", conf, what) ||
           cnr::param::get(ns + "initial_configuration", conf, what) ||
-          cnr::param::get(ns + "task_reduntant/initial_conf", conf, what) ||
-          cnr::param::get(ns + "task_redundant/initial_conf", conf, what))
+          cnr::param::get(ns + "task_redundant/initial_conf", conf, what) ||
+          cnr::param::get(ns + "task_reduntant/initial_conf", conf, what))
       {
         initial_conf_ = conf;
       }
