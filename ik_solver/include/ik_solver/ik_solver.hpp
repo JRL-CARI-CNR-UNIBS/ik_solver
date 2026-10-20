@@ -47,7 +47,7 @@ public:
   void setBuffer(const tf2_ros::Buffer::SharedPtr& buffer){tf_buffer_=buffer;}
 
   /**
-   * @brief Get the pose of @p b_name in @p a_name from TF (up to 50 attempts of 5 s).
+   * @brief Get the pose of @p b_name in @p a_name from TF (up to 30 attempts of 1 s).
    * @param a_name Reference frame.
    * @param b_name Target frame.
    * @param[out] T_ab Pose of b in a.
@@ -98,19 +98,21 @@ inline bool IkSolver::getTF(const std::string& a_name, const std::string& b_name
   using namespace std::chrono_literals;
   geometry_msgs::msg::TransformStamped location_transform;
   tf2::TimePoint t0 = tf2::TimePointZero;
-  bool ret {true};
+  bool ret {false};
 
   if (!tf_buffer_)
   {
     fprintf(stderr, "[ERROR] TF buffer is not set, did you call setBuffer()?\n");
-    ret = false;
+    return false;
   }
 
-  for (size_t itrial=0;itrial<50;itrial++)
+  // 30 trials of 1 s (0.9 s lookup + 0.1 s sleep): about 30 s in total
+  for (size_t itrial=0;itrial<30;itrial++)
   {
+    ret = true;
     try
     {
-      location_transform = tf_buffer_->lookupTransform(a_name, b_name, t0, tf2::Duration(5s));
+      location_transform = tf_buffer_->lookupTransform(a_name, b_name, t0, tf2::Duration(900ms));
     }
     catch (tf2::LookupException ex)
     {
