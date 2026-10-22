@@ -333,6 +333,90 @@ The `ik_solver_test` package provides Python scripts to exercise a running `ik_s
   ros2 run ik_solver visualizer_script.py [namespace] --initial-conf 1.5708 -2.0944 2.0071 -1.5708 -1.5708 0.0
   ```
 
+* `test_service_timing.py` measures the call time of each service as seen by the client (serialization, transport, computation and response) and prints mean, std, min, median, p95 and max. Single services (`get_fk`, `get_ik`) are called `--trials` times; array services are called `--repetitions` times for each `--payloads` size. `--parallelize {default,force,disable}` and `--threads N` set the `parallelize` and `num_threads` fields of the IK array requests; every combination given is run. `--csv` saves the statistics.
+
+  ```bash
+  ros2 run ik_solver_test test_service_timing.py <namespace>
+  ros2 run ik_solver_test test_service_timing.py <namespace> --services get_ik_array --parallelize force disable
+  ros2 run ik_solver_test test_service_timing.py <namespace> --services get_ik_array --parallelize force --threads 1 2 4 8
+  ```
+
+## Benchmark
+
+Results of `test_service_timing.py` with the default options (10 repetitions per payload, no seeds), Release build.
+
+**Machine:** Lenovo laptop (21A4), AMD Ryzen 5 5600U (6 cores / 12 threads, up to 4.3 GHz), 35 GB RAM, Ubuntu 24.04, ROS 2 Jazzy, Fast DDS (`rmw_fastrtps_cpp`, default), GCC 13.3, `balanced` power profile.
+**Solver:** UR10e analytic solver (`ur_ik_solver`, `Ur10eIkSolver`); `MAX_NUM_PARALLEL_IK_SOLVER` = 10.
+
+Mean call time of the IK array services, single-thread (`parallel_ik_mode: 2`) vs multi-thread (`parallelize: force`, 10 threads):
+
+| Service | Payload | Single-thread [ms] | Multi-thread [ms] | Speed-up |
+|---|---:|---:|---:|---:|
+| `get_ik_array` | 10 | 10.0 | 5.7 | 1.7× |
+| `get_ik_array` | 100 | 64.9 | 25.2 | 2.6× |
+| `get_ik_array` | 1000 | 652.2 | 263.4 | 2.5× |
+| `get_ik_array` | 10000 | 7009.1 | 2799.1 | 2.5× |
+| `get_task_redundant_ik_array` | 10 | 31.4 | 11.5 | 2.7× |
+| `get_task_redundant_ik_array` | 100 | 278.2 | 87.2 | 3.2× |
+| `get_task_redundant_ik_array` | 1000 | 2861.0 | 872.0 | 3.3× |
+| `get_task_redundant_ik_array` | 10000 | 32406.6 | 9523.8 | 3.4× |
+
+The speed-up is below the number of threads: the CPU has 6 physical cores, and the request/response transport and the Python (de)serialization in the client are not parallelized. `get_fk`, `get_ik` and `get_fk_array` do not depend on the parallel mode (`get_fk_array` is always multi-thread); differences between the two runs are run-to-run variation.
+
+<details>
+<summary>Full results</summary>
+
+Single-thread (`parallel_ik_mode: 2`):
+
+```
+service                       payload     n        mean         std         min      median         p95         max    per item    fail
+---------------------------------------------------------------------------------------------------------------------------------------
+get_fk                              1  1000       0.222       0.057       0.181       0.210       0.274       1.270      0.2223       0
+get_ik                              1  1000       1.255      10.560       0.306       0.834       1.677     334.635      1.2548       0
+get_fk_array                       10    10      34.556     105.248       0.870       1.213     184.878     334.093      3.4556       0
+get_fk_array                      100    10       1.952       0.461       1.485       1.822       2.652       2.737      0.0195       0
+get_fk_array                     1000    10      13.702       7.726       9.998      11.285      25.371      35.517      0.0137       0
+get_fk_array                    10000    10     167.564      89.527     128.698     140.595     299.147     421.514      0.0168       0
+get_ik_array                       10    10      10.009       2.735       7.019       9.402      14.126      15.104      1.0009       0
+get_ik_array                      100    10      64.861       4.751      59.428      64.540      72.899      75.482      0.6486       0
+get_ik_array                     1000    10     652.198      15.766     627.115     655.417     669.821     670.783      0.6522       0
+get_ik_array                    10000    10    7009.102     136.464    6863.113    6957.403    7236.392    7322.716      0.7009       0
+get_task_redundant_ik_array        10    10      31.446       5.299      24.186      30.988      39.222      40.139      3.1446       0
+get_task_redundant_ik_array       100    10     278.184      15.995     259.645     276.940     302.236     315.333      2.7818       0
+get_task_redundant_ik_array      1000    10    2861.006      62.599    2773.151    2866.295    2956.510    2995.925      2.8610       0
+get_task_redundant_ik_array     10000    10   32406.561     689.166   31238.897   32225.405   33392.875   33527.086      3.2407       1
+```
+
+Multi-thread (`--parallelize force`, 10 threads):
+
+```
+service                          mode  payload     n        mean         std         min      median         p95         max    per item    fail
+------------------------------------------------------------------------------------------------------------------------------------------------
+get_fk                              -        1  1000       1.143       0.171       0.943       1.125       1.340       4.778      1.1427       0
+get_ik                              -        1  1000       1.834       0.396       1.091       1.765       2.565       4.257      1.8345       0
+get_fk_array                        -       10    10       2.367       0.525       1.743       2.621       2.963       3.071      0.2367       0
+get_fk_array                        -      100    10       3.555       0.614       2.626       3.680       4.327       4.519      0.0356       0
+get_fk_array                        -     1000    10      14.417       5.336      11.844      12.720      22.378      29.509      0.0144       0
+get_fk_array                        -    10000    10     135.227       8.382     124.790     132.266     147.603     149.031      0.0135       0
+get_ik_array                    force       10    10       5.734       0.936       4.077       5.843       6.867       6.895      0.5734       0
+get_ik_array                    force      100    10      25.180       2.175      21.990      24.473      28.626      28.920      0.2518       0
+get_ik_array                    force     1000    10     263.370       6.833     251.019     265.445     270.527     270.789      0.2634       0
+get_ik_array                    force    10000    10    2799.074     133.242    2651.594    2758.381    3012.588    3061.752      0.2799       2
+get_task_redundant_ik_array     force       10    10      11.523       1.095       9.884      11.338      12.724      12.728      1.1523       0
+get_task_redundant_ik_array     force      100    10      87.221       5.020      80.771      86.652      95.046      97.465      0.8722       0
+get_task_redundant_ik_array     force     1000    10     871.965      19.359     839.280     872.820     896.215     904.675      0.8720       0
+get_task_redundant_ik_array     force    10000    10    9523.793     231.736    9228.702    9502.551    9879.866   10013.918      0.9524       0
+```
+
+</details>
+
+# Contributors
+
+* Manuel Beschi
+* Nicola Pedrocchi
+* Roberto Fausti
+* Federico Parma
+
 
 
 # Tutorial and API documentation

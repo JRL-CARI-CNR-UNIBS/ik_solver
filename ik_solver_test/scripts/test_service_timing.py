@@ -13,6 +13,15 @@ IK targets are the FK poses of random configurations, so they are always reachab
 By default no seeds are sent (the true configuration as a seed would make IK trivial);
 use --with-seeds to send it anyway.
 
+--parallelize sets the 'parallelize' field of the IK array requests. 'default' (the
+default) lets the node's parallel_ik_mode parameter decide, which is single-thread unless
+configured otherwise. Pass several modes to compare them in one run. get_fk_array has no
+such field (it is always multi-thread) and runs once, reported with mode '-'.
+
+--threads sets the 'num_threads' field of the IK array requests (0, the default, uses all
+the node's solver instances). It only matters when the request is solved in parallel.
+Every combination of --parallelize and --threads is run.
+
 Usage:
   ros2 run ik_solver_test test_service_timing.py <namespace> [options]
 
@@ -20,6 +29,8 @@ Examples:
   ros2 run ik_solver_test test_service_timing.py solver1
   ros2 run ik_solver_test test_service_timing.py solver1 --services get_fk_array get_ik_array
   ros2 run ik_solver_test test_service_timing.py solver1 --payloads 10 100 --csv /tmp/timing.csv
+  ros2 run ik_solver_test test_service_timing.py solver1 --services get_ik_array --parallelize force disable
+  ros2 run ik_solver_test test_service_timing.py solver1 --services get_ik_array --parallelize force --threads 1 2 4 8
 """
 
 import argparse
@@ -36,6 +47,11 @@ from ik_solver_msgs.srv import GetBound, GetFk, GetFkArray, GetFrames, GetIk, Ge
 
 SINGLE_SERVICES = ['get_fk', 'get_ik']
 ARRAY_SERVICES = ['get_fk_array', 'get_ik_array', 'get_task_redundant_ik_array']
+PARALLELIZE_MODES = {
+    'default': GetIkArray.Request.PARALLELIZE_DEFAULT,
+    'force': GetIkArray.Request.PARALLELIZE_FORCE,
+    'disable': GetIkArray.Request.PARALLELIZE_DISABLE,
+}
 
 
 def compute_stats(times_s):
@@ -103,9 +119,11 @@ class ServiceTimingNode(Node):
         req.configurations = [Configuration(configuration=row.tolist()) for row in q]
         return req
 
-    def ik_array_request(self, q, poses, with_seeds):
+    def ik_array_request(self, q, poses, with_seeds, parallelize='default', num_threads=0):
         req = GetIkArray.Request()
         req.seed_joint_names = self.joint_names
+        req.parallelize = PARALLELIZE_MODES[parallelize]
+        req.num_threads = num_threads
         for row, pose in zip(q, poses):
             target = IkTarget()
             target.pose.header.frame_id = self.base_frame
@@ -149,7 +167,7 @@ class ServiceTimingNode(Node):
                 self.get_logger().info(f'get_ik: {i + 1}/{len(qs)}')
         return times, n_fail
 
-    def bench_array(self, service, payload, repetitions, with_seeds):
+    def bench_array(self, service, payload, repetitions, with_seeds, parallelize='default', num_threads=0):
         if service == 'get_fk_array':
             cli = self.client(GetFkArray, service)
             fk_cli = None
@@ -166,26 +184,27 @@ class ServiceTimingNode(Node):
             else:
                 # target poses are generated with an (untimed) get_fk_array call
                 poses = self.call(fk_cli, fk_req).poses.poses
-                req = self.ik_array_request(q, poses, with_seeds)
+                req = self.ik_array_request(q, poses, with_seeds, parallelize, num_threads)
 
             dt, res = self.timed_call(cli, req)
             times.append(dt)
             if fk_cli is not None:
                 n_fail += sum(1 for s in res.solutions if len(s.configurations) == 0)
+            mode = '' if fk_cli is None else f' parallelize={parallelize} threads={num_threads}'
             self.get_logger().info(
-                f'{service} payload={payload}: rep {r + 1}/{repetitions} -> {dt * 1e3:.2f} ms')
+                f'{service} payload={payload}{mode}: rep {r + 1}/{repetitions} -> {dt * 1e3:.2f} ms')
         return times, n_fail
 
 
 def print_table(rows):
-    header = (f'{"service":<28} {"payload":>8} {"n":>5} {"mean":>11} {"std":>11} {"min":>11} '
+    header = (f'{"service":<28} {"mode":>8} {"threads":>7} {"payload":>8} {"n":>5} {"mean":>11} {"std":>11} {"min":>11} '
               f'{"median":>11} {"p95":>11} {"max":>11} {"per item":>11} {"fail":>7}')
     print()
     print('Service call times [ms] (per item = mean / payload)')
     print(header)
     print('-' * len(header))
     for r in rows:
-        print(f'{r["service"]:<28} {r["payload"]:>8} {r["n"]:>5} {r["mean"]:>11.3f} {r["std"]:>11.3f} '
+        print(f'{r["service"]:<28} {r["mode"]:>8} {r["threads"]:>7} {r["payload"]:>8} {r["n"]:>5} {r["mean"]:>11.3f} {r["std"]:>11.3f} '
               f'{r["min"]:>11.3f} {r["median"]:>11.3f} {r["p95"]:>11.3f} {r["max"]:>11.3f} '
               f'{r["per_item"]:>11.4f} {r["failures"]:>7}')
     print()
@@ -206,10 +225,19 @@ def main():
                         help='calls per payload for the *_array services (default: 10)')
     parser.add_argument('--with-seeds', action='store_true',
                         help='send the sampled configuration as IK seed')
+    parser.add_argument('--parallelize', nargs='+', choices=list(PARALLELIZE_MODES), default=['default'],
+                        help='parallelize mode(s) of the IK array requests; several modes are run in '
+                             'sequence (default: default, i.e. the node parameter decides)')
+    parser.add_argument('--threads', type=int, nargs='+', default=[0],
+                        help='num_threads of the IK array requests; several values are run in sequence '
+                             '(default: 0, i.e. all the solver instances of the node)')
     parser.add_argument('--timeout', type=float, default=600.0, help='timeout of each call in s (default: 600)')
     parser.add_argument('--csv', help='optional path of a CSV file where the statistics are saved')
     parser.add_argument('--seed', type=int, help='seed of the random configuration generator')
     args = parser.parse_args(argv)
+
+    if any(t < 0 for t in args.threads):
+        parser.error('--threads values must be >= 0')
 
     if args.seed is not None:
         np.random.seed(args.seed)
@@ -217,9 +245,9 @@ def main():
     node = ServiceTimingNode(args.namespace, args.timeout)
     rows = []
 
-    def add_row(service, payload, times, failures):
+    def add_row(service, payload, times, failures, mode='-', threads='-'):
         stats = compute_stats(times)
-        stats.update(service=service, payload=payload, failures=failures,
+        stats.update(service=service, mode=mode, threads=threads, payload=payload, failures=failures,
                      per_item=stats['mean'] / payload)
         rows.append(stats)
 
@@ -235,16 +263,24 @@ def main():
         for service in ARRAY_SERVICES:
             if service not in args.services:
                 continue
-            for payload in args.payloads:
-                times, failures = node.bench_array(service, payload, args.repetitions, args.with_seeds)
-                add_row(service, payload, times, failures)
+            if service == 'get_fk_array':
+                for payload in args.payloads:
+                    times, failures = node.bench_array(service, payload, args.repetitions, args.with_seeds)
+                    add_row(service, payload, times, failures)
+                continue
+            for mode in args.parallelize:
+                for threads in args.threads:
+                    for payload in args.payloads:
+                        times, failures = node.bench_array(service, payload, args.repetitions, args.with_seeds,
+                                                           mode, threads)
+                        add_row(service, payload, times, failures, mode, threads)
     except (TimeoutError, KeyboardInterrupt) as e:
         node.get_logger().error(f'Benchmark interrupted: {e!r}. Printing partial results.')
 
     print_table(rows)
 
     if args.csv and rows:
-        keys = ['service', 'payload', 'n', 'mean', 'std', 'min', 'median', 'p95', 'max',
+        keys = ['service', 'mode', 'threads', 'payload', 'n', 'mean', 'std', 'min', 'median', 'p95', 'max',
                 'total', 'per_item', 'failures']
         with open(args.csv, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=keys)

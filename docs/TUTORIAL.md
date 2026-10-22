@@ -174,7 +174,8 @@ Use `get_ik_array` with one `IkTarget` per pose. The `parallelize` field selects
 - sequential: the solutions of each pose are used as seeds for the next one. This is good for a sequence of
   close poses, such as a path;
 - parallel: poses are solved at the same time by `MAX_NUM_PARALLEL_IK_SOLVER` solver instances (by default,
-  the number of CPU cores of the build machine minus 2).
+  the number of CPU cores of the build machine minus 2). Set `num_threads` to use fewer threads
+  (`0` uses all of them).
 
 ### 2.4 Task-redundant IK
 

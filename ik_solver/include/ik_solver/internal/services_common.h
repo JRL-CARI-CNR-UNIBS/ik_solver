@@ -163,11 +163,14 @@ namespace ik_solver
      * @param desired_solutions Number of solutions per pose.
      * @param min_stall_iterations Minimum stall iterations.
      * @param max_stall_iterations Maximum stall iterations.
+     * @param num_threads Number of worker threads; 0 or more than MAX_NUM_PARALLEL_IK_SOLVER means
+     * MAX_NUM_PARALLEL_IK_SOLVER. Never more threads than poses are started.
      * @return Solutions of each pose.
      */
     std::vector<ik_solver::Solutions> computeIKArrayMT(const std::vector<Eigen::Affine3d> &v_T_b_f,
                                                        const std::vector<ik_solver::Configurations> &vseeds,
-                                                       size_t desired_solutions, int min_stall_iterations, int max_stall_iterations);
+                                                       size_t desired_solutions, int min_stall_iterations, int max_stall_iterations,
+                                                       size_t num_threads = 0);
 
     /**
      * @brief Solve many IK problems sequentially. The solutions of each pose are added as seeds of the next one.

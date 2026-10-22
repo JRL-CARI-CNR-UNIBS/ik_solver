@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>ik_solver</name>
-  <version>0.0.0</version>
+  <version>0.1.0</version>
   <description>The ik_solver package</description>
 
   <maintainer email="manuel.beschi@unibs.it">Manuel Beschi</maintainer>
@@ -37,15 +37,15 @@
   <exec_depend condition="$ROS_VERSION == 2">tf2              </exec_depend>
 
   <!-- Common -->
-  <build_depend>ik_solver_msgs</build_depend>
+  <build_depend version_gte="0.1.0">ik_solver_msgs</build_depend>
   <build_depend>pluginlib     </build_depend>
   <build_depend>std_srvs      </build_depend>
   <build_depend>geometry_msgs </build_depend>
-  <build_export_depend>ik_solver_msgs</build_export_depend>
+  <build_export_depend version_gte="0.1.0">ik_solver_msgs</build_export_depend>
   <build_export_depend>pluginlib     </build_export_depend>
   <build_export_depend>std_srvs      </build_export_depend>
   <build_export_depend>geometry_msgs </build_export_depend>
-  <exec_depend>ik_solver_msgs</exec_depend>
+  <exec_depend version_gte="0.1.0">ik_solver_msgs</exec_depend>
   <exec_depend>pluginlib     </exec_depend>
   <exec_depend>std_srvs      </exec_depend>
   <exec_depend>geometry_msgs </exec_depend>  

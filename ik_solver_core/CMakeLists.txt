@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(ik_solver_core VERSION 0.0.0)
+project(ik_solver_core VERSION 0.1.0)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)

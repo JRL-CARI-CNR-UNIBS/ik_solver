@@ -437,7 +437,7 @@ Compute the transforms needed by the FK services.
 ##### `computeIKArrayMT`
 
 ```cpp
-std::vector< ik_solver::Solutions > computeIKArrayMT(const std::vector< Eigen::Affine3d > &v_T_b_f, const std::vector< ik_solver::Configurations > &vseeds, size_t desired_solutions, int min_stall_iterations, int max_stall_iterations)
+std::vector< ik_solver::Solutions > computeIKArrayMT(const std::vector< Eigen::Affine3d > &v_T_b_f, const std::vector< ik_solver::Configurations > &vseeds, size_t desired_solutions, int min_stall_iterations, int max_stall_iterations, size_t num_threads=0)
 ```
 
 Solve many IK problems in parallel, one per worker thread.
@@ -449,6 +449,7 @@ Solve many IK problems in parallel, one per worker thread.
 - `desired_solutions`: Number of solutions per pose.
 - `min_stall_iterations`: Minimum stall iterations.
 - `max_stall_iterations`: Maximum stall iterations.
+- `num_threads`: Number of worker threads; 0 or more than MAX_NUM_PARALLEL_IK_SOLVER means MAX_NUM_PARALLEL_IK_SOLVER. Never more threads than poses are started.
 
 **Returns:** `Solutions` of each pose.
 

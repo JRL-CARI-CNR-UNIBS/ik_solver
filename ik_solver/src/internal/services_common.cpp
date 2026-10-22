@@ -172,7 +172,8 @@ namespace ik_solver
     else
     {
       res->solutions = ik_solver::cast(computeIKArrayMT(v_T_b_f, vseeds, config().desired_solutions(),
-                                                        config().min_stall_iterations(), config().max_stall_iterations()));
+                                                        config().min_stall_iterations(), config().max_stall_iterations(),
+                                                        req->num_threads));
     }
     res->joint_names = config().joint_names();
 
@@ -379,6 +380,7 @@ namespace ik_solver
     flat_req.seed_joint_names = req->seed_joint_names;
     flat_req.parallelize = req->parallelize;
     flat_req.update_recursively_seeds = req->update_recursively_seeds;
+    flat_req.num_threads = req->num_threads;
     flat_req.targets.reserve(perturbations.size() * req->targets.size());
 
     for (const auto &T_pert : perturbations)
@@ -636,7 +638,7 @@ namespace ik_solver
   std::vector<ik_solver::Solutions> IkServicesBase::computeIKArrayMT(const std::vector<Eigen::Affine3d> &v_T_b_f,
                                                                      const std::vector<ik_solver::Configurations> &vseeds,
                                                                      size_t desired_solutions, int min_stall_iterations,
-                                                                     int max_stall_iterations)
+                                                                     int max_stall_iterations, size_t num_threads)
   {
     const size_t n_poses = v_T_b_f.size();
     // Presized and never resized: each index is written by exactly one worker, so no lock is needed.
@@ -653,7 +655,11 @@ namespace ik_solver
     std::mutex done_mutex;
     std::condition_variable done_cv;
 
-    const size_t n_workers = std::min<size_t>(MAX_NUM_PARALLEL_IK_SOLVER, n_poses);
+    // The pool has MAX_NUM_PARALLEL_IK_SOLVER solvers, one per thread: that is the upper limit.
+    const size_t max_workers = (num_threads == 0 || num_threads > MAX_NUM_PARALLEL_IK_SOLVER)
+                                   ? MAX_NUM_PARALLEL_IK_SOLVER
+                                   : num_threads;
+    const size_t n_workers = std::min(max_workers, n_poses);
     std::vector<size_t> min_no_ik(n_workers, std::numeric_limits<size_t>::max());
     std::vector<size_t> max_no_ik(n_workers, 0);
 
@@ -719,8 +725,8 @@ namespace ik_solver
 
     size_t min_ik = *std::min_element(min_no_ik.begin(), min_no_ik.end());
     size_t max_ik = *std::max_element(max_no_ik.begin(), max_no_ik.end());
-    ik_solver::printProgress(1.0, "IK MT - OK/KO/TOT %03zu/%03zu/%03zu (Min IK %02zu, Max IK %02zu)\n",
-                             ok_poses_counter.load(), failed_poses_counter.load(), n_poses, min_ik, max_ik);
+    ik_solver::printProgress(1.0, "IK MT - OK/KO/TOT %03zu/%03zu/%03zu (Min IK %02zu, Max IK %02zu, threads %zu)\n",
+                             ok_poses_counter.load(), failed_poses_counter.load(), n_poses, min_ik, max_ik, n_workers);
 
     return ret;
   }
