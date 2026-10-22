@@ -6,3 +6,8 @@
 *.vscode
 build/
 */build
+__pycache__/
+*.pyc
+
+# Doxygen output
+doxygen/

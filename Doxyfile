@@ -1,0 +1,32 @@
+# Doxygen configuration. Generate the documentation with:
+#   doxygen Doxyfile
+# and open doxygen/html/index.html
+
+PROJECT_NAME           = "ik_solver"
+PROJECT_BRIEF          = "Inverse kinematics solver framework with ROS 2 services and plugins"
+OUTPUT_DIRECTORY       = doxygen
+
+INPUT                  = README.md docs ik_solver_core/include ik_solver_core/src ik_solver/include ik_solver/src ik_solver/scripts ik_solver_test/include ik_solver_test/src ik_solver_test/scripts
+RECURSIVE              = YES
+FILE_PATTERNS          = *.h *.hpp *.cpp *.py *.md
+EXCLUDE_PATTERNS       = */build/* */install/* */log/* */doxygen/* */.git/* */docs/API.md *ros1* */get_tf.hpp
+
+# ROS 2 build: select the ROS 2 code paths (#if ROS_X == 2)
+ENABLE_PREPROCESSING   = YES
+PREDEFINED             = ROS_X=2
+USE_MDFILE_AS_MAINPAGE = README.md
+MARKDOWN_SUPPORT       = YES
+
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+JAVADOC_AUTOBRIEF      = YES
+SOURCE_BROWSER         = YES
+BUILTIN_STL_SUPPORT    = YES
+WARN_IF_UNDOCUMENTED   = YES
+QUIET                  = YES
+
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+GENERATE_TREEVIEW      = YES
+HAVE_DOT               = NO

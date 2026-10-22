@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""ROS 2 example: IK of the origin of a TF frame (~get_ik).
+
+Publishes all the solutions in turn on /ik_solution (moveit_msgs/DisplayRobotState).
+
+Usage: ros2 run ik_solver get_tf_ik_ros2.py <namespace> <tf_name>
+"""
 import rclpy
 from rclpy.time import Time
 from rclpy.duration import Duration

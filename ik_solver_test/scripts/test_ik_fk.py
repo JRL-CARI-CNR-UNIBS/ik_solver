@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+"""FK -> IK round-trip test of an ik_solver node.
+
+For many random configurations within the joint bounds, computes the pose with ~get_fk,
+solves ~get_ik on that pose, and reports the IK residual errors. Solutions are published
+on /ik_solution (moveit_msgs/DisplayRobotState).
+
+Usage: ros2 run ik_solver_test test_ik_fk.py <namespace>
+"""
 
 import rclpy
 from rclpy.node import Node

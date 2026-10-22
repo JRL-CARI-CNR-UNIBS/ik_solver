@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.16)
 project(ik_solver_test)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_BUILD_TYPE DebWithRelInfo)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -50,6 +52,11 @@ install(TARGETS test_ik_solver_plugin
 install(
   PROGRAMS
   scripts/test_ik_fk.py  # List all your scripts here
+  scripts/test_task_redundant_ik_array.py
+  scripts/test_service_timing.py
+  scripts/visualize_task_redundant_ik_array.py
+  scripts/visualizer_script.py
+  scripts/viusalizer_script.py
   DESTINATION lib/${PROJECT_NAME}
 )
                             

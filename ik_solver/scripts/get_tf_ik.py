@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""ROS 1 example: IK of the origin of a TF frame (~get_ik).
+
+Publishes all the solutions in turn on /ik_solution (moveit_msgs/DisplayRobotState).
+
+Usage: rosrun ik_solver get_tf_ik.py <namespace> <tf_name>
+"""
 import rospy
 import rosservice
 import moveit_msgs.msg

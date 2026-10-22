@@ -3,6 +3,10 @@
  */
 
 
+/**
+ * @file utils.h
+ * @brief Utilities of the IK solvers: string conversions, parameter helpers and joint-space helpers.
+ */
 #ifndef IK_SOLVER_CORE__INTERNAL__UTILS_H
 #define IK_SOLVER_CORE__INTERNAL__UTILS_H
 
@@ -44,6 +48,9 @@ namespace std
 //   return ret.str();
 // }
 
+/**
+ * @brief String representation of a transform matrix.
+ */
 inline std::string to_string(const Eigen::Affine3d& mat)
 {
   std::stringstream ss;
@@ -53,6 +60,9 @@ inline std::string to_string(const Eigen::Affine3d& mat)
   return s;
 }
 
+/**
+ * @brief String representation of a configuration (row vectors only; column vectors give an empty string).
+ */
 inline std::string to_string(const ik_solver::Configuration& mat)
 {
   std::stringstream ss;
@@ -63,6 +73,9 @@ inline std::string to_string(const ik_solver::Configuration& mat)
   return ss.str();
 }
 
+/**
+ * @brief Comma-separated representation of a list of configurations.
+ */
 inline std::string to_string(const ik_solver::Configurations& seeds)
 {
   std::string ret;
@@ -81,21 +94,41 @@ inline std::string to_string(const ik_solver::Configurations& seeds)
 namespace ik_solver
 {
 
+/**
+ * @brief Print a progress bar on stdout (same line).
+ * @param percentage Progress in [0, 1].
+ * @param msg printf-like message printed after the bar.
+ */
 void printProgress(double percentage, const char* msg, ...);
 
+/**
+ * @brief Remove the characters in @p what from the beginning of @p s.
+ */
 std::string ltrim(const std::string& s, const std::string& what = " \n\r\t\f\v");
 
+/**
+ * @brief Remove the characters in @p what from the end of @p s.
+ */
 std::string rtrim(const std::string& s, const std::string& what = " \n\r\t\f\v");
 
+/**
+ * @brief Remove whitespace from both ends of @p s (@p what is ignored).
+ */
 std::string trim(const std::string& s, const std::string& what = " \n\r\t\f\v");
 
 template <typename T>
+/**
+ * @brief Difference a - b. Specialized for std::vector<double> and Eigen::VectorXd.
+ */
 inline T diff(const T& a, const T& b)
 {
   assert(0);
 }
 
 template <typename T>
+/**
+ * @brief Norm of a vector. Specialized for std::vector<double> (squared norm) and Eigen::VectorXd (Euclidean norm).
+ */
 inline double norm(const T& vv)
 {
   assert(0);
@@ -103,12 +136,21 @@ inline double norm(const T& vv)
 }
 
 template <typename T>
+/**
+ * @brief Equality check, specialized for vectors of strings.
+ */
 bool is_the_same(const T& lhs, const T& rhs)
 {
   return rhs == lhs;
 }
 
 template <typename T>
+/**
+ * @brief Check that a parameter has the same value in two namespaces, or copy it.
+ *
+ * If @p robot_ns + @p param_name exists, it must be equal to @p nh_val; otherwise it is set to @p nh_val.
+ * @return False if the two values differ.
+ */
 inline bool check_and_set_duplicate_params(const std::string& nh_ns, const std::string& robot_ns,
                                            const std::string& param_name, const T& nh_val)
 {
@@ -137,6 +179,11 @@ inline bool check_and_set_duplicate_params(const std::string& nh_ns, const std::
 //======================================================================================
 
 template <typename T>
+/**
+ * @brief Read a set of parameters with cnr_param.
+ * @param params Map from full parameter name to (destination, has_default, default value).
+ * @return False if a parameter without default is missing.
+ */
 inline bool check_and_get(std::map<std::string, std::tuple<T*, bool, T>>& params)
 {
   std::string param_what;
@@ -164,6 +211,11 @@ inline bool check_and_get(std::map<std::string, std::tuple<T*, bool, T>>& params
 
 // NONE DEFAULT VALUE
 template <typename T>
+/**
+ * @brief Read a set of required parameters.
+ * @param params Map from full parameter name to destination.
+ * @return False if a parameter is missing.
+ */
 inline bool get_and_return(std::map<std::string, T*>& params)
 {
   std::map<std::string, std::tuple<T*, bool, T>> _params;
@@ -176,6 +228,11 @@ inline bool get_and_return(std::map<std::string, T*>& params)
 
 // ALL WITH DEFAULT VALUE
 template <typename T>
+/**
+ * @brief Read a set of optional parameters.
+ * @param params Map from full parameter name to (destination, default value).
+ * @return Always true.
+ */
 inline bool get_and_default(std::map<std::string, std::pair<T*, T>>& params)
 {
   std::map<std::string, std::tuple<T*, bool, T>> _params;
@@ -186,19 +243,35 @@ inline bool get_and_default(std::map<std::string, std::pair<T*, T>>& params)
   return check_and_get(_params);
 }
 
+/**
+ * @brief Check if a configuration is in a list.
+ * @param q Configuration.
+ * @param qq List.
+ * @param tolerance Distance below which two configurations are the same.
+ * @return True if @p q is in @p qq.
+ */
 bool isPresent(const Configuration& q, const Configurations& qq, double tolerance = 1e-4);
 
+/**
+ * @brief Normalize a parameter namespace: add a leading '/' to relative or private names and a trailing '/'.
+ */
 std::string resolve_ns(const std::string& params_ns);
 
 
 
 template<typename Derived>
+/**
+ * @brief True if all the coefficients are finite.
+ */
 inline bool is_finite(const Eigen::MatrixBase<Derived>& x)
 {
 	return ( (x - x).array() == (x - x).array()).all();
 }
 
 template<typename Derived>
+/**
+ * @brief True if no coefficient is NaN (note: despite the name).
+ */
 inline bool is_nan(const Eigen::MatrixBase<Derived>& x)
 {
 	return ((x.array() == x.array())).all();
@@ -206,8 +279,23 @@ inline bool is_nan(const Eigen::MatrixBase<Derived>& x)
 
 // Configurations getSeeds(const std::vector<std::string>& joint_names, const std::vector<std::string>& seed_names, const std::vector<ik_solver_msgs::Configuration>& seeds);
 
+/**
+ * @brief Add the multi-turn equivalents of each solution.
+ *
+ * For each revolute joint, the values q ± 2kπ inside the joint limits are added, and all
+ * combinations are returned (without duplicates).
+ * @param sol Solutions.
+ * @param ub Upper limits.
+ * @param lb Lower limits.
+ * @param revolute True for revolute joints.
+ * @return Solutions and their multi-turn equivalents.
+ */
 Configurations getMultiplicity(const Configurations& sol, const Configuration& ub, const Configuration& lb, const std::vector<bool>& revolute);
 
+/**
+ * @brief Joints outside their limits (or NaN).
+ * @return Indices of the joints out of bounds.
+ */
 std::vector<int> outOfBound(const Configuration& c, const Configuration& ub, const Configuration& lb);
 
 }
@@ -253,6 +341,9 @@ inline double norm(const Eigen::VectorXd& vv)
 }
 
 template <typename T>
+/**
+ * @brief Element access, specialized for std::vector<double> and Eigen::VectorXd.
+ */
 inline double& at(T& vv, size_t i)
 {
   static double r; 

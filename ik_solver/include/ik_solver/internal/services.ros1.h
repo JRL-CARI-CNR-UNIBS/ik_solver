@@ -26,6 +26,10 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/**
+ * @file services.ros1.h
+ * @brief ROS 1 services of the IK solver node (not maintained).
+ */
 #ifndef IK_SOLVER__INTERNAL__SERVICES_H
 #define IK_SOLVER__INTERNAL__SERVICES_H
 
@@ -57,6 +61,7 @@ class IkServices : public IkServicesBase
 private:
   ros::ServiceServer ik_server_;
   ros::ServiceServer ik_server_array_;
+  ros::ServiceServer task_redundant_ik_server_array_;
   ros::ServiceServer fk_server_;
   ros::ServiceServer fk_server_array_;
   ros::ServiceServer bound_server_array_;
@@ -80,6 +85,8 @@ public:
   bool computeFK(ik_solver_msgs::GetFk::Request& req, ik_solver_msgs::GetFk::Response& res);
 
   bool computeIKArray(ik_solver_msgs::GetIkArray::Request& req, ik_solver_msgs::GetIkArray::Response& res);
+
+  bool computeTaskRedundantIKArray(ik_solver_msgs::GetIkArray::Request& req, ik_solver_msgs::GetIkArray::Response& res);
 
   bool computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_solver_msgs::GetFkArray::Response& res);
 

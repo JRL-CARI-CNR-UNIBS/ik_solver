@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""ROS 1 example: IK of a sequence of poses around a TF frame (~get_ik_array).
+
+The poses follow a circle with a superimposed small oscillation in frame tf_name; the
+solutions are published on /ik_solution and the poses on /poses.
+
+Usage: rosrun ik_solver get_tf_ik_array.py <namespace> <tf_name>
+"""
 import rospy
 import rosservice
 import moveit_msgs.msg

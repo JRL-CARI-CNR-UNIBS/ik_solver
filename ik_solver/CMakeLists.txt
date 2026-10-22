@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(ik_solver)
 
-set(CMAKE_BUILD_TYPE Debug)
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
@@ -233,6 +232,17 @@ if(ROS_VERSION EQUAL 2)
 
   install(TARGETS ${PROJECT_NAME}_node
       DESTINATION lib/${PROJECT_NAME})
+
+  install(PROGRAMS
+    scripts/get_ik_collision_check.py
+    scripts/get_tf_ik.py
+    scripts/get_tf_ik_array.py
+    scripts/get_tf_ik_ros2.py
+    scripts/neighbourhood_ik.py
+    scripts/visualizer_script.py
+    scripts/viusalizer_script.py
+    DESTINATION lib/${PROJECT_NAME}
+  )
 
   install(DIRECTORY launch
     DESTINATION share/${PROJECT_NAME})

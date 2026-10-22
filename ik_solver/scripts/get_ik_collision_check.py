@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""ROS 1 example: IK of the origin of a TF frame, followed by collision checking of the solutions.
+
+Calls ~get_ik, then /ik_collision_check/collision_check, and publishes the solutions on /ik_solution.
+
+Usage: rosrun ik_solver get_ik_collision_check.py <namespace> <tf_name>
+"""
 import rospy
 import rosservice
 import moveit_msgs.msg
