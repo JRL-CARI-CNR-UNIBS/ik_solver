@@ -3,6 +3,11 @@
  */
 
 #include <array>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <limits>
+#include <mutex>
 #include <cmath>
 #include <functional>
 #include <algorithm>
@@ -162,7 +167,7 @@ namespace ik_solver
     {
       res->solutions =
           ik_solver::cast(computeIKArrayST(v_T_b_f, vseeds, config().desired_solutions(), config().min_stall_iterations(),
-                                           config().max_stall_iterations(), req->update_recursively_seeds));
+                                           config().max_stall_iterations(), update_recursively_seeds));
     }
     else
     {
@@ -585,6 +590,8 @@ namespace ik_solver
   {
     std::vector<ik_solver::Solutions> ret(v_T_b_f.size());
     std::vector<ik_solver::Configurations> seeds = vseeds;
+    const bool propagate_seeds =
+        update_recursively_seeds != ik_solver_msgs::GetIkArray::Request::UPDATE_RECURSIVELY_SEEDS_DISABLE;
 
     size_t failed_poses_counter = 0;
     std::vector<size_t> numer_of_solutions;
@@ -597,7 +604,7 @@ namespace ik_solver
       if (ik_sol.configurations().size())
       {
         ret.at(i) = ik_sol;
-        if (i < (v_T_b_f.size() - 1))
+        if (propagate_seeds && i < (v_T_b_f.size() - 1))
         {
           seeds.at(i + 1).insert(seeds.at(i + 1).begin(), ik_sol.configurations().begin(), ik_sol.configurations().end());
         }
@@ -631,109 +638,89 @@ namespace ik_solver
                                                                      size_t desired_solutions, int min_stall_iterations,
                                                                      int max_stall_iterations)
   {
-    assert(v_T_b_f.size());
-    std::vector<ik_solver::Solutions> ret(v_T_b_f.size());
-    ik_solver::SafeQueue<std::size_t> ik_args_queue;
-    std::vector<IkArgs> ik_args(v_T_b_f.size());
-    std::vector<std::promise<ik_solver::Solutions>> ik_sol_promises(v_T_b_f.size());
-    std::vector<std::future<ik_solver::Solutions>> ik_sol_futures(v_T_b_f.size());
-    std::vector<bool> ik_sol_futures_got(v_T_b_f.size(), false);
-
-    for (size_t i = 0; i < v_T_b_f.size(); i++)
+    const size_t n_poses = v_T_b_f.size();
+    // Presized and never resized: each index is written by exactly one worker, so no lock is needed.
+    std::vector<ik_solver::Solutions> ret(n_poses);
+    if (n_poses == 0)
     {
-      ik_args_queue.enqueue(i);
-      ik_args.at(i) =
-          std::make_tuple(v_T_b_f.at(i), vseeds.at(i), desired_solutions, min_stall_iterations, max_stall_iterations);
-      ik_sol_futures.at(i) = ik_sol_promises.at(i).get_future();
+      return ret;
     }
+
+    std::atomic<size_t> next_index{0};
+    std::atomic<size_t> ok_poses_counter{0};
+    std::atomic<size_t> failed_poses_counter{0};
+    std::atomic<size_t> done_counter{0};
+    std::mutex done_mutex;
+    std::condition_variable done_cv;
+
+    const size_t n_workers = std::min<size_t>(MAX_NUM_PARALLEL_IK_SOLVER, n_poses);
+    std::vector<size_t> min_no_ik(n_workers, std::numeric_limits<size_t>::max());
+    std::vector<size_t> max_no_ik(n_workers, 0);
+
+    auto thread_function = [&](size_t id)
+    {
+      ik_solver::IkSolver *solver = ik_solvers_.at(id).get();
+      for (size_t i = next_index.fetch_add(1); i < n_poses; i = next_index.fetch_add(1))
+      {
+        size_t n_sol = 0;
+        try
+        {
+          ret[i] = computeIkFunction(solver, v_T_b_f[i], vseeds[i], desired_solutions, min_stall_iterations,
+                                     max_stall_iterations);
+          n_sol = ret[i].configurations().size();
+        }
+        catch (const std::exception &e)
+        {
+          ret[i].clear();
+          fprintf(stderr, "[ERROR] IK MT - pose %zu: solver threw: %s\n", i, e.what());
+        }
+        if (n_sol == 0)
+        {
+          ret[i].clear();
+        }
+        min_no_ik[id] = std::min(min_no_ik[id], n_sol);
+        max_no_ik[id] = std::max(max_no_ik[id], n_sol);
+
+        (n_sol ? ok_poses_counter : failed_poses_counter).fetch_add(1);
+        if (done_counter.fetch_add(1) + 1 == n_poses)
+        {
+          std::lock_guard<std::mutex> lock(done_mutex);
+          done_cv.notify_one();
+        }
+      }
+    };
 
     std::vector<std::thread> workers;
-    for (size_t thread_id = 0; thread_id < MAX_NUM_PARALLEL_IK_SOLVER; thread_id++)
+    workers.reserve(n_workers);
+    for (size_t thread_id = 0; thread_id < n_workers; thread_id++)
     {
-      auto thread_function = [&](const size_t &id)
-      {
-        while (!ik_args_queue.empty())
-        {
-          size_t item_index;
-          if (ik_args_queue.dequeue(item_index))
-          {
-            IkArgs args = ik_args.at(item_index);
-            auto solver = ik_solvers_.at(id).get();
-            Solutions sols =
-                computeIkFunction(solver, get_T_base_flange(args), get_seeds(args), get_desired_solutions(args),
-                                  get_min_stall_iterations(args), get_max_stall_iterations(args));
-            ik_sol_promises.at(item_index).set_value(sols);
-          }
-        }
-      };
-      workers.push_back(std::thread(thread_function, thread_id));
+      workers.emplace_back(thread_function, thread_id);
     }
 
-    size_t failed_poses_counter = 0;
-    size_t ok_poses_counter = 0;
-    std::vector<size_t> numer_of_solutions;
-    while (ok_poses_counter + failed_poses_counter != v_T_b_f.size())
+    // Throttled progress: print at most every 100 ms instead of once per pose.
     {
-      std::chrono::milliseconds span(1000);
-      for (auto it = ik_sol_futures.begin(); it != ik_sol_futures.end();)
+      std::unique_lock<std::mutex> lock(done_mutex);
+      while (!done_cv.wait_for(lock, std::chrono::milliseconds(100), [&]() { return done_counter.load() >= n_poses; }))
       {
-        std::size_t item_index = std::distance(ik_sol_futures.begin(), it);
-        if (!ik_sol_futures_got.at(item_index) && it->wait_for(span) == std::future_status::ready)
-        {
-          auto ik_sol = it->get();
-          if (std::get<0>(ik_sol).size())
-          {
-            ok_poses_counter++;
-            ret.at(item_index) = ik_sol;
-          }
-          else
-          {
-            failed_poses_counter++;
-          }
-          ik_sol_futures_got.at(item_index) = true;
-          // it = ik_sol_futures.erase(it);
-
-          numer_of_solutions.push_back(ik_sol.configurations().size());
-          size_t max_no_ik = *std::max_element(numer_of_solutions.begin(), numer_of_solutions.end());
-          size_t min_no_ik = *std::min_element(numer_of_solutions.begin(), numer_of_solutions.end());
-
-          std::string msg = ik_sol.message().empty() ? "" : ik_sol.message();
-          msg += ok_poses_counter + failed_poses_counter == v_T_b_f.size() ? "\n" : "",
-
-              ik_solver::printProgress(double(ok_poses_counter + failed_poses_counter) / double(v_T_b_f.size()),
-                                       "IK MT - OK/KO/TOT %03zu/%03zu/%03zu (Min IK %02zu, Max IK %02zu) %s",
-                                       ok_poses_counter, failed_poses_counter, v_T_b_f.size(), min_no_ik, max_no_ik, msg.c_str());
-        }
-        else
-        {
-          ++it;
-        }
+        size_t ok = ok_poses_counter.load();
+        size_t ko = failed_poses_counter.load();
+        ik_solver::printProgress(double(ok + ko) / double(n_poses), "IK MT - OK/KO/TOT %03zu/%03zu/%03zu", ok, ko,
+                                 n_poses);
       }
     }
 
-    try
+    for (auto &w : workers)
     {
-      for (size_t i = 0; i < workers.size(); i++)
+      if (w.joinable())
       {
-        if (workers.at(i).joinable())
-        {
-          workers.at(i).join();
-        }
+        w.join();
       }
     }
-    catch (std::exception &e)
-    {
-      std::cerr << __PRETTY_FUNCTION__ << ":" << __LINE__ << ":" << e.what() << std::endl;
-    }
 
-    ik_args.clear();
-    ik_args.shrink_to_fit();
-    ik_sol_promises.clear();
-    ik_sol_promises.shrink_to_fit();
-    ik_sol_futures.clear();
-    ik_sol_futures.shrink_to_fit();
-    ik_sol_futures_got.clear();
-    ik_sol_futures_got.shrink_to_fit();
+    size_t min_ik = *std::min_element(min_no_ik.begin(), min_no_ik.end());
+    size_t max_ik = *std::max_element(max_no_ik.begin(), max_no_ik.end());
+    ik_solver::printProgress(1.0, "IK MT - OK/KO/TOT %03zu/%03zu/%03zu (Min IK %02zu, Max IK %02zu)\n",
+                             ok_poses_counter.load(), failed_poses_counter.load(), n_poses, min_ik, max_ik);
 
     return ret;
   }

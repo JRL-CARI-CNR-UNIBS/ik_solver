@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.8)
 project(ik_solver_core VERSION 0.0.0)
 
-set(CMAKE_BUILD_TYPE Debug)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
 set(CMAKE_CXX_STANDARD 20)
 
 option(USE_ROS1 "Compile using ROS1 catkin and search for cnr_* libraries in catkin workspace" OFF)

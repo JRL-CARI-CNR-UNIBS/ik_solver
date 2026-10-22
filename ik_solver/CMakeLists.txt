@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(ik_solver)
 
-set(CMAKE_BUILD_TYPE Debug)
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
