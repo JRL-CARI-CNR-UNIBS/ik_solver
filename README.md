@@ -38,6 +38,8 @@ The package provides a node named `ik_server_node` that exposes several services
 
 * `~get_bounds` of type [`ik_solver_msgs/GetBound.srv`](https:/github.com/JRL-CARI-CNR-UNIBS/ik_solver_msgs/tree/parallel-ik/srv/GetBound.srv) that get the SW boundaries of the joint ranges. 
 
+* `~set_bounds` of type `ik_solver_msgs/SetBound.srv` that changes the SW boundaries of the listed joints at runtime. The limits are clamped to the URDF ones, the response contains the limits in use, and `~reconfigure` restores the limits of the parameters.
+
 * `~set_initial_configuration` of type `ik_solver_msgs/SetInitialConfiguration.srv` that sets or updates the home / initial joint configuration at runtime. When `filter_duplicates` is enabled in task-redundant IK, equivalent configurations modulo $2\pi$ are pruned, keeping the one closest in joint-space Euclidean distance to this initial configuration.
 
 * `~reconfigure` of type `std_srvs/Trigger.srv` that allows to reconfigure the ik solver.
@@ -100,6 +102,7 @@ public:
   Eigen::Affine3d transform_from_tool_to_flange() const;
   const Configuration& lb() const;
   const Configuration& ub() const;
+  bool setBounds(const Configuration& lb, const Configuration& ub);  // clamped to the URDF limits
   const std::vector<bool>& revolute() const;
   const int& min_stall_iterations() const;
   const int& max_stall_iterations() const;
@@ -182,6 +185,7 @@ Every top-level key in the configuration YAML represents the namespace of an `ik
 | `tool_frame` | string | `flange_frame` | Destination tool frame of the IK request. Rigidly attached to `flange_frame` (e.g. `open_tip`). |
 | `robot_description_topic` | string | `/robot_description` | Topic name for the URDF robot description. |
 | `joint_names` | list[string] | *required* | Ordered list of joint names forming the kinematic chain. |
+| `limits/<joint>/lower`, `limits/<joint>/upper` | float | URDF limits | Restrict the URDF joint limits (a value wider than the URDF one is ignored). Can be changed at runtime via the `~set_bounds` service; `~reconfigure` restores these values. |
 | `desired_solutions` | int | 32 | Number of desired IK solutions to compute. Can be overridden in service requests. |
 | `min_stall_iterations` | int | 500 | Minimum stall iterations before solver aborts or switches. |
 | `max_stall_iterations` | int | 3000 | Maximum stall iterations. |

@@ -173,7 +173,7 @@ Inherits from `ik_solver::IkServicesBase`.
 
 ROS 2 services of the IK solver node.
 
-Advertised services (relative to the node namespace): `get_ik`, `get_ik_array`, `get_task_redundant_ik_array`, `get_fk`, `get_fk_array`, `get_bounds`, `get_frames`, `reconfigure`, `change_tool`, `set_initial_configuration`. The services exist as long as this object exists.
+Advertised services (relative to the node namespace): `get_ik`, `get_ik_array`, `get_task_redundant_ik_array`, `get_fk`, `get_fk_array`, `get_bounds`, `set_bounds`, `get_frames`, `reconfigure`, `change_tool`, `set_initial_configuration`. The services exist as long as this object exists.
 
 #### Public functions
 
@@ -276,6 +276,14 @@ GetBound service: joint limits.
 **Returns:** true
 
 **Returns:** false
+
+##### `setBounds`
+
+```cpp
+bool setBounds(const ik_solver_msgs::srv::SetBound::Request::SharedPtr req, ik_solver_msgs::srv::SetBound::Response::SharedPtr res)
+```
+
+SetBound service: change the joint limits of all solvers (see ik_solver_msgs/SetBound).
 
 ##### `getFrames`
 
@@ -565,6 +573,14 @@ GetBound service: joint limits.
 **Returns:** true
 
 **Returns:** false
+
+##### `setBounds`
+
+```cpp
+bool setBounds(ik_solver_msgs::SetBound::Request *req, ik_solver_msgs::SetBound::Response *res)
+```
+
+SetBound service: change the joint limits of all solvers (see ik_solver_msgs/SetBound).
 
 ##### `getFrames`
 
@@ -868,7 +884,7 @@ Parameters read by `config()` under the namespace `param_ns`:
 - `base_frame`, `flange_frame`, `tool_frame` (string, required);
 - `joint_names` (list of strings, required): joints of the chain, in solver order;
 - `robot_description` (string, required): URDF, used to read the joint limits;
-- `limits/` &lt;joint&gt;/upper, `limits/` &lt;joint&gt;/lower (double, optional): restrict the URDF limits;
+- `limits/` &lt;joint&gt;/upper, `limits/` &lt;joint&gt;/lower (double, optional): restrict the URDF limits (a value wider than the URDF one is ignored); they can be changed at runtime with `setBounds()`;
 - `desired_solutions` (int, default 8): number of solutions to look for;
 - `min_stall_iterations` (int, default 998), `max_stall_iterations` (int, default 999): iterations without new solutions before stopping (meaning depends on the solver);
 - `parallel_ik_mode` (int, default 2 = disabled): default parallelization mode of IK arrays.
@@ -944,7 +960,7 @@ Implemented by each solver.
 ##### `computeIk`
 
 ```cpp
-Solutions computeIk(const Eigen::Affine3d &T_world_tool, const Eigen::Affine3d &T_world_base, const Eigen::Affine3d &T_tool_flange, const Configurations &seeds, const int &desired_solutions=-1, const int &min_stall_iterations=-1, const int &max_stall_iterations=-1)
+Solutions computeIk(const Eigen::Affine3d &T_world_tool, const Eigen::Affine3d &T_base_world, const Eigen::Affine3d &T_tool_flange, const Configurations &seeds, const int &desired_solutions=-1, const int &min_stall_iterations=-1, const int &max_stall_iterations=-1)
 ```
 
 Compute the IK of a tool pose, given the frame transforms.
@@ -952,7 +968,7 @@ Compute the IK of a tool pose, given the frame transforms.
 **Parameters:**
 
 - `T_world_tool`: Pose of the tool in the world frame.
-- `T_world_base`: Transform used as base-from-world: the flange pose is T_world_base * T_world_tool * T_tool_flange.
+- `T_base_world`: Pose of the world in the base frame: the flange pose is T_base_world * T_world_tool * T_tool_flange.
 - `T_tool_flange`: Pose of the flange in the tool frame.
 - `seeds`: Initial guesses.
 - `desired_solutions`: Number of solutions (-1: use the parameter).
@@ -1077,6 +1093,23 @@ const Configuration & ub() const
 
 Upper joint limits.
 
+##### `setBounds`
+
+```cpp
+bool setBounds(const Configuration &lb, const Configuration &ub)
+```
+
+Set the joint limits, clamped to the URDF limits.
+
+The limits are restored from the parameters by `config()`.
+
+**Parameters:**
+
+- `lb`: Lower limits (one per joint).
+- `ub`: Upper limits (one per joint).
+
+**Returns:** False (limits unchanged) if the sizes are wrong or, after clamping, a lower limit is greater than the upper one.
+
 ##### `revolute`
 
 ```cpp
@@ -1187,6 +1220,7 @@ Read the flange-tool transform with `getTF()`.
 | Member | Type | Description |
 |---|---|---|
 | `logger_` | `cnr_logger::TraceLogger` | Logger, configured from IK_SOLVER_LOGGER_CONFIG_PATH. |
+| `logger_initialized_` | `bool` | True after the first successful logger_.init(). |
 | `params_ns_` | `std::string` | Parameter namespace. |
 | `robot_description_` | `std::string` | URDF. |
 | `T_tool_flange_` | `Eigen::Affine3d` | Pose of the flange in the tool frame. |
@@ -1196,6 +1230,8 @@ Read the flange-tool transform with `getTF()`.
 | `joint_names_` | `std::vector< std::string >` | Joint names. |
 | `ub_` | `Configuration` | Upper joint limits. |
 | `lb_` | `Configuration` | Lower joint limits. |
+| `urdf_ub_` | `Configuration` | Upper joint limits of the URDF. |
+| `urdf_lb_` | `Configuration` | Lower joint limits of the URDF. |
 | `revolute_` | `std::vector< bool >` | True for revolute joints. |
 | `min_stall_iter_` | `int` | Default minimum stall iterations. |
 | `max_stall_iter_` | `int` | Default maximum stall iterations. |

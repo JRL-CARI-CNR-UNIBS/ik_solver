@@ -25,6 +25,7 @@
 #include <ik_solver_msgs/GetIkArray.h>
 #include <ik_solver_msgs/GetFkArray.h>
 #include <ik_solver_msgs/GetBound.h>
+#include <ik_solver_msgs/SetBound.h>
 #include <ik_solver_msgs/GetFrames.h>
 #include <ik_solver_msgs/ChangeTool.h>
 #include <ik_solver_msgs/SetInitialConfiguration.h>
@@ -35,6 +36,7 @@
 #include <ik_solver_msgs/srv/get_ik_array.hpp>
 #include <ik_solver_msgs/srv/get_fk_array.hpp>
 #include <ik_solver_msgs/srv/get_bound.hpp>
+#include <ik_solver_msgs/srv/set_bound.hpp>
 #include <ik_solver_msgs/srv/get_frames.hpp>
 #include <ik_solver_msgs/srv/change_tool.hpp>
 #include <ik_solver_msgs/srv/set_initial_configuration.hpp>
@@ -223,6 +225,11 @@ namespace ik_solver
      * @brief GetBound service: joint limits.
      */
     bool getBounds(ik_solver_msgs::GetBound::Request *req, ik_solver_msgs::GetBound::Response *res);
+
+    /**
+     * @brief SetBound service: change the joint limits of all solvers (see ik_solver_msgs/SetBound).
+     */
+    bool setBounds(ik_solver_msgs::SetBound::Request *req, ik_solver_msgs::SetBound::Response *res);
 
     /**
      * @brief GetFrames service: base, flange and tool frames.

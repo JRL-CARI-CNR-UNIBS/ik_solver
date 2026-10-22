@@ -48,6 +48,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ik_solver_msgs/GetIkArray.h>
 #include <ik_solver_msgs/GetFkArray.h>
 #include <ik_solver_msgs/GetBound.h>
+#include <ik_solver_msgs/SetBound.h>
 
 #include <ik_solver/internal/services_common.h>
 
@@ -65,6 +66,7 @@ private:
   ros::ServiceServer fk_server_;
   ros::ServiceServer fk_server_array_;
   ros::ServiceServer bound_server_array_;
+  ros::ServiceServer set_bound_server_;
   ros::ServiceServer frames_server_array_;
   ros::ServiceServer reconfigure_;
   ros::ServiceServer change_tool_;
@@ -91,6 +93,8 @@ public:
   bool computeFKArray(ik_solver_msgs::GetFkArray::Request& req, ik_solver_msgs::GetFkArray::Response& res);
 
   bool getBounds(ik_solver_msgs::GetBound::Request& req, ik_solver_msgs::GetBound::Response& res);
+
+  bool setBounds(ik_solver_msgs::SetBound::Request& req, ik_solver_msgs::SetBound::Response& res);
 
   bool getFrames(ik_solver_msgs::GetFrame::Request& req, ik_solver_msgs::GetFrame::Response& res);
 

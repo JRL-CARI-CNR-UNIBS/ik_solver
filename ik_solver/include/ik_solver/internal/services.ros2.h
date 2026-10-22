@@ -59,7 +59,7 @@ namespace ik_solver
    *
    * Advertised services (relative to the node namespace):
    * @c get_ik, @c get_ik_array, @c get_task_redundant_ik_array, @c get_fk, @c get_fk_array,
-   * @c get_bounds, @c get_frames, @c reconfigure, @c change_tool, @c set_initial_configuration.
+   * @c get_bounds, @c set_bounds, @c get_frames, @c reconfigure, @c change_tool, @c set_initial_configuration.
    * The services exist as long as this object exists.
    */
   class IkServices : public IkServicesBase
@@ -71,6 +71,7 @@ namespace ik_solver
     rclcpp::Service<ik_solver_msgs::srv::GetFk>::SharedPtr fk_server_;
     rclcpp::Service<ik_solver_msgs::srv::GetFkArray>::SharedPtr fk_server_array_;
     rclcpp::Service<ik_solver_msgs::srv::GetBound>::SharedPtr bound_server_array_;
+    rclcpp::Service<ik_solver_msgs::srv::SetBound>::SharedPtr set_bound_server_;
     rclcpp::Service<ik_solver_msgs::srv::GetFrames>::SharedPtr frames_server_array_;
     rclcpp::Service<Trigger>::SharedPtr reconfigure_;
     rclcpp::Service<ik_solver_msgs::srv::ChangeTool>::SharedPtr change_tool_;
@@ -121,6 +122,11 @@ namespace ik_solver
      * @copydoc IkServicesBase::getBounds
      */
     bool getBounds(const ik_solver_msgs::srv::GetBound::Request::SharedPtr req, ik_solver_msgs::srv::GetBound::Response::SharedPtr res);
+
+    /**
+     * @copydoc IkServicesBase::setBounds
+     */
+    bool setBounds(const ik_solver_msgs::srv::SetBound::Request::SharedPtr req, ik_solver_msgs::srv::SetBound::Response::SharedPtr res);
 
     /**
      * @copydoc IkServicesBase::getFrames

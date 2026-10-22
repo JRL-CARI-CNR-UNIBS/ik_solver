@@ -2,6 +2,17 @@
 Changelog for package ik_solver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Add set_bounds service (ik_solver_msgs/SetBound) to change the joint limits of all solvers at
+  runtime. Only the listed joints change; each limit is clamped to the URDF limits; an invalid
+  request (unknown joint, lower > upper) changes nothing. The response contains the limits in use.
+  reconfigure restores the limits of the parameters. Requires ik_solver_msgs with SetBound.
+* Fix reconfigure, which always failed: the solvers were re-configured without their parameter
+  namespace (parameters looked up under "/"), and the logger was initialized a second time.
+* Fix reconfigure response: success was never set (always false); on failure the message names the
+  solver.
+
 0.1.0 (2026-10-22)
 ------------------
 * Fix build type forced to Debug: CMAKE_BUILD_TYPE was hard-coded in CMakeLists.txt, overriding

@@ -41,12 +41,17 @@ inline bool IkSolverBase::config(const std::string& params_ns)
     return false;
   }
 
-  std::stringstream logger_id;
-  logger_id << "ik_solver_" << reinterpret_cast<size_t>(this);
-  if (!logger_.init(logger_id.str(), logger_config_path, false, false))
+  // The logger can be initialized only once (config() is called again by reconfigure)
+  if (!logger_initialized_)
   {
-    fprintf(stderr, "%s[ERROR]: Logger configuration failed: parameter file checked: %s%s\n", cnr_logger::BOLDRED().c_str(), logger_config_path, cnr_logger::RESET().c_str());
-    return false;
+    std::stringstream logger_id;
+    logger_id << "ik_solver_" << reinterpret_cast<size_t>(this);
+    if (!logger_.init(logger_id.str(), logger_config_path, false, false))
+    {
+      fprintf(stderr, "%s[ERROR]: Logger configuration failed: parameter file checked: %s%s\n", cnr_logger::BOLDRED().c_str(), logger_config_path, cnr_logger::RESET().c_str());
+      return false;
+    }
+    logger_initialized_ = true;
   }
 
   std::map<std::string, std::string*> sparams{
@@ -110,6 +115,8 @@ inline bool IkSolverBase::config(const std::string& params_ns)
 
   lb_.resize(joint_names_.size());
   ub_.resize(joint_names_.size());
+  urdf_lb_.resize(joint_names_.size());
+  urdf_ub_.resize(joint_names_.size());
   revolute_.resize(joint_names_.size());
   std::map<std::string, urdf::JointSharedPtr> joint_models = model_->joints_;
   for (size_t iax = 0; iax < joint_names_.size(); iax++)
@@ -120,8 +127,10 @@ inline bool IkSolverBase::config(const std::string& params_ns)
       return false;
     }
     const urdf::JointSharedPtr& jmodel = joint_models.at(joint_names_.at(iax));
-    lb_(iax) = jmodel->limits->lower;
-    ub_(iax) = jmodel->limits->upper;
+    urdf_lb_(iax) = jmodel->limits->lower;
+    urdf_ub_(iax) = jmodel->limits->upper;
+    lb_(iax) = urdf_lb_(iax);
+    ub_(iax) = urdf_ub_(iax);
 
     revolute_.at(iax) = jmodel->type == jmodel->REVOLUTE;
 
@@ -177,6 +186,29 @@ inline const Configuration& IkSolverBase::lb() const
 inline const Configuration& IkSolverBase::ub() const
 {
   return ub_;
+}
+inline bool IkSolverBase::setBounds(const Configuration& lb, const Configuration& ub)
+{
+  if (lb.size() != urdf_lb_.size() || ub.size() != urdf_ub_.size())
+  {
+    CNR_ERROR(logger_, "setBounds: wrong size (lb=%zu, ub=%zu, joints=%zu)", (size_t)lb.size(), (size_t)ub.size(),
+              (size_t)urdf_lb_.size());
+    return false;
+  }
+  Configuration new_lb = lb.cwiseMax(urdf_lb_);
+  Configuration new_ub = ub.cwiseMin(urdf_ub_);
+  for (Eigen::Index iax = 0; iax < new_lb.size(); iax++)
+  {
+    if (!(new_lb(iax) <= new_ub(iax)))  // also rejects NaN
+    {
+      CNR_ERROR(logger_, "setBounds: %s has wrong limits: lower=%f, upper=%f", joint_names_.at(iax).c_str(),
+                new_lb(iax), new_ub(iax));
+      return false;
+    }
+  }
+  lb_ = new_lb;
+  ub_ = new_ub;
+  return true;
 }
 inline const std::vector<bool>& IkSolverBase::revolute() const
 {

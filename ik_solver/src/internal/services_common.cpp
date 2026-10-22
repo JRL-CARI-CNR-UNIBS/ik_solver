@@ -939,6 +939,47 @@ namespace ik_solver
     return true;
   }
 
+  bool IkServicesBase::setBounds(ik_solver_msgs::SetBound::Request *req, ik_solver_msgs::SetBound::Response *res)
+  {
+    const std::vector<std::string> &joint_names = config().joint_names();
+    ik_solver::Configuration lb = config().lb();
+    ik_solver::Configuration ub = config().ub();
+    for (const auto &range : req->boundaries)
+    {
+      auto it = std::find(joint_names.begin(), joint_names.end(), range.joint_name);
+      if (it == joint_names.end())
+      {
+        res->result = ik_solver_msgs::SetBound::Response::JOINT_NOT_FOUND;
+        break;
+      }
+      const size_t iax = std::distance(joint_names.begin(), it);
+      lb(iax) = range.lower_bound;
+      ub(iax) = range.upper_bound;
+    }
+
+    if (res->result != ik_solver_msgs::SetBound::Response::JOINT_NOT_FOUND)
+    {
+      // Check on the first solver: all the solvers share the URDF, so they accept or reject the same limits.
+      if (ik_solvers_.at(0)->setBounds(lb, ub))
+      {
+        std::for_each(ik_solvers_.begin() + 1, ik_solvers_.end(), [&lb, &ub](std::shared_ptr<IkSolver> &solver)
+                      { solver->setBounds(lb, ub); });
+        res->result = ik_solver_msgs::SetBound::Response::SUCCESS;
+      }
+      else
+      {
+        res->result = ik_solver_msgs::SetBound::Response::INVALID_BOUNDS;
+      }
+    }
+
+    // Report the limits in use (changed or not)
+    ik_solver_msgs::GetBound::Request get_req;
+    ik_solver_msgs::GetBound::Response get_res;
+    getBounds(&get_req, &get_res);
+    res->boundaries = get_res.boundaries;
+    return true;
+  }
+
   /**
    * @brief
    *
@@ -968,15 +1009,18 @@ namespace ik_solver
   {
     for (std::size_t i = 0; i < ik_solver::MAX_NUM_PARALLEL_IK_SOLVER; i++)
     {
-      // if (!ik_solvers_.at(i)->config(nh_))
-      if (!ik_solvers_.at(i)->config())
+      // Reload from the same namespace used at startup
+      if (!ik_solvers_.at(i)->config(ik_solvers_.at(i)->param_namespace()))
       {
         //      ROS_ERROR("Unable to re-configure %s", nh_.getNamespace().c_str());
-        printf("%s[ERROR] Unable to re-configure%s", cnr_logger::RED().c_str(), cnr_logger::RESET().c_str());
-        return 0;
+        printf("%s[ERROR] Unable to re-configure%s\n", cnr_logger::RED().c_str(), cnr_logger::RESET().c_str());
+        res->success = false;
+        res->message = "unable to re-configure solver " + std::to_string(i);
+        return true;
       }
     }
     loadTaskRedundantParams();
+    res->success = true;
     return true;
   }
 

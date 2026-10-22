@@ -93,6 +93,7 @@ The node offers these services in its namespace:
 | `get_fk` | `ik_solver_msgs/srv/GetFk` | pose of the tool (or of `tip_frame`) for one configuration |
 | `get_fk_array` | `ik_solver_msgs/srv/GetFkArray` | the same for many configurations |
 | `get_bounds` | `ik_solver_msgs/srv/GetBound` | joint limits |
+| `set_bounds` | `ik_solver_msgs/srv/SetBound` | change the joint limits (only the listed joints; clamped to the URDF limits) |
 | `get_frames` | `ik_solver_msgs/srv/GetFrames` | base, flange and tool frames |
 | `change_tool` | `ik_solver_msgs/srv/ChangeTool` | change the tool frame |
 | `set_initial_configuration` | `ik_solver_msgs/srv/SetInitialConfiguration` | reference configuration for duplicate filtering |
@@ -105,7 +106,11 @@ Frames and limits:
 ```bash
 ros2 service call /ur10e_ik/get_frames ik_solver_msgs/srv/GetFrames {}
 ros2 service call /ur10e_ik/get_bounds ik_solver_msgs/srv/GetBound {}
+ros2 service call /ur10e_ik/set_bounds ik_solver_msgs/srv/SetBound \
+  "{boundaries: [{joint_name: shoulder_pan_joint, lower_bound: -1.57, upper_bound: 1.57}]}"
 ```
+
+`set_bounds` can only restrict the URDF limits (wider values are clamped) and replies with the limits in use. `reconfigure` restores the limits of the parameters.
 
 IK of a tool pose expressed in `base_link`:
 

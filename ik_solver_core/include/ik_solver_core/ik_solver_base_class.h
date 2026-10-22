@@ -42,7 +42,8 @@ namespace ik_solver
  * - @c base_frame, @c flange_frame, @c tool_frame (string, required);
  * - @c joint_names (list of strings, required): joints of the chain, in solver order;
  * - @c robot_description (string, required): URDF, used to read the joint limits;
- * - @c limits/<joint>/upper, @c limits/<joint>/lower (double, optional): restrict the URDF limits;
+ * - @c limits/<joint>/upper, @c limits/<joint>/lower (double, optional): restrict the URDF limits
+ *   (a value wider than the URDF one is ignored); they can be changed at runtime with setBounds();
  * - @c desired_solutions (int, default 8): number of solutions to look for;
  * - @c min_stall_iterations (int, default 998), @c max_stall_iterations (int, default 999):
  *   iterations without new solutions before stopping (meaning depends on the solver);
@@ -94,7 +95,7 @@ public:
   /**
    * @brief Compute the IK of a tool pose, given the frame transforms.
    * @param T_world_tool Pose of the tool in the world frame.
-   * @param T_world_base Transform used as base-from-world: the flange pose is T_world_base * T_world_tool * T_tool_flange.
+   * @param T_base_world Pose of the world in the base frame: the flange pose is T_base_world * T_world_tool * T_tool_flange.
    * @param T_tool_flange Pose of the flange in the tool frame.
    * @param seeds Initial guesses.
    * @param desired_solutions Number of solutions (-1: use the parameter).
@@ -103,7 +104,7 @@ public:
    * @return The solutions.
    */
   Solutions computeIk(const Eigen::Affine3d& T_world_tool,
-                      const Eigen::Affine3d& T_world_base,
+                      const Eigen::Affine3d& T_base_world,
                       const Eigen::Affine3d& T_tool_flange,
                       const Configurations& seeds,
                       const int& desired_solutions = -1,
@@ -184,6 +185,15 @@ public:
    */
   const Configuration& ub() const;
   /**
+   * @brief Set the joint limits, clamped to the URDF limits.
+   *
+   * The limits are restored from the parameters by config().
+   * @param lb Lower limits (one per joint).
+   * @param ub Upper limits (one per joint).
+   * @return False (limits unchanged) if the sizes are wrong or, after clamping, a lower limit is greater than the upper one.
+   */
+  bool setBounds(const Configuration& lb, const Configuration& ub);
+  /**
    * @brief True for revolute joints.
    */
   const std::vector<bool>& revolute() const;
@@ -233,6 +243,7 @@ public:
 
 protected:
   cnr_logger::TraceLogger logger_;  ///< Logger, configured from IK_SOLVER_LOGGER_CONFIG_PATH.
+  bool logger_initialized_ = false;  ///< True after the first successful logger_.init().
 
   std::string params_ns_;  ///< Parameter namespace.
   std::string robot_description_;  ///< URDF.
@@ -245,6 +256,8 @@ protected:
 
   Configuration ub_;  ///< Upper joint limits.
   Configuration lb_;  ///< Lower joint limits.
+  Configuration urdf_ub_;  ///< Upper joint limits of the URDF.
+  Configuration urdf_lb_;  ///< Lower joint limits of the URDF.
   std::vector<bool> revolute_;  ///< True for revolute joints.
   int min_stall_iter_ = 998;  ///< Default minimum stall iterations.
   int max_stall_iter_ = 999;  ///< Default maximum stall iterations.

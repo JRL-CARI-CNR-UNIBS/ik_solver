@@ -70,6 +70,7 @@ namespace ik_solver
     fk_server_ = nh->create_service<ik_solver_msgs::srv::GetFk>("get_fk", std::bind(&IkServices::computeFK, this, _1, _2));
     fk_server_array_ = nh->create_service<ik_solver_msgs::srv::GetFkArray>("get_fk_array", std::bind(&IkServices::computeFKArray, this, _1, _2));
     bound_server_array_ = nh->create_service<ik_solver_msgs::srv::GetBound>("get_bounds", std::bind(&IkServices::getBounds, this, _1, _2));
+    set_bound_server_ = nh->create_service<ik_solver_msgs::srv::SetBound>("set_bounds", std::bind(&IkServices::setBounds, this, _1, _2));
     frames_server_array_ = nh->create_service<ik_solver_msgs::srv::GetFrames>("get_frames", std::bind(&IkServices::getFrames, this, _1, _2));
     reconfigure_ = nh->create_service<std_srvs::srv::Trigger>("reconfigure", std::bind(&IkServices::reconfigure, this, _1, _2));
     change_tool_ = nh->create_service<ik_solver_msgs::srv::ChangeTool>("change_tool", std::bind(&IkServices::changeTool, this, _1, _2));
@@ -116,6 +117,13 @@ namespace ik_solver
   bool IkServices::getBounds(const ik_solver_msgs::GetBound::Request::SharedPtr req, ik_solver_msgs::GetBound::Response::SharedPtr res)
   {
     return IkServicesBase::getBounds(req.get(), res.get());
+  }
+
+  bool IkServices::setBounds(const ik_solver_msgs::SetBound::Request::SharedPtr req, ik_solver_msgs::SetBound::Response::SharedPtr res)
+  {
+    bool ret = IkServicesBase::setBounds(req.get(), res.get());
+    RCLCPP_INFO(nh_->get_logger(), "Set Bounds Result: %d", res->result);
+    return ret;
   }
 
   bool IkServices::getFrames(const ik_solver_msgs::GetFrames::Request::SharedPtr req, ik_solver_msgs::GetFrames::Response::SharedPtr res)
