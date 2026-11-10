@@ -47,6 +47,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ik_solver/internal/types.h>
 #include <ik_solver/internal/utils.h>
 #include <ik_solver/internal/services.ros2.h>
+#include <ik_solver/ros_params.hpp>
 
 #include <ik_solver_core/internal/SafeQueue.h>
 
@@ -133,7 +134,12 @@ namespace ik_solver
 
   bool IkServices::reconfigure(const Trigger::Request::SharedPtr req, Trigger::Response::SharedPtr res)
   {
-    return IkServicesBase::reconfigure(req.get(), res.get());
+    // Read again the ROS parameters of the node; the URDF is the one used at startup
+    ParamMap params = paramsFromNode(nh_, "");
+    auto rd = config().params().find("robot_description");
+    if (rd != config().params().end())
+      params["robot_description"] = rd->second;
+    return IkServicesBase::reconfigure(params, req.get(), res.get());
   }
 
   void IkServices::changeTool(ik_solver_msgs::ChangeTool::Request::SharedPtr req, ik_solver_msgs::ChangeTool::Response::SharedPtr res)

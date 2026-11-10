@@ -18,18 +18,6 @@
 
 #include <ik_solver_core/internal/wsq.h>
 
-#if ROS_X == 1
-#include <ros/ros.h>
-#include <ik_solver_msgs/GetIk.h>
-#include <ik_solver_msgs/GetFk.h>
-#include <ik_solver_msgs/GetIkArray.h>
-#include <ik_solver_msgs/GetFkArray.h>
-#include <ik_solver_msgs/GetBound.h>
-#include <ik_solver_msgs/SetBound.h>
-#include <ik_solver_msgs/GetFrames.h>
-#include <ik_solver_msgs/ChangeTool.h>
-#include <ik_solver_msgs/SetInitialConfiguration.h>
-#elif ROS_X == 2
 // #include <rclcpp/rclcpp.hpp>
 #include <ik_solver_msgs/srv/get_ik.hpp>
 #include <ik_solver_msgs/srv/get_fk.hpp>
@@ -44,7 +32,6 @@ namespace ik_solver_msgs
 {
   using namespace srv;
 }
-#endif
 
 #include "ik_solver/ik_solver.hpp"
 
@@ -115,15 +102,15 @@ namespace ik_solver
   using IkSolversPool = std::array<std::shared_ptr<ik_solver::IkSolver>, ik_solver::MAX_NUM_PARALLEL_IK_SOLVER>;
 
   /**
-   * @brief Implementation of the IK/FK services, shared by the ROS 1 and ROS 2 nodes.
+   * @brief Implementation of the IK/FK services, used by the ROS 2 node.
    *
    * Service requests express target poses as the pose of the tool (or tip) frame in
    * the frame given by the pose header; the services convert them to flange poses in
    * the base frame before calling the solvers.
    *
-   * Parameters read under the solver namespace (besides those of IkSolverBase):
+   * Parameters of the solver read by the services (besides those of IkSolverBase):
    * - @c update_recursively_seeds: default seed update mode of IK arrays;
-   * - @c task_redundant/...: perturbations used by the task-redundant IK (see README);
+   * - @c task_redundant.*: perturbations used by the task-redundant IK (see README);
    * - @c filter_duplicates (bool, default true): remove duplicated solutions in the task-redundant IK;
    * - @c initial_conf (list of double): reference configuration used to choose among duplicates.
    */
@@ -237,9 +224,9 @@ namespace ik_solver
     bool getFrames(ik_solver_msgs::srv::GetFrames::Request *req, ik_solver_msgs::srv::GetFrames::Response *res);
 
     /**
-     * @brief Reconfigure service: reload the parameters of all solvers.
+     * @brief Reconfigure service: configure again all the solvers with @p params.
      */
-    bool reconfigure(Trigger::Request *req, Trigger::Response *res);
+    bool reconfigure(const ParamMap &params, Trigger::Request *req, Trigger::Response *res);
 
     /**
      * @brief ChangeTool service: change the tool frame of all solvers.

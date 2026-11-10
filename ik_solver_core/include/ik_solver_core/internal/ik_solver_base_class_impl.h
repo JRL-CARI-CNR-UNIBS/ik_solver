@@ -16,7 +16,7 @@
 #include <Eigen/Core>
 #include <cstdio>
 #include <cstdlib>
-#include <string_view>
+#include <map>
 
 #include <ik_solver_core/ik_solver_base_class.h>
 
@@ -25,133 +25,104 @@ using namespace std::chrono_literals;
 namespace ik_solver
 {
 
-constexpr static std::string_view ENV_LOGGER_CONFIG_PATH = "IK_SOLVER_LOGGER_CONFIG_PATH";
-
-inline bool IkSolverBase::config(const std::string& params_ns)
+inline bool IkSolverBase::config(const ParamMap& params)
 {
-  params_ns_ = ik_solver::resolve_ns(params_ns);
+  params_ = params;
 
-  std::string param_what;
-  // TODO: check if exists the logger param file
-  char* logger_config_path = std::getenv(ENV_LOGGER_CONFIG_PATH.data());
-
-  if(logger_config_path == nullptr)
+  try
   {
-    fprintf(stderr, "%s[ERROR]: Missing environemnt variable IK_SOLVER_LOGGER_CONFIG_PATH!%s\n", cnr_logger::BOLDRED().c_str(), cnr_logger::RESET().c_str());
-    return false;
-  }
-
-  // The logger can be initialized only once (config() is called again by reconfigure)
-  if (!logger_initialized_)
-  {
-    std::stringstream logger_id;
-    logger_id << "ik_solver_" << reinterpret_cast<size_t>(this);
-    if (!logger_.init(logger_id.str(), logger_config_path, false, false))
+    for (const auto& [name, value] : std::map<std::string, std::string*>{ { "base_frame", &base_frame_ },
+                                                                           { "flange_frame", &flange_frame_ },
+                                                                           { "tool_frame", &tool_frame_ } })
     {
-      fprintf(stderr, "%s[ERROR]: Logger configuration failed: parameter file checked: %s%s\n", cnr_logger::BOLDRED().c_str(), logger_config_path, cnr_logger::RESET().c_str());
+      if (!get_optional_param(logger_, params_, name, *value))
+      {
+        IK_ERROR(logger_, "IkSolver: missing required parameter " << name);
+        return false;
+      }
+    }
+
+    IK_DEBUG(logger_, "Configuring IkSolver");
+    get_optional_param(logger_, params_, "desired_solutions", desired_solutions_);
+    get_optional_param(logger_, params_, "min_stall_iterations", min_stall_iter_);
+    get_optional_param(logger_, params_, "max_stall_iterations", max_stall_iter_);
+    parallelize_ = PARALLELIZE_DISABLE;
+    get_optional_param(logger_, params_, "parallel_ik_mode", parallelize_);
+    IK_DEBUG(logger_, "Solver parameters: OK");
+
+    if (!getFlangeTool())
+    {
+      IK_ERROR(logger_, "no TF from flange (" << flange_frame_ << ") and tool (" << tool_frame_ << ")");
       return false;
     }
-    logger_initialized_ = true;
-  }
+    IK_DEBUG(logger_, "Flange->Tool transform: OK");
 
-  std::map<std::string, std::string*> sparams{
-    { params_ns_ + "base_frame", &base_frame_ },
-    { params_ns_ + "flange_frame", &flange_frame_ },
-    { params_ns_ + "tool_frame", &tool_frame_ },
-  };
-
-  if (!get_and_return(sparams))
-  {
-    return false;
-  }
-
-  std::map<std::string, std::pair<int*, int>> iparams{
-    { params_ns_ + "desired_solutions", { &desired_solutions_, desired_solutions_ } },
-    { params_ns_ + "min_stall_iterations", { &min_stall_iter_, min_stall_iter_ } },
-    { params_ns_ + "max_stall_iterations", { &max_stall_iter_, max_stall_iter_ } },
-    // { params_ns_ + "parallel_ik_mode", { &parallelize_, ik_solver_msgs::GetIkArray::Request::PARALLELIZE_DISABLE } },
-    { params_ns_ + "parallel_ik_mode", { &parallelize_, PARALLELIZE_DISABLE } },
-  };
-
-  CNR_DEBUG(logger_, "Configuring IkSolver with parameters from namespace: %s", params_ns_.c_str());
-  if (!get_and_default(iparams))
-  {
-    return false;
-  }
-  CNR_DEBUG(logger_, "Solver parameters: OK");
-
-  if (!getFlangeTool())
-  {
-    CNR_ERROR(logger_,"%s: no TF from flange and tool", params_ns_.c_str());
-    return false;
-  }
-  CNR_DEBUG(logger_, "Flange->Tool transform: OK");
-
-
-  if(!cnr::param::get(params_ns_ + "/robot_description", robot_description_, param_what))
-  {
-    CNR_ERROR(logger_, "IkSolver: Missing robot_description parameter\n%s",param_what.c_str());
-    return false;
-  }
-  CNR_DEBUG(logger_, "robot_description from param: OK");
-
-  // model_.initParam("robot_description");
-  model_ = urdf::parseURDF(robot_description_);
-  if(model_ == nullptr)
-  {
-    CNR_ERROR(logger_, "Cannot load robot_description!");
-    return false;
-  }
-  CNR_DEBUG(logger_, "urdf model: OK");
-
-  auto pn = params_ns_ + "joint_names";
-  if (!cnr::param::get(pn, joint_names_, param_what))
-  {
-    CNR_DEBUG(logger_, "WHAT: %s", param_what.c_str());
-    CNR_ERROR(logger_,"[IkSolverBase::config] %s is not specified", pn.c_str());
-    return false;
-  }
-  CNR_DEBUG(logger_, "joint names from param: OK");
-
-  lb_.resize(joint_names_.size());
-  ub_.resize(joint_names_.size());
-  urdf_lb_.resize(joint_names_.size());
-  urdf_ub_.resize(joint_names_.size());
-  revolute_.resize(joint_names_.size());
-  std::map<std::string, urdf::JointSharedPtr> joint_models = model_->joints_;
-  for (size_t iax = 0; iax < joint_names_.size(); iax++)
-  {
-    if (joint_models.count(joint_names_.at(iax)) == 0)
+    if (!get_optional_param(logger_, params_, "robot_description", robot_description_))
     {
-      CNR_ERROR(logger_,"%s: %s is not a valid joint name", params_ns_.c_str(), joint_names_.at(iax).c_str());
+      IK_ERROR(logger_, "IkSolver: missing robot_description parameter");
       return false;
     }
-    const urdf::JointSharedPtr& jmodel = joint_models.at(joint_names_.at(iax));
-    urdf_lb_(iax) = jmodel->limits->lower;
-    urdf_ub_(iax) = jmodel->limits->upper;
-    lb_(iax) = urdf_lb_(iax);
-    ub_(iax) = urdf_ub_(iax);
+    IK_DEBUG(logger_, "robot_description from param: OK");
 
-    revolute_.at(iax) = jmodel->type == jmodel->REVOLUTE;
-
-    double value;
-    if (cnr::param::get(params_ns_ + "limits/" + joint_names_.at(iax) + "/upper", value, param_what))
+    model_ = urdf::parseURDF(robot_description_);
+    if (model_ == nullptr)
     {
-      ub_(iax) = std::min(ub_(iax), value);
-    }
-    if (cnr::param::get(params_ns_ + "limits/" + joint_names_.at(iax) + "/lower", value, param_what))
-    {
-      lb_(iax) = std::max(lb_(iax), value);
-    }
-    if (lb_(iax) > ub_(iax))
-    {
-      CNR_ERROR(logger_,"%s: %s has wrong limits: lower=%f, upper=%f", params_ns_.c_str(), joint_names_.at(iax).c_str(),
-                lb_(iax), ub_(iax));
+      IK_ERROR(logger_, "Cannot load robot_description!");
       return false;
     }
+    IK_DEBUG(logger_, "urdf model: OK");
+
+    if (!get_optional_param(logger_, params_, "joint_names", joint_names_))
+    {
+      IK_ERROR(logger_, "[IkSolverBase::config] joint_names is not specified");
+      return false;
+    }
+    IK_DEBUG(logger_, "joint names from param: OK");
+
+    lb_.resize(joint_names_.size());
+    ub_.resize(joint_names_.size());
+    urdf_lb_.resize(joint_names_.size());
+    urdf_ub_.resize(joint_names_.size());
+    revolute_.resize(joint_names_.size());
+    std::map<std::string, urdf::JointSharedPtr> joint_models = model_->joints_;
+    for (size_t iax = 0; iax < joint_names_.size(); iax++)
+    {
+      if (joint_models.count(joint_names_.at(iax)) == 0)
+      {
+        IK_ERROR(logger_, joint_names_.at(iax) << " is not a valid joint name");
+        return false;
+      }
+      const urdf::JointSharedPtr& jmodel = joint_models.at(joint_names_.at(iax));
+      urdf_lb_(iax) = jmodel->limits->lower;
+      urdf_ub_(iax) = jmodel->limits->upper;
+      lb_(iax) = urdf_lb_(iax);
+      ub_(iax) = urdf_ub_(iax);
+
+      revolute_.at(iax) = jmodel->type == jmodel->REVOLUTE;
+
+      double value;
+      if (get_optional_param(logger_, params_, "limits." + joint_names_.at(iax) + ".upper", value))
+      {
+        ub_(iax) = std::min(ub_(iax), value);
+      }
+      if (get_optional_param(logger_, params_, "limits." + joint_names_.at(iax) + ".lower", value))
+      {
+        lb_(iax) = std::max(lb_(iax), value);
+      }
+      if (lb_(iax) > ub_(iax))
+      {
+        IK_ERROR(logger_, joint_names_.at(iax) << " has wrong limits: lower=" << lb_(iax) << ", upper=" << ub_(iax));
+        return false;
+      }
+    }
+  }
+  catch (const std::invalid_argument& e)
+  {
+    // Wrong parameter type (already logged by get_param)
+    return false;
   }
 
-  CNR_DEBUG(logger_, "IkSolver configured");
+  IK_DEBUG(logger_, "IkSolver configured");
   return true;
 }
 
@@ -191,8 +162,7 @@ inline bool IkSolverBase::setBounds(const Configuration& lb, const Configuration
 {
   if (lb.size() != urdf_lb_.size() || ub.size() != urdf_ub_.size())
   {
-    CNR_ERROR(logger_, "setBounds: wrong size (lb=%zu, ub=%zu, joints=%zu)", (size_t)lb.size(), (size_t)ub.size(),
-              (size_t)urdf_lb_.size());
+    IK_ERROR(logger_, "setBounds: wrong size (lb=" << (size_t)lb.size() << ", ub=" << (size_t)ub.size() << ", joints=" << (size_t)urdf_lb_.size() << ")");
     return false;
   }
   Configuration new_lb = lb.cwiseMax(urdf_lb_);
@@ -201,8 +171,7 @@ inline bool IkSolverBase::setBounds(const Configuration& lb, const Configuration
   {
     if (!(new_lb(iax) <= new_ub(iax)))  // also rejects NaN
     {
-      CNR_ERROR(logger_, "setBounds: %s has wrong limits: lower=%f, upper=%f", joint_names_.at(iax).c_str(),
-                new_lb(iax), new_ub(iax));
+      IK_ERROR(logger_, "setBounds: " << joint_names_.at(iax).c_str() << " has wrong limits: lower=" << new_lb(iax) << ", upper=" << new_ub(iax));
       return false;
     }
   }
@@ -230,9 +199,9 @@ inline const int& IkSolverBase::parallelize() const
 {
   return parallelize_;
 }
-inline const std::string IkSolverBase::param_namespace() const
+inline const ParamMap& IkSolverBase::params() const
 {
-  return params_ns_;
+  return params_;
 }
 
 inline bool IkSolverBase::getFlangeTool()
@@ -245,7 +214,7 @@ inline bool IkSolverBase::changeTool(const std::string &t_frame)
   Eigen::Affine3d T;
   if(!getTF(t_frame, flange_frame_, T))
   {
-    CNR_ERROR(logger_, "Cannot change tool: missing transform from %s to %s", flange_frame_.c_str(), t_frame.c_str());
+    IK_ERROR(logger_, "Cannot change tool: missing transform from " << flange_frame_.c_str() << " to " << t_frame.c_str());
     return false;
   }
   T_tool_flange_ = T;
@@ -255,7 +224,7 @@ inline bool IkSolverBase::changeTool(const std::string &t_frame)
 
 inline bool IkSolverBase::changeTool(const std::string &t_frame, const Eigen::Affine3d &T_tool_flange)
 {
-  CNR_DEBUG(logger_, "Changing tool without prior control of transformation");
+  IK_DEBUG(logger_, "Changing tool without prior control of transformation");
   T_tool_flange_ = T_tool_flange;
   tool_frame_ = t_frame;
   return true;
@@ -301,13 +270,13 @@ inline Solutions IkSolverBase::computeIk(const Eigen::Affine3d& T_world_tool,
   Eigen::Affine3d T_base_world;
   if (!getTF(base_frame_, world_frame, T_base_world))
   {
-    CNR_ERROR(logger_, "computeIk: error on computing TF from %s to %s", base_frame_.c_str(), world_frame.c_str());
+    IK_ERROR(logger_, "computeIk: error on computing TF from " << base_frame_.c_str() << " to " << world_frame.c_str());
     return Solutions();
   }
   Eigen::Affine3d T_tool_flange;
   if (!getTF(tool_frame, flange_frame_, T_tool_flange))
   {
-    CNR_ERROR(logger_, "computeIk: error on computing TF from %s to %s", tool_frame.c_str(), flange_frame_.c_str());
+    IK_ERROR(logger_, "computeIk: error on computing TF from " << tool_frame.c_str() << " to " << flange_frame_.c_str());
     return Solutions();
   }
   return computeIk(T_world_tool, T_base_world, T_tool_flange, seeds, desired_solutions, min_stall_iterations,
@@ -321,13 +290,13 @@ inline Eigen::Affine3d IkSolverBase::computeFk(const Configuration& s,
   Eigen::Affine3d T_world_base;
   if (!getTF(world_frame, base_frame_, T_world_base))
   {
-    CNR_ERROR(logger_, "computeFk: error on computing TF from %s to %s", world_frame.c_str(), base_frame_.c_str());
+    IK_ERROR(logger_, "computeFk: error on computing TF from " << world_frame.c_str() << " to " << base_frame_.c_str());
     return Eigen::Affine3d();
   }
   Eigen::Affine3d T_flange_tool;
   if (!getTF(flange_frame_, tool_frame_, T_flange_tool))
   {
-    CNR_ERROR(logger_, "computeFk: error on computing TF from %s to %s", flange_frame_.c_str(), tool_frame_.c_str());
+    IK_ERROR(logger_, "computeFk: error on computing TF from " << flange_frame_.c_str() << " to " << tool_frame_.c_str());
     return Eigen::Affine3d();
   }
   return computeFk(s, T_world_base, T_flange_tool);

@@ -75,7 +75,7 @@ std::string resolve_ns(const std::string& params_ns)
   //   ret = nh.getNamespace() + "/" + params_ns;
   // }
 
-  // Hack until cnr_param support private and relative parameters
+  // Private and relative names are made global
   ret = params_ns;
   if(is_relative || is_private)
   {

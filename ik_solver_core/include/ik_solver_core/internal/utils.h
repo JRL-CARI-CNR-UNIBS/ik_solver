@@ -5,7 +5,7 @@
 
 /**
  * @file utils.h
- * @brief Utilities of the IK solvers: string conversions, parameter helpers and joint-space helpers.
+ * @brief Utilities of the IK solvers: string conversions and joint-space helpers.
  */
 #ifndef IK_SOLVER_CORE__INTERNAL__UTILS_H
 #define IK_SOLVER_CORE__INTERNAL__UTILS_H
@@ -19,7 +19,6 @@
 
 #include <Eigen/Geometry>
 
-#include <cnr_param/cnr_param.h>
 #include <ik_solver_core/internal/types.h>
 
 namespace std
@@ -36,7 +35,6 @@ namespace std
  * @param ss
  * @return std::string
  */
-// WARN: Already implemented in cnr_param
 // template<typename T>
 // inline std::string to_string(const std::vector<T>& ss)
 // {
@@ -142,105 +140,6 @@ template <typename T>
 bool is_the_same(const T& lhs, const T& rhs)
 {
   return rhs == lhs;
-}
-
-template <typename T>
-/**
- * @brief Check that a parameter has the same value in two namespaces, or copy it.
- *
- * If @p robot_ns + @p param_name exists, it must be equal to @p nh_val; otherwise it is set to @p nh_val.
- * @return False if the two values differ.
- */
-inline bool check_and_set_duplicate_params(const std::string& nh_ns, const std::string& robot_ns,
-                                           const std::string& param_name, const T& nh_val)
-{
-  std::string pn = robot_ns + param_name;
-  std::string param_what;
-  T val;
-  if (cnr::param::get(pn, val, param_what))
-  {
-    if (!is_the_same(val, nh_val))
-    {
-      printf("[ERROR]:"
-          "%s has been found both in the Composed Robot namespace (%s) "
-          "and in the Mounted Robot namespace (%s) but they are "
-          "different (%s and %s). Put it only in the Composed Robot "
-          "namespace, or alternatuively be sure they are the same!\n",
-          pn.c_str(), nh_ns.c_str(), robot_ns.c_str(), to_string(val).c_str(), std::to_string(nh_val).c_str());
-      return false;
-    }
-  }
-  else
-  {
-    cnr::param::set(pn, nh_val, param_what);
-  }
-  return true;
-}
-//======================================================================================
-
-template <typename T>
-/**
- * @brief Read a set of parameters with cnr_param.
- * @param params Map from full parameter name to (destination, has_default, default value).
- * @return False if a parameter without default is missing.
- */
-inline bool check_and_get(std::map<std::string, std::tuple<T*, bool, T>>& params)
-{
-  std::string param_what;
-  for (auto& param : params)
-  {
-    T val = std::get<1>(param.second) ? std::get<2>(param.second) : T();
-    if (!cnr::param::get(param.first, val, param_what))
-    {
-      printf("[ERROR]: %s\n", param_what.c_str());
-      if (!std::get<1>(param.second))
-      {
-        printf("[ERROR]: [Check and Get] %s is not specified! Abort.\n", param.first.c_str());
-        return false;
-      }
-      else
-      {
-        val = std::get<2>(param.second);
-        printf("[DEBUG]: %s is not specified. Default value %s\n", param.first.c_str(), std::to_string(val).c_str());
-      }
-    }
-    *std::get<0>(param.second) = val;
-  }
-  return true;
-}
-
-// NONE DEFAULT VALUE
-template <typename T>
-/**
- * @brief Read a set of required parameters.
- * @param params Map from full parameter name to destination.
- * @return False if a parameter is missing.
- */
-inline bool get_and_return(std::map<std::string, T*>& params)
-{
-  std::map<std::string, std::tuple<T*, bool, T>> _params;
-  for (auto& param : params)
-  {
-    _params[param.first] = std::make_tuple(param.second, false, T());
-  }
-  return check_and_get(_params);
-}
-
-// ALL WITH DEFAULT VALUE
-template <typename T>
-/**
- * @brief Read a set of optional parameters.
- * @param params Map from full parameter name to (destination, default value).
- * @return Always true.
- */
-inline bool get_and_default(std::map<std::string, std::pair<T*, T>>& params)
-{
-  std::map<std::string, std::tuple<T*, bool, T>> _params;
-  for (auto& param : params)
-  {
-    _params[param.first] = std::make_tuple(param.second.first, true, param.second.second);
-  }
-  return check_and_get(_params);
 }
 
 /**

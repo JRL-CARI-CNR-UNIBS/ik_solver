@@ -1,74 +1,71 @@
 # This Python file uses the following encoding: utf-8
+"""
+Start one ik_solver_node for each node in a ROS 2 parameter file.
 
-from launch import LaunchDescription
-from launch.actions import ExecuteProcess, OpaqueFunction, DeclareLaunchArgument, RegisterEventHandler
-from launch.substitutions import FindExecutable, LaunchConfiguration
-from launch.event_handlers import OnProcessExit
+    ros2 launch ik_solver ik_solver.launch.py config:=/path/to/config.yaml
 
-from launch_ros.actions import Node
+Each first-level key of the file is the fully qualified name of a node,
+/<namespace>/ik_solver_node, and the node is started in <namespace> with the
+parameters of the file:
+
+    /ur_ik_solver/ik_solver_node:
+      ros__parameters:
+        type: ik_solver/Ur10eIkSolver
+        base_frame: base_link
+        ...
+
+Keys that are not of this form (e.g. /**) are not nodes: their parameters are
+still given to every node started by this file.
+"""
+
+import os
 
 import yaml
-import os
-from pathlib import Path
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+
 
 def generate_launch_description():
-  launch_arg = [
-    DeclareLaunchArgument("config",   description="Path to config file"),
-  ]
-  return LaunchDescription([*launch_arg, OpaqueFunction(function=launch_setup)])
+    launch_arg = [
+        DeclareLaunchArgument("config", description="ROS 2 parameter file of the ik_solver nodes"),
+    ]
+    return LaunchDescription([*launch_arg, OpaqueFunction(function=launch_setup)])
+
 
 def launch_setup(context, *args, **kwargs):
-  config_path = LaunchConfiguration("config").perform(context)
+    config_path = LaunchConfiguration("config").perform(context)
 
-  if os.path.exists(config_path):
-    param_dir = os.environ["CNR_PARAM_ROOT_DIRECTORY"]
-    launch_node_after_load = list()
-    ret = []
+    if not os.path.exists(config_path):
+        raise RuntimeError(f"ik_solver.launch.py: config file {config_path} does not exist")
 
-    with open(config_path, 'r') as yaml_file:
-      # Open yaml parameter file
-      yaml_struct = yaml.safe_load(yaml_file)
+    with open(config_path, "r") as yaml_file:
+        yaml_struct = yaml.safe_load(yaml_file) or {}
 
-      # Redundancy check
-      if len(yaml_struct.keys()) != len(set(yaml_struct.keys())):
-        print(f'The yaml file {config_path} requires multiple nodes with the same name. Aborting')
-
-      else:
-        # Each first level parameter correspond to a new node to launch
-
-        cnr_param_server_process = ExecuteProcess(
-          cmd = [[
-            FindExecutable(name="cnr_param_server"),
-            " --path-to-file ",
-            config_path
-          ]],
-          shell=True,
+    nodes = []
+    for key in yaml_struct.keys():
+        parts = [p for p in str(key).split("/") if p]
+        if len(parts) < 2 or "*" in str(key):
+            continue
+        namespace = "/".join(parts[:-1])
+        name = parts[-1]
+        nodes.append(
+            Node(
+                package="ik_solver",
+                executable="ik_solver_node",
+                name=name,
+                namespace=namespace,
+                output="screen",
+                parameters=[config_path],
+                ros_arguments=["--log-level", "info"],
+                remappings=[(f"/{namespace}/{name}/robot_description", "/robot_description")],
+            )
         )
 
-        for yaml_node in yaml_struct.keys():
-
-          # Ignore ROS parameters
-          if 'ros__parameters' in yaml_struct[yaml_node]:
-            continue
-
-          # Launch ik_solver_node after parameters has been properly loaded
-          # Each ik_solver_node has a namespace equal to the 1st-level parameter
-          launch_node_after_load.append(RegisterEventHandler(
-            OnProcessExit(
-              target_action=cnr_param_server_process,
-              on_exit=Node(
-                            package="ik_solver",
-                            executable="ik_solver_node",
-                            output="screen",
-                            namespace=yaml_node,
-                            ros_arguments=["--log-level", "info"],
-                            remappings=[(f"/{yaml_node}/ik_solver_node/robot_description", "/robot_description")],
-                            # prefix=["gnome-terminal -- gdb -q -ex run --args"],
-                          )
-            )
-          ))
-
-    ret =  [cnr_param_server_process,
-            *launch_node_after_load]
-
-  return ret
+    if not nodes:
+        raise RuntimeError(
+            f"ik_solver.launch.py: no node in {config_path}: the first-level keys must be "
+            "/<namespace>/ik_solver_node (ROS 2 parameter file)"
+        )
+    return nodes

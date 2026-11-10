@@ -4,10 +4,10 @@
 
 namespace test_ik_solver
 {
-  bool TestIkSolver::config(const std::string& param_ns)
+  bool TestIkSolver::config(const ik_solver::ParamMap& params)
   {
     RCLCPP_INFO(this->logger_, "Configuration step");
-    RCLCPP_INFO(this->logger_, "Parameters namespace: %s", param_ns.c_str());
+    RCLCPP_INFO(this->logger_, "Number of parameters: %zu", params.size());
 
     return true;
   }

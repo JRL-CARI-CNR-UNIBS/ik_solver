@@ -17,8 +17,9 @@
 
   <buildtool_depend>cmake</buildtool_depend>
 
-  <depend>cnr_param</depend>
-  <depend>cnr_logger</depend>
+  <depend>eigen</depend>
+  <depend>urdfdom</depend>
+  <depend>yaml-cpp</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
