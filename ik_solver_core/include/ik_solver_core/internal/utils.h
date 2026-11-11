@@ -16,6 +16,7 @@
 #include <sstream>
 #include <regex>
 #include <cstdio>
+#include <cassert>
 
 #include <Eigen/Geometry>
 
