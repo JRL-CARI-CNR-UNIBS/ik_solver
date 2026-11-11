@@ -75,16 +75,7 @@ target_compile_definitions(${PROJECT_NAME}_node PUBLIC -DROS_X=${ROS_VERSION})
     ## ROS 2 ##
 ###############
 if(ROS_VERSION EQUAL 2)
-  ament_target_dependencies(${PROJECT_NAME} PUBLIC
-    rclcpp
-    tf2
-    tf2_ros
-    tf2_eigen
-    pluginlib
-    geometry_msgs
-    std_srvs
-    ik_solver_msgs
-  )
+  target_link_libraries(${PROJECT_NAME} PUBLIC ${rclcpp_TARGETS} ${tf2_TARGETS} ${tf2_ros_TARGETS} ${tf2_eigen_TARGETS} ${pluginlib_TARGETS} ${geometry_msgs_TARGETS} ${std_srvs_TARGETS} ${ik_solver_msgs_TARGETS})
   target_link_libraries(ik_solver PUBLIC
     Eigen3::Eigen
     ik_solver_core::ik_solver_core)
@@ -113,10 +104,7 @@ if(ROS_VERSION EQUAL 2)
   )
   target_link_libraries(test_node_ros2
     ik_solver::ik_solver)
-  ament_target_dependencies(test_node_ros2
-    rclcpp
-    ros2_control_test_assets
-  )
+  target_link_libraries(test_node_ros2 ${rclcpp_TARGETS} ${ros2_control_test_assets_TARGETS})
 endif()
 
 #############

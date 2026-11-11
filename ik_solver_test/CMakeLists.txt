@@ -24,9 +24,7 @@ target_include_directories(test_ik_solver_plugin PUBLIC
 target_link_libraries(test_ik_solver_plugin PUBLIC
   ik_solver::ik_solver)
 
-ament_target_dependencies(test_ik_solver_plugin PUBLIC
-  rclcpp
-)
+target_link_libraries(test_ik_solver_plugin PUBLIC ${rclcpp_TARGETS})
 
 pluginlib_export_plugin_description_file(ik_solver test.plugin.xml)
 
