@@ -108,7 +108,9 @@ inline ik_solver::ParamMap paramsFromNode(rclcpp::Node& node, const std::string&
     if (name.compare(0, full_prefix.size(), full_prefix) != 0)
       continue;
     const std::string key = name.substr(full_prefix.size());
-    const rclcpp::Parameter p = node.get_parameter(name);
+    rclcpp::Parameter p;
+    if (!node.get_parameter(name, p))  // declared without a value
+      continue;
     switch (p.get_type())
     {
       case rclcpp::ParameterType::PARAMETER_BOOL:

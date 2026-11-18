@@ -273,11 +273,12 @@ inline std::string BOLDWHITE()
     const int64_t ik_now_ns_ =                                                                                         \
         std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch())      \
             .count();                                                                                                  \
-    const int64_t ik_prev_ns_ = ik_last_ns_.load();                                                                    \
-    if (ik_prev_ns_ == std::numeric_limits<int64_t>::min() ||                                                          \
-        ik_now_ns_ - ik_prev_ns_ >= static_cast<int64_t>((period) * 1e9))                                              \
+    int64_t ik_prev_ns_ = ik_last_ns_.load();                                                                          \
+    /* Only the thread that claims the timestamp writes the message */                                                 \
+    if ((ik_prev_ns_ == std::numeric_limits<int64_t>::min() ||                                                         \
+         ik_now_ns_ - ik_prev_ns_ >= static_cast<int64_t>((period) * 1e9)) &&                                          \
+        ik_last_ns_.compare_exchange_strong(ik_prev_ns_, ik_now_ns_))                                                  \
     {                                                                                                                  \
-      ik_last_ns_.store(ik_now_ns_);                                                                                   \
       IK_LOG(logger, level, stream);                                                                                   \
     }                                                                                                                  \
   } while (0)

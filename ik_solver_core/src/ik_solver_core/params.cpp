@@ -37,8 +37,16 @@ std::optional<bool> asBool(const YAML::Node& node)
   return std::nullopt;
 }
 
+// Quoted ("123") or tagged (!!str 123) scalars are strings, as in rcl_yaml_param_parser.
+bool isString(const YAML::Node& node)
+{
+  return node.Tag() == "!" || node.Tag() == "tag:yaml.org,2002:str";
+}
+
 ParamValue scalarValue(const YAML::Node& node)
 {
+  if (isString(node))
+    return node.Scalar();
   if (auto v = asInt(node))
     return *v;
   if (auto v = asDouble(node))
@@ -56,6 +64,12 @@ std::optional<ParamValue> sequenceValue(const YAML::Node& node)
   {
     if (not item.IsScalar())
       return std::nullopt;
+    if (isString(item))
+    {
+      all_int = false;
+      all_number = false;
+      continue;
+    }
     if (not asInt(item))
       all_int = false;
     if (not asDouble(item))

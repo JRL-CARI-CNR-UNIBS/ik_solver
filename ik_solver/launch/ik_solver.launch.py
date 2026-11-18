@@ -14,8 +14,9 @@ parameters of the file:
         base_frame: base_link
         ...
 
-Keys that are not of this form (e.g. /**) are not nodes: their parameters are
-still given to every node started by this file.
+Keys that are not of this form (e.g. /** or the blocks of other nodes) do not
+start a node: their parameters are still given to every node started by this
+file.
 """
 
 import os
@@ -46,9 +47,11 @@ def launch_setup(context, *args, **kwargs):
     nodes = []
     for key in yaml_struct.keys():
         parts = [p for p in str(key).split("/") if p]
-        if len(parts) < 2 or "*" in str(key):
+        if len(parts) < 2 or "*" in str(key) or parts[-1] != "ik_solver_node":
             continue
-        namespace = "/".join(parts[:-1])
+        # Absolute, so that the node name matches the key of the file also
+        # when this launch file is included under a PushRosNamespace.
+        namespace = "/" + "/".join(parts[:-1])
         name = parts[-1]
         nodes.append(
             Node(
@@ -59,7 +62,7 @@ def launch_setup(context, *args, **kwargs):
                 output="screen",
                 parameters=[config_path],
                 ros_arguments=["--log-level", "info"],
-                remappings=[(f"/{namespace}/{name}/robot_description", "/robot_description")],
+                remappings=[(f"{namespace}/{name}/robot_description", "/robot_description")],
             )
         )
 
