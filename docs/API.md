@@ -102,7 +102,7 @@ Inherits from `rclcpp::Node`.
 
 ROS 2 node that loads an IK solver plugin and offers the IK/FK services.
 
-The plugin name is read from the parameter &lt;namespace&gt;/type. The URDF is read from the ROS parameter `robot_description` or, if missing, from the topic given by &lt;namespace&gt;/robot_description_topic (default `~/robot_description`). Then MAX_NUM_PARALLEL_IK_SOLVER instances of the plugin are created and configured.
+The plugin name is read from the ROS parameter `type`. The URDF is read from the ROS parameter `robot_description` or, if missing, from the topic given by the parameter `robot_description_topic` (default `~/robot_description`). Then MAX_NUM_PARALLEL_IK_SOLVER instances of the plugin are created and configured with all the ROS parameters of the node (see `IkSolverBase`). Solver messages go to the child logger `<node>.ik_solver`.
 
 Usage:
 
@@ -341,14 +341,14 @@ ROS-version-independent implementation of the IK/FK services.
 
 ### class `ik_solver::IkServicesBase`
 
-Implementation of the IK/FK services, shared by the ROS 1 and ROS 2 nodes.
+Implementation of the IK/FK services, used by the ROS 2 node.
 
 Service requests express target poses as the pose of the tool (or tip) frame in the frame given by the pose header; the services convert them to flange poses in the base frame before calling the solvers.
 
-Parameters read under the solver namespace (besides those of `IkSolverBase`):
+Parameters of the solver read by the services (besides those of `IkSolverBase`):
 
 - `update_recursively_seeds`: default seed update mode of IK arrays;
-- `task_redundant/`...: perturbations used by the task-redundant IK (see README);
+- `task_redundant.*`: perturbations used by the task-redundant IK (see README);
 - `filter_duplicates` (bool, default true): remove duplicated solutions in the task-redundant IK;
 - `initial_conf` (list of double): reference configuration used to choose among duplicates.
 
@@ -542,12 +542,12 @@ std::vector< Eigen::Affine3d > computeTaskRedundantPerturbations() const
 
 Build the pose perturbations from the `task_redundant` parameters (grid or random).
 
-Reads the 'task_redundant' parameters (namespace under the solver's param namespace) and builds the set of pose perturbations to be applied to each requested target.
+Reads the 'task_redundant.*' parameters of the solver and builds the set of pose perturbations to be applied to each requested target.
 
-Two mutually exclusive modes are supported, selected by the string parameter 'task_redundant/type':
+Two mutually exclusive modes are supported, selected by the string parameter 'task_redundant.type':
 
 - "grid": for each axis (x,y,z,roll,pitch,yaw) reads min/max/step and builds the cartesian product.
-- "random": for each axis reads mean/standard_deviation and draws 'task_redundant/n_samples' samples, optionally seeded deterministically via 'task_redundant/seed' (falls back to a non-deterministic seed when unset). An axis that is not configured defaults to a single perturbation value of 0 on that axis.
+- "random": for each axis reads mean/standard_deviation and draws 'task_redundant.n_samples' samples, optionally seeded deterministically via 'task_redundant.seed' (falls back to a non-deterministic seed when unset). An axis that is not configured defaults to a single perturbation value of 0 on that axis.
 
 ##### `computeFKArray`
 
@@ -602,10 +602,10 @@ GetFrames service: base, flange and tool frames.
 ##### `reconfigure`
 
 ```cpp
-bool reconfigure(Trigger::Request *req, Trigger::Response *res)
+bool reconfigure(const ParamMap &params, Trigger::Request *req, Trigger::Response *res)
 ```
 
-Reconfigure service: reload the parameters of all solvers.
+Reconfigure service: configure again all the solvers with `params`.
 
 **Parameters:**
 
@@ -879,17 +879,17 @@ A concrete solver implements `getIk()` and `getFK()` for a chain from `base_fram
 
 Frame naming: `T_a_b` (or `T_ab`) is the pose of frame b expressed in frame a.
 
-Parameters read by `config()` under the namespace `param_ns`:
+Parameters read by `config()` (keys of the ParamMap):
 
 - `base_frame`, `flange_frame`, `tool_frame` (string, required);
 - `joint_names` (list of strings, required): joints of the chain, in solver order;
 - `robot_description` (string, required): URDF, used to read the joint limits;
-- `limits/` &lt;joint&gt;/upper, `limits/` &lt;joint&gt;/lower (double, optional): restrict the URDF limits (a value wider than the URDF one is ignored); they can be changed at runtime with `setBounds()`;
+- `limits.<joint>.upper`, `limits.<joint>.lower` (double, optional): restrict the URDF limits (a value wider than the URDF one is ignored); they can be changed at runtime with `setBounds()`;
 - `desired_solutions` (int, default 8): number of solutions to look for;
 - `min_stall_iterations` (int, default 998), `max_stall_iterations` (int, default 999): iterations without new solutions before stopping (meaning depends on the solver);
 - `parallel_ik_mode` (int, default 2 = disabled): default parallelization mode of IK arrays.
 
-The environment variable `IK_SOLVER_LOGGER_CONFIG_PATH` must point to a cnr_logger configuration file.
+Messages are written to the logger set with `setLogger()` (default: a ConsoleLogger with level INFO).
 
 #### Public functions
 
@@ -908,18 +908,38 @@ virtual ~IkSolverBase()=default
 ##### `config`
 
 ```cpp
-virtual bool config(const std::string &param_ns="")
+virtual bool config(const ParamMap &params)
 ```
 
 Read the parameters and the joint limits (see class description).
 
-Derived classes overriding this function should call it first.
+Derived classes overriding this function should call it first; their own parameters are in `params()`.
 
 **Parameters:**
 
-- `param_ns`: Parameter namespace.
+- `params`: The parameters (including `robot_description`).
 
-**Returns:** False if a required parameter is missing, a joint is not in the URDF, or a transform is missing.
+**Returns:** False if a required parameter is missing or has a wrong type, a joint is not in the URDF, or a transform is missing.
+
+##### `setLogger`
+
+```cpp
+void setLogger(const LoggerPtr &logger)
+```
+
+Set the logger. It should be called before `config()`.
+
+**Parameters:**
+
+- `logger`: The logger (null: no messages).
+
+##### `logger`
+
+```cpp
+const LoggerPtr & logger() const
+```
+
+The logger.
 
 ##### `getIk`
 
@@ -1150,13 +1170,13 @@ const int & parallelize() const
 
 Default parallelization mode of IK arrays (values of ik_solver_msgs/GetIkArray).
 
-##### `param_namespace`
+##### `params`
 
 ```cpp
-const std::string param_namespace() const
+const ParamMap & params() const
 ```
 
-Parameter namespace (always ending with '/').
+The parameters passed to the last `config()`.
 
 ##### `changeTool`
 
@@ -1219,9 +1239,8 @@ Read the flange-tool transform with `getTF()`.
 
 | Member | Type | Description |
 |---|---|---|
-| `logger_` | `cnr_logger::TraceLogger` | Logger, configured from IK_SOLVER_LOGGER_CONFIG_PATH. |
-| `logger_initialized_` | `bool` | True after the first successful logger_.init(). |
-| `params_ns_` | `std::string` | Parameter namespace. |
+| `logger_` | `LoggerPtr` | Logger (see setLogger()). |
+| `params_` | `ParamMap` | Parameters passed to config(). |
 | `robot_description_` | `std::string` | URDF. |
 | `T_tool_flange_` | `Eigen::Affine3d` | Pose of the flange in the tool frame. |
 | `base_frame_` | `std::string` | Base frame. |
@@ -1323,12 +1342,6 @@ Pop the front element.
 ## ik_solver_core/include/ik_solver_core/internal/ik_solver_base_class_impl.h
 
 ### Free functions and types
-
-#### `ENV_LOGGER_CONFIG_PATH`
-
-```cpp
-static constexpr std::string_view ENV_LOGGER_CONFIG_PATH = "IK_SOLVER_LOGGER_CONFIG_PATH"
-```
 
 ## ik_solver_core/include/ik_solver_core/internal/types.h
 
@@ -1529,64 +1542,6 @@ bool is_the_same(const T &lhs, const T &rhs)
 ```
 
 Equality check, specialized for vectors of strings.
-
-#### `check_and_set_duplicate_params`
-
-```cpp
-template <typename T>
-bool check_and_set_duplicate_params(const std::string &nh_ns, const std::string &robot_ns, const std::string &param_name, const T &nh_val)
-```
-
-Check that a parameter has the same value in two namespaces, or copy it.
-
-If `robot_ns` + `param_name` exists, it must be equal to `nh_val`; otherwise it is set to `nh_val`.
-
-**Returns:** False if the two values differ.
-
-#### `check_and_get`
-
-```cpp
-template <typename T>
-bool check_and_get(std::map< std::string, std::tuple< T *, bool, T > > &params)
-```
-
-Read a set of parameters with cnr_param.
-
-**Parameters:**
-
-- `params`: Map from full parameter name to (destination, has_default, default value).
-
-**Returns:** False if a parameter without default is missing.
-
-#### `get_and_return`
-
-```cpp
-template <typename T>
-bool get_and_return(std::map< std::string, T * > &params)
-```
-
-Read a set of required parameters.
-
-**Parameters:**
-
-- `params`: Map from full parameter name to destination.
-
-**Returns:** False if a parameter is missing.
-
-#### `get_and_default`
-
-```cpp
-template <typename T>
-bool get_and_default(std::map< std::string, std::pair< T *, T > > &params)
-```
-
-Read a set of optional parameters.
-
-**Parameters:**
-
-- `params`: Map from full parameter name to (destination, default value).
-
-**Returns:** Always true.
 
 #### `isPresent`
 
@@ -1893,18 +1848,18 @@ TestIkSolver()
 ##### `config`
 
 ```cpp
-virtual bool config(const std::string &param_ns="") override
+virtual bool config(const ik_solver::ParamMap &params) override
 ```
 
 Read the parameters and the joint limits (see class description).
 
-Derived classes overriding this function should call it first.
+Derived classes overriding this function should call it first; their own parameters are in `params()`.
 
 **Parameters:**
 
-- `param_ns`: Parameter namespace.
+- `params`: The parameters (including `robot_description`).
 
-**Returns:** False if a required parameter is missing, a joint is not in the URDF, or a transform is missing.
+**Returns:** False if a required parameter is missing or has a wrong type, a joint is not in the URDF, or a transform is missing.
 
 ##### `getIk`
 
@@ -1944,37 +1899,6 @@ Implemented by each solver.
 
 ## Scripts
 
-### `ik_solver/scripts/get_ik_collision_check.py`
-
-```
-ROS 1 example: IK of the origin of a TF frame, followed by collision checking of the solutions.
-
-Calls ~get_ik, then /ik_collision_check/collision_check, and publishes the solutions on /ik_solution.
-
-Usage: rosrun ik_solver get_ik_collision_check.py <namespace> <tf_name>
-```
-
-### `ik_solver/scripts/get_tf_ik.py`
-
-```
-ROS 1 example: IK of the origin of a TF frame (~get_ik).
-
-Publishes all the solutions in turn on /ik_solution (moveit_msgs/DisplayRobotState).
-
-Usage: rosrun ik_solver get_tf_ik.py <namespace> <tf_name>
-```
-
-### `ik_solver/scripts/get_tf_ik_array.py`
-
-```
-ROS 1 example: IK of a sequence of poses around a TF frame (~get_ik_array).
-
-The poses follow a circle with a superimposed small oscillation in frame tf_name; the
-solutions are published on /ik_solution and the poses on /poses.
-
-Usage: rosrun ik_solver get_tf_ik_array.py <namespace> <tf_name>
-```
-
 ### `ik_solver/scripts/get_tf_ik_ros2.py`
 
 ```
@@ -1983,16 +1907,6 @@ ROS 2 example: IK of the origin of a TF frame (~get_ik).
 Publishes all the solutions in turn on /ik_solution (moveit_msgs/DisplayRobotState).
 
 Usage: ros2 run ik_solver get_tf_ik_ros2.py <namespace> <tf_name>
-```
-
-### `ik_solver/scripts/neighbourhood_ik.py`
-
-```
-ROS 1 service ~/neighbourhood_ik (ik_solver_msgs/NeighbourhoodPyramidIk).
-
-Samples poses inside a pyramid in front of a TF frame (distance, width, resolution and
-orientation given in the request), solves their IK with /get_ik_array, and returns the
-solutions together with the unreachable poses.
 ```
 
 ### `ik_solver/scripts/visualizer_script.py`

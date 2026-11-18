@@ -13,6 +13,7 @@
 
 // #include <ik_solver_core/ik_solver_base_class.h>
 #include <ik_solver/ik_solver.hpp>
+#include <ik_solver/ros_params.hpp>
 
 #include <ik_solver/internal/services.ros2.h>
 
@@ -23,10 +24,12 @@ using namespace std::chrono_literals;
 /**
  * @brief ROS 2 node that loads an IK solver plugin and offers the IK/FK services.
  *
- * The plugin name is read from the parameter @c <namespace>/type. The URDF is read from
- * the ROS parameter @c robot_description or, if missing, from the topic given by
- * @c <namespace>/robot_description_topic (default @c ~/robot_description). Then
- * MAX_NUM_PARALLEL_IK_SOLVER instances of the plugin are created and configured.
+ * The plugin name is read from the ROS parameter @c type. The URDF is read from the ROS
+ * parameter @c robot_description or, if missing, from the topic given by the parameter
+ * @c robot_description_topic (default @c ~/robot_description). Then
+ * MAX_NUM_PARALLEL_IK_SOLVER instances of the plugin are created and configured with all
+ * the ROS parameters of the node (see IkSolverBase). Solver messages go to the child
+ * logger @c <node>.ik_solver.
  *
  * Usage:
  * @code
@@ -47,33 +50,28 @@ private:
       server_ready_(false),
       ik_loader_("ik_solver", "ik_solver::IkSolver")
   {
-    std::string what;
 
     RCLCPP_DEBUG(this->get_logger(), "Creating TF Buffer");
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
     listener_  = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
     RCLCPP_DEBUG(this->get_logger(), "Created TF Buffer");
 
-    if(!cnr::param::get(std::string(get_namespace()) + "/type", plugin_name_, what))
+    plugin_name_ = this->declare_parameter<std::string>("type", "");
+    if(plugin_name_.empty())
     {
-      RCLCPP_ERROR(get_logger(), "%s/type is not defined", get_namespace());
-      RCLCPP_DEBUG_STREAM(get_logger(), what);
+      RCLCPP_ERROR(get_logger(), "parameter 'type' (IK solver plugin) is not defined");
       return;
     }
 
     // try obtaining robot_description from ros parameters
-    this->declare_parameter("robot_description", rclcpp::PARAMETER_STRING);
-    if(!this->get_parameter("robot_description", robot_description_))
+    // (an empty default: get_parameter() of an uninitialized parameter throws)
+    robot_description_ = this->declare_parameter<std::string>("robot_description", "");
+    if(robot_description_.empty())
     {
 
       // If not from parameters, get robot_description from topic
-      std::string robot_description_topic;
-      if(!cnr::param::get(std::string(get_namespace()) + "/robot_description_topic", robot_description_topic, what))
-      {
-        RCLCPP_WARN(get_logger(), "%s/robot_description_topic is not defined. Default: %s/robot_description", get_namespace(), get_namespace());
-        RCLCPP_DEBUG_STREAM(get_logger(), what);
-        robot_description_topic = "~/robot_description";
-      }
+      const std::string robot_description_topic =
+          this->declare_parameter<std::string>("robot_description_topic", "~/robot_description");
 
       RCLCPP_INFO(this->get_logger(), "Recovering robot_description from topic");
       sub_robot_description_ = this->create_subscription<std_msgs::msg::String>(robot_description_topic, rclcpp::QoS(1).transient_local().reliable(),
@@ -135,11 +133,7 @@ protected:
   {
     robot_description_ = msg.data;
 
-    if(!cnr::param::set(this->get_namespace()+std::string("/robot_description"), robot_description_, param_what_))
-    {
-      RCLCPP_ERROR_STREAM(this->get_logger(), "Cannot set cnr::param(" << this->get_namespace() << std::string("/robot_description") << ") because: " << param_what_);
-    }
-    RCLCPP_DEBUG(this->get_logger(), "set robot_description as cnr::param");
+    ParamMap params = solverParams();
 
     RCLCPP_INFO(get_logger(), "Creating %s (type %s)",get_namespace(), plugin_name_.c_str());
     for(std::size_t i=0;i<ik_solver::MAX_NUM_PARALLEL_IK_SOLVER;i++ )
@@ -147,7 +141,8 @@ protected:
       ik_solvers_.at(i) = ik_loader_.createSharedInstance(plugin_name_);
       RCLCPP_DEBUG(get_logger(), "Configuring %s (type %s)",get_namespace(), plugin_name_.c_str());
       ik_solvers_.at(i)->setBuffer(tf_buffer_);
-      if (!ik_solvers_.at(i)->config(get_namespace()))
+      ik_solvers_.at(i)->setLogger(std::make_shared<RclcppLogger>(this->get_logger().get_child("ik_solver")));
+      if (!ik_solvers_.at(i)->config(params))
       {
         RCLCPP_ERROR(get_logger(), "unable to configure %s (type %s)",get_namespace(), plugin_name_.c_str());
         // return 0;
@@ -158,12 +153,23 @@ protected:
     RCLCPP_INFO(get_logger(), "%s (type %s) is ready to compute IK",get_namespace(),plugin_name_.c_str());
     server_ready_ = true;
   }
+public:
+  /**
+   * @brief Parameters of the solvers: all the ROS parameters of the node, plus the URDF
+   * (@c robot_description). Read again at each call, e.g. by the reconfigure service.
+   */
+  ParamMap solverParams()
+  {
+    ParamMap params = paramsFromNode(*this, "");
+    params["robot_description"] = robot_description_;
+    return params;
+  }
+
 protected:
   std::string robot_description_;
 
 private:
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_robot_description_;
-  std::string param_what_;
 
   bool server_ready_;
 

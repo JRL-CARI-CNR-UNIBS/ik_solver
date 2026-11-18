@@ -12,53 +12,44 @@ robot.
 ## Prerequisites
 
 - `ik_solver`, `ik_solver_core` and `ik_solver_msgs` built in your workspace;
-- a solver plugin for your robot (for UR robots: `ur_ik_solver`);
-- `cnr_param` and `cnr_logger`, and the environment variables they need:
-
-```bash
-# cnr_logger configuration used by the solvers
-export IK_SOLVER_LOGGER_CONFIG_PATH=$(ros2 pkg prefix ik_solver_core)/share/ik_solver_core/config/default_logger.yaml
-# folder used by cnr_param to store the parameters
-export CNR_PARAM_ROOT_DIRECTORY=/tmp/cnr_param
-```
-
-If `IK_SOLVER_LOGGER_CONFIG_PATH` is not set, the solver configuration fails with
-`Missing environemnt variable IK_SOLVER_LOGGER_CONFIG_PATH!`.
+- a solver plugin for your robot (for UR robots: `ur_ik_solver`).
 
 ## 1. Start an IK server
 
 ### 1.1 Write the configuration
 
-Each top-level key of the configuration file creates one IK server node with that namespace. Create
-`my_ik.yaml`:
+The configuration file is a ROS 2 parameter file. Each top-level key `/<namespace>/ik_solver_node`
+creates one IK server node in that namespace. Create `my_ik.yaml`:
 
 ```yaml
-ur10e_ik:
-  type: ik_solver/Ur10eIkSolver        # plugin name, as in the plugin XML file
-  base_frame: base_link                 # first frame of the chain
-  flange_frame: tool0                   # last frame of the chain
-  tool_frame: tool0                     # frame used for the target poses (rigidly attached to the flange)
-  robot_description_topic: /robot_description
-  joint_names:
-    - shoulder_pan_joint
-    - shoulder_lift_joint
-    - elbow_joint
-    - wrist_1_joint
-    - wrist_2_joint
-    - wrist_3_joint
-  desired_solutions: 32
-  min_stall_iterations: 100
-  max_stall_iterations: 100000
-  parallel_ik_mode: 2                   # 2 = sequential by default; requests can override it
+/ur10e_ik/ik_solver_node:
+  ros__parameters:
+    type: ik_solver/Ur10eIkSolver        # plugin name, as in the plugin XML file
+    base_frame: base_link                 # first frame of the chain
+    flange_frame: tool0                   # last frame of the chain
+    tool_frame: tool0                     # frame used for the target poses (rigidly attached to the flange)
+    robot_description_topic: /robot_description
+    joint_names:
+      - shoulder_pan_joint
+      - shoulder_lift_joint
+      - elbow_joint
+      - wrist_1_joint
+      - wrist_2_joint
+      - wrist_3_joint
+    desired_solutions: 32
+    min_stall_iterations: 100
+    max_stall_iterations: 100000
+    parallel_ik_mode: 2                   # 2 = sequential by default; requests can override it
 ```
 
-The joint limits are read from the URDF. You can restrict them further:
+The joint limits are read from the URDF. You can restrict them further (parameters
+`limits.<joint>.lower` / `limits.<joint>.upper`):
 
 ```yaml
-  limits:
-    shoulder_pan_joint:
-      lower: -3.14
-      upper: 3.14
+    limits:
+      shoulder_pan_joint:
+        lower: -3.14
+        upper: 3.14
 ```
 
 ### 1.2 Launch
@@ -70,7 +61,7 @@ The robot description and the TF tree must be available (e.g. launch your robot 
 ros2 launch ik_solver ik_solver.launch.py config:=$(pwd)/my_ik.yaml
 ```
 
-The launch file loads the YAML into `cnr_param` and starts one `ik_solver_node` per top-level key. When the
+The launch file starts one `ik_solver_node` per top-level key, with the parameters of the file. When the
 node is ready it prints:
 
 ```
@@ -188,7 +179,7 @@ Many tasks do not constrain all six degrees of freedom of the tool: for example,
 spraying tool can rotate around its axis. `get_task_redundant_ik_array` solves the IK of each target
 pose perturbed by a set of small transforms, and returns all the solutions together.
 
-Add the perturbations to the configuration. For example, to allow any rotation about the tool z axis
+Add the perturbations to the configuration (inside `ros__parameters`). For example, to allow any rotation about the tool z axis
 in 10° steps:
 
 ```yaml
@@ -215,7 +206,8 @@ Or sample them randomly:
 ```
 
 Axes not listed are not perturbed. The perturbation is applied in the tool frame (`T_target * T_perturbation`).
-Then call `reconfigure` or restart the node, and try it:
+Then call `reconfigure` (it reads the node parameters again, e.g. after `ros2 param set`) or restart
+the node, and try it:
 
 ```bash
 ros2 run ik_solver_test test_task_redundant_ik_array.py ur10e_ik
@@ -239,7 +231,7 @@ namespace my_ik_solver
 class MyIkSolver : public ik_solver::IkSolver
 {
 public:
-  bool config(const std::string& param_ns = "") override;
+  bool config(const ik_solver::ParamMap& params) override;
 
   ik_solver::Solutions getIk(const Eigen::Affine3d& T_base_flange, const ik_solver::Configurations& seeds,
                              const int& desired_solutions = -1, const int& min_stall_iterations = -1,
@@ -263,16 +255,16 @@ private:
 
 namespace my_ik_solver
 {
-bool MyIkSolver::config(const std::string& param_ns)
+bool MyIkSolver::config(const ik_solver::ParamMap& params)
 {
   // Reads frames, joint names, limits, desired_solutions, ... (see IkSolverBase)
-  if (!IkSolver::config(param_ns))
+  if (!IkSolver::config(params))
     return false;
 
-  // Your own parameters, under the same namespace
-  std::string what;
-  if (!cnr::param::get(params_ns_ + "my_param", my_param_, what))
-    my_param_ = 1.0;
+  // Your own parameters, among the node parameters (params_). A wrong type throws std::invalid_argument.
+  my_param_ = 1.0;
+  ik_solver::get_optional_param(logger_, params_, "my_param", my_param_);
+  IK_INFO(logger_, "MyIkSolver configured, my_param = " << my_param_);
   return true;
 }
 

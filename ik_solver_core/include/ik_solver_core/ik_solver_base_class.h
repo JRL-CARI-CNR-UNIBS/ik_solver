@@ -11,8 +11,8 @@
 
 #include <string>
 
-#include <cnr_logger/cnr_logger.h>
-#include <cnr_param/cnr_param.h>
+#include <ik_solver_core/logger.h>
+#include <ik_solver_core/params.h>
 
 #include <Eigen/Geometry>
 
@@ -38,18 +38,18 @@ namespace ik_solver
  *
  * Frame naming: @c T_a_b (or @c T_ab) is the pose of frame b expressed in frame a.
  *
- * Parameters read by config() under the namespace @c param_ns:
+ * Parameters read by config() (keys of the ParamMap):
  * - @c base_frame, @c flange_frame, @c tool_frame (string, required);
  * - @c joint_names (list of strings, required): joints of the chain, in solver order;
  * - @c robot_description (string, required): URDF, used to read the joint limits;
- * - @c limits/<joint>/upper, @c limits/<joint>/lower (double, optional): restrict the URDF limits
+ * - @c limits.<joint>.upper, @c limits.<joint>.lower (double, optional): restrict the URDF limits
  *   (a value wider than the URDF one is ignored); they can be changed at runtime with setBounds();
  * - @c desired_solutions (int, default 8): number of solutions to look for;
  * - @c min_stall_iterations (int, default 998), @c max_stall_iterations (int, default 999):
  *   iterations without new solutions before stopping (meaning depends on the solver);
  * - @c parallel_ik_mode (int, default 2 = disabled): default parallelization mode of IK arrays.
  *
- * The environment variable @c IK_SOLVER_LOGGER_CONFIG_PATH must point to a cnr_logger configuration file.
+ * Messages are written to the logger set with setLogger() (default: a ConsoleLogger with level INFO).
  */
 class IkSolverBase
 {
@@ -64,11 +64,30 @@ public:
   /**
    * @brief Read the parameters and the joint limits (see class description).
    *
-   * Derived classes overriding this function should call it first.
-   * @param param_ns Parameter namespace.
-   * @return False if a required parameter is missing, a joint is not in the URDF, or a transform is missing.
+   * Derived classes overriding this function should call it first; their own parameters are
+   * in params().
+   * @param params The parameters (including @c robot_description).
+   * @return False if a required parameter is missing or has a wrong type, a joint is not in the URDF,
+   * or a transform is missing.
    */
-  virtual bool config(const std::string& param_ns = "");
+  virtual bool config(const ParamMap& params);
+
+  /**
+   * @brief Set the logger. It should be called before config().
+   * @param logger The logger (null: no messages).
+   */
+  void setLogger(const LoggerPtr& logger)
+  {
+    logger_ = logger;
+  }
+
+  /**
+   * @brief The logger.
+   */
+  const LoggerPtr& logger() const
+  {
+    return logger_;
+  }
 
   // FK flange to base
   /**
@@ -214,9 +233,9 @@ public:
    */
   const int& parallelize() const;
   /**
-   * @brief Parameter namespace (always ending with '/').
+   * @brief The parameters passed to the last config().
    */
-  const std::string param_namespace() const;
+  const ParamMap& params() const;
 
   /**
    * @brief Change the tool frame, reading the flange-tool transform with getTF().
@@ -242,10 +261,9 @@ public:
   virtual bool getTF(const std::string& a_name, const std::string& b_name, Eigen::Affine3d& T_ab) const = 0;
 
 protected:
-  cnr_logger::TraceLogger logger_;  ///< Logger, configured from IK_SOLVER_LOGGER_CONFIG_PATH.
-  bool logger_initialized_ = false;  ///< True after the first successful logger_.init().
+  LoggerPtr logger_ = std::make_shared<ConsoleLogger>("ik_solver");  ///< Logger (see setLogger()).
 
-  std::string params_ns_;  ///< Parameter namespace.
+  ParamMap params_;  ///< Parameters passed to config().
   std::string robot_description_;  ///< URDF.
 
   Eigen::Affine3d T_tool_flange_;  ///< Pose of the flange in the tool frame.

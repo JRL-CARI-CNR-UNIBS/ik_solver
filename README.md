@@ -4,22 +4,19 @@ The package is interconnected to the [`ik_solver_msgs`](https:/github.com/JRL-CA
 
 # Requirements
 
-This packages require the utility set of packages [`cnr_common`](https://github.com/JRL-CARI-CNR-UNIBS/cnr_common). These libraries do not depend on ROS.
+ROS 2 (Humble, Jazzy or newer). `ik_solver_core` needs only Eigen, urdfdom and yaml-cpp; it does not depend on ROS.
 
-The environment variable `IK_SOLVER_LOGGER_CONFIG_PATH` should be set with the path to an appropriate `cnr_logger` configuration file. An example is provided [here](https://github.com/JRL-CARI-CNR-UNIBS/ik_solver/blob/master/ik_solver_core/config/default_logger.yaml).
-In the future, this requirement will be removed.
+The solvers read their parameters from the ROS 2 parameters of the node and log through the ROS 2 logger (see [Parameters and logging](#parameters-and-logging)): no parameter server or logger configuration file is needed.
 
 # Usage
 
 To simplify the setup process of multiple `ik_solver_node` servers, la `launch` file is provided. The launcher will load a `yaml` file containing the parameters as explained [below](#the-configuration-file) and will launch a solver server for each namespaced set of parameters.
 
-To launch the ROS2 version
-
 ```bash
 ros2 launch ik_solver ik_solver.launch.py config:=/path/to/config.yaml
 ```
 
-A ROS1 launcher is provided but it is not stable yet.
+`config.yaml` is a ROS 2 parameter file; each first-level key `/<namespace>/ik_solver_node` starts one node in `<namespace>`.
 
 # IK Solver ROS Node
 
@@ -50,8 +47,8 @@ The pool of thread dimension is set by the variable `MAX_NUM_PARALLEL_IK_SOLVER`
 ## Packages structure
 
 The framework is based on two packages:
-* `ik_solver_core`, provide a ros-free core of the framework, such as the `IkSolverBase` abstract class which can be inherited to create ros-free plugins.
-* `ik_solver`, is the ROS wrapper, compatible with both ROS1 and ROS2. Services and Nodes are defined here. Also, a convenience class `IKSolver`, inhereting `IkSolverBase`, is provided to simplify interfacing with `tf2`
+* `ik_solver_core`, provide a ros-free core of the framework, such as the `IkSolverBase` abstract class which can be inherited to create ros-free plugins, the parameters (`ik_solver::ParamMap`) and the logger interface (`ik_solver::Logger`).
+* `ik_solver`, is the ROS 2 wrapper. Services and Nodes are defined here. Also, a convenience class `IKSolver`, inhereting `IkSolverBase`, is provided to simplify interfacing with `tf2`, and `ik_solver/ros_params.hpp` connects the parameters and the logger to a ROS 2 node.
 
 ## The IK Solver Plugin
 
@@ -84,7 +81,8 @@ public:
   IkSolverBase(IkSolverBase&&) = delete;
   virtual ~IkSolverBase() = default;
 
-  virtual bool config(const ros::NodeHandle& nh, const std::string& param_ns = "");
+  virtual bool config(const ParamMap& params);  // parameters, including robot_description
+  void setLogger(const LoggerPtr& logger);       // default: ConsoleLogger
 
   // FK flange to base
   virtual Solutions getIk(const Eigen::Affine3d& T_base_flange, const Configurations& seeds,
@@ -108,14 +106,13 @@ public:
   const int& max_stall_iterations() const;
   const int& desired_solutions() const;
   const int& parallelize() const;
-  const std::string param_namespace() const;
+  const ParamMap& params() const;  // parameters of the last config()
 
 protected:
-  std::string params_ns_;
-  ros::NodeHandle robot_nh_;
+  LoggerPtr logger_;   // write with IK_DEBUG(logger_, "a=" << a), IK_INFO, IK_WARN, IK_ERROR
+  ParamMap params_;    // derived classes read their own parameters here
 
   Eigen::Affine3d T_tool_flange_;
-  tf::TransformListener listener_;
   std::string base_frame_;
   std::string flange_frame_;
   std::string tool_frame_;
@@ -131,7 +128,7 @@ protected:
   int parallelize_ = 0;
   int exploit_solutions_as_seed_ = 0;
 
-  urdf::Model model_;
+  urdf::ModelInterfaceSharedPtr model_;
 
   bool getFlangeTool();
 };
@@ -142,18 +139,12 @@ protected:
   ik_solver/include/ik_solver/ik_solver.hpp
 */
 
-#if ROS_X == 1
-  using Tf2BufferPtr = std::unique_ptr<tf2_ros::Buffer>;
-#elif ROS_X == 2
-  using Tf2BufferPtr = tf2_ros::Buffer::SharedPtr;
-#endif
-
 namespace ik_solver
 {
 class IkSolver : public IkSolverBase
 {
 protected:
-  Tf2BufferPtr tf_buffer_;
+  tf2_ros::Buffer::SharedPtr tf_buffer_;
 public:
   IkSolver() : IkSolverBase() {}
   IkSolver(const IkSolver&) = delete;
@@ -169,11 +160,42 @@ public:
 ```
 
 
+## Parameters and logging
+
+`IkSolverBase::config()` receives the parameters as an `ik_solver::ParamMap` (name → value). Nested names use `.`, as in ROS 2: `limits.shoulder_pan_joint.upper`, `task_redundant.yaw.min`. A plugin reads its own parameters from `params_`:
+
+```cpp
+bool MySolver::config(const ik_solver::ParamMap& params)
+{
+  if (!IkSolver::config(params))
+    return false;
+  ik_solver::get_optional_param(logger_, params_, "my_tolerance", tolerance_);  // unchanged if missing
+  IK_INFO(logger_, "MySolver ready, tolerance = " << tolerance_);
+  return true;
+}
+```
+
+`ik_solver_node` passes all its ROS 2 parameters, plus `robot_description`, to the solvers; the solver messages go to the child logger `<node>.ik_solver`, e.g. `--ros-args --log-level ur_ik_solver.ik_solver_node.ik_solver:=debug`. The `~reconfigure` service reads the ROS parameters again, so it applies the changes made with `ros2 param set`.
+
+To use a solver inside your own node (without `ik_solver_node`), load it with pluginlib and configure it from the parameters of your node, e.g. under the prefix `ur_ik_solver.`:
+
+```cpp
+#include <ik_solver/ros_params.hpp>
+
+solver->setBuffer(tf_buffer);
+solver->setLogger(std::make_shared<ik_solver::RclcppLogger>(node->get_logger().get_child("ik_solver")));
+ik_solver::ParamMap params = ik_solver::paramsFromNode(node, "ur_ik_solver");  // ur_ik_solver.base_frame -> base_frame
+params["robot_description"] = urdf;
+solver->config(params);
+```
+
+Without ROS, fill the ParamMap directly or from YAML with `ik_solver::paramsFromYAML()`.
+
 ## The configuration file
 
 An example of a commented configuration template is provided in [`ik_solver_core/config/commented_params.yaml.template`](ik_solver_core/config/commented_params.yaml.template), and a runnable multi-solver example is in [`ik_solver/examples/config.example.yaml`](ik_solver/examples/config.example.yaml).
 
-Every top-level key in the configuration YAML represents the namespace of an `ik_solver` node instance (e.g. `ur_ik_solver:` or `solver1:`). Multiple top-level blocks instantiate multiple independent solver servers.
+The configuration file is a ROS 2 parameter file. Every top-level key is the fully qualified name of an `ik_solver_node`, `/<namespace>/ik_solver_node` (e.g. `/ur_ik_solver/ik_solver_node:`), followed by `ros__parameters:`. The launch file starts one node for each of these keys, in `<namespace>`; the services are then `/<namespace>/get_ik`, ... Multiple top-level blocks instantiate multiple independent solver servers.
 
 ### Configuration Parameters Reference
 
@@ -183,9 +205,9 @@ Every top-level key in the configuration YAML represents the namespace of an `ik
 | `base_frame` | string | *required* | Base frame of the kinematic chain (e.g. `ur10e_base_link`, `base_link`, `world`). |
 | `flange_frame` | string | *required* | Tip / end frame of the kinematic chain (e.g. `ur10e_tool0`, `flange`). |
 | `tool_frame` | string | `flange_frame` | Destination tool frame of the IK request. Rigidly attached to `flange_frame` (e.g. `open_tip`). |
-| `robot_description_topic` | string | `/robot_description` | Topic name for the URDF robot description. |
+| `robot_description_topic` | string | `~/robot_description` | Topic of the URDF, used if the `robot_description` parameter is not set (`ik_solver.launch.py` remaps it to `/robot_description`). |
 | `joint_names` | list[string] | *required* | Ordered list of joint names forming the kinematic chain. |
-| `limits/<joint>/lower`, `limits/<joint>/upper` | float | URDF limits | Restrict the URDF joint limits (a value wider than the URDF one is ignored). Can be changed at runtime via the `~set_bounds` service; `~reconfigure` restores these values. |
+| `limits.<joint>.lower`, `limits.<joint>.upper` (nested `limits: {<joint>: {lower: ..., upper: ...}}` in YAML) | float | URDF limits | Restrict the URDF joint limits (a value wider than the URDF one is ignored). Can be changed at runtime via the `~set_bounds` service; `~reconfigure` restores these values. |
 | `desired_solutions` | int | 32 | Number of desired IK solutions to compute. Can be overridden in service requests. |
 | `min_stall_iterations` | int | 500 | Minimum stall iterations before solver aborts or switches. |
 | `max_stall_iterations` | int | 3000 | Maximum stall iterations. |
@@ -210,7 +232,7 @@ For robots with wide revolute joint limits (such as the UR10e with $[-2\pi, 2\pi
 The `~get_task_redundant_ik_array` service applies perturbations around the target tool frame before solving IK. Two sampling strategies are supported:
 
 #### 1. Random Sampling (`type: random`)
-Samples $N$ perturbations from normal distributions across selected axes. Axes not specified are kept unperturbed ($0$).
+Samples $N$ perturbations from normal distributions across selected axes. Axes not specified are kept unperturbed ($0$). (In the snippets below `task_redundant` is inside `ros__parameters`.)
 ```yaml
 task_redundant:
   type: random
@@ -255,44 +277,45 @@ task_redundant:
 Below is a complete configuration example for a UR10e cell. A runnable example, with two solvers, is also provided in [`ik_solver/examples/config.example.yaml`](ik_solver/examples/config.example.yaml):
 
 ```yaml
-ur_ik_solver:
-  type: ik_solver/Ur10eIkSolver
-  base_frame: ur10e_base_link
-  flange_frame: ur10e_tool0
-  tool_frame: open_tip
-  robot_description_topic: /robot_description
-  desired_solutions: 256
+/ur_ik_solver/ik_solver_node:
+  ros__parameters:
+    type: ik_solver/Ur10eIkSolver
+    base_frame: ur10e_base_link
+    flange_frame: ur10e_tool0
+    tool_frame: open_tip
+    robot_description_topic: /robot_description
+    desired_solutions: 256
 
-  joint_names:
-    - ur10e_shoulder_pan_joint
-    - ur10e_shoulder_lift_joint
-    - ur10e_elbow_joint
-    - ur10e_wrist_1_joint
-    - ur10e_wrist_2_joint
-    - ur10e_wrist_3_joint
+    joint_names:
+      - ur10e_shoulder_pan_joint
+      - ur10e_shoulder_lift_joint
+      - ur10e_elbow_joint
+      - ur10e_wrist_1_joint
+      - ur10e_wrist_2_joint
+      - ur10e_wrist_3_joint
 
-  min_stall_iterations: 100
-  max_stall_iterations: 100000
-  parallel_ik_mode: 2
+    min_stall_iterations: 100
+    max_stall_iterations: 100000
+    parallel_ik_mode: 2
 
-  # Duplicate filtering & initial configuration
-  filter_duplicates: true
-  initial_conf: [1.57079632679, -2.09439510239, 2.00712863979, -1.57079632679, -1.57079632679, 0.0] # [90°, -120°, 115°, -90°, -90°, 0°]
+    # Duplicate filtering & initial configuration
+    filter_duplicates: true
+    initial_conf: [1.57079632679, -2.09439510239, 2.00712863979, -1.57079632679, -1.57079632679, 0.0] # [90°, -120°, 115°, -90°, -90°, 0°]
 
-  # Task-redundant IK perturbation sampling
-  task_redundant:
-    type: random
-    n_samples: 450
-    seed: 42
-    roll:
-      mean: 0.26179938780
-      standard_deviation: 1.43989663290
-    pitch:
-      mean: 0.0
-      standard_deviation: 0.3926990817
-    yaw:
-      mean: 0.0
-      standard_deviation: 0.3926990817
+    # Task-redundant IK perturbation sampling
+    task_redundant:
+      type: random
+      n_samples: 450
+      seed: 42
+      roll:
+        mean: 0.26179938780
+        standard_deviation: 1.43989663290
+      pitch:
+        mean: 0.0
+        standard_deviation: 0.3926990817
+      yaw:
+        mean: 0.0
+        standard_deviation: 0.3926990817
 ```
 
 

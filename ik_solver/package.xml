@@ -8,33 +8,17 @@
 
   <license>BSD</license>
 
-  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake</buildtool_depend>
-  <buildtool_depend condition="$ROS_VERSION == 1">catkin</buildtool_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
   <!-- ROS1 -->
-  <build_depend condition="$ROS_VERSION == 1">eigen_conversions</build_depend>
-  <build_depend condition="$ROS_VERSION == 1">tf_conversions   </build_depend>
-  <build_depend condition="$ROS_VERSION == 1">roscpp           </build_depend>
-  <build_depend condition="$ROS_VERSION == 1">tf               </build_depend>
-  <build_depend condition="$ROS_VERSION == 1">urdf             </build_depend>
-  <build_export_depend condition="$ROS_VERSION == 1">eigen_conversions</build_export_depend>
-  <build_export_depend condition="$ROS_VERSION == 1">tf_conversions   </build_export_depend>
-  <build_export_depend condition="$ROS_VERSION == 1">roscpp           </build_export_depend>
-  <build_export_depend condition="$ROS_VERSION == 1">tf               </build_export_depend>
-  <build_export_depend condition="$ROS_VERSION == 1">urdf             </build_export_depend>
-  <exec_depend condition="$ROS_VERSION == 1">eigen_conversions</exec_depend>
-  <exec_depend condition="$ROS_VERSION == 1">tf_conversions   </exec_depend>
-  <exec_depend condition="$ROS_VERSION == 1">roscpp           </exec_depend>
-  <exec_depend condition="$ROS_VERSION == 1">tf               </exec_depend>
-  <exec_depend condition="$ROS_VERSION == 1">urdf             </exec_depend>
 
   <!-- ROS2 -->
-  <build_depend condition="$ROS_VERSION == 2">rclcpp           </build_depend>
-  <build_depend condition="$ROS_VERSION == 2">tf2              </build_depend>
-  <build_export_depend condition="$ROS_VERSION == 2">rclcpp           </build_export_depend>
-  <build_export_depend condition="$ROS_VERSION == 2">tf2              </build_export_depend>
-  <exec_depend condition="$ROS_VERSION == 2">rclcpp           </exec_depend>
-  <exec_depend condition="$ROS_VERSION == 2">tf2              </exec_depend>
+  <build_depend>rclcpp           </build_depend>
+  <build_depend>tf2              </build_depend>
+  <build_export_depend>rclcpp           </build_export_depend>
+  <build_export_depend>tf2              </build_export_depend>
+  <exec_depend>rclcpp           </exec_depend>
+  <exec_depend>tf2              </exec_depend>
 
   <!-- Common -->
   <build_depend version_gte="0.1.0">ik_solver_msgs</build_depend>
@@ -50,12 +34,9 @@
   <exec_depend>std_srvs      </exec_depend>
   <exec_depend>geometry_msgs </exec_depend>  
 
-  <depend> cnr_param </depend>
-  <depend> cnr_logger </depend>
   <depend> ik_solver_core </depend>
 
   <export>
-    <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>
-    <build_type condition="$ROS_VERSION == 1">catkin</build_type>
+    <build_type>ament_cmake</build_type>
   </export>
 </package>

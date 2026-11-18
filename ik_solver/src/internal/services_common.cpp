@@ -32,6 +32,27 @@
 
 namespace ik_solver
 {
+  namespace
+  {
+    /**
+     * @brief Read an optional parameter of the solver. A missing parameter or a parameter
+     * with a wrong type (logged) leaves @p value unchanged.
+     * @return True if the parameter was read.
+     */
+    template <typename T>
+    bool getOptional(const IkSolver &solver, const std::string &name, T &value)
+    {
+      try
+      {
+        return get_optional_param(solver.logger(), solver.params(), name, value);
+      }
+      catch (const std::invalid_argument &)
+      {
+        return false;
+      }
+    }
+  } // namespace
+
   //========================================================================================
   /**
    * @brief The IkSolver->getIk solves the IK from 'flange' to 'base'. The IkArray
@@ -158,8 +179,7 @@ namespace ik_solver
     uint8_t parallelize = req->parallelize != ik_solver_msgs::GetIkArray::Request::PARALLELIZE_DEFAULT ? req->parallelize : config().parallelize();
 
     int update_recursively_seeds = ik_solver_msgs::GetIkArray::Request::UPDATE_RECURSIVELY_SEEDS_FORCE;
-    std::string what;
-    cnr::param::get(config().param_namespace() + "/update_recursively_seeds", update_recursively_seeds, what);
+    getOptional(config(), "update_recursively_seeds", update_recursively_seeds);
     update_recursively_seeds =
         req->update_recursively_seeds != ik_solver_msgs::GetIkArray::Request::UPDATE_RECURSIVELY_SEEDS_DEFAULT ? req->update_recursively_seeds : update_recursively_seeds;
 
@@ -206,33 +226,27 @@ namespace ik_solver
   } // namespace
 
   /**
-   * @brief Reads the 'task_redundant' parameters (namespace under the solver's param namespace) and
+   * @brief Reads the 'task_redundant.*' parameters of the solver and
    * builds the set of pose perturbations to be applied to each requested target. Two mutually exclusive
-   * modes are supported, selected by the string parameter 'task_redundant/type':
+   * modes are supported, selected by the string parameter 'task_redundant.type':
    *  - "grid": for each axis (x,y,z,roll,pitch,yaw) reads min/max/step and builds the cartesian product.
-   *  - "random": for each axis reads mean/standard_deviation and draws 'task_redundant/n_samples' samples,
-   *    optionally seeded deterministically via 'task_redundant/seed' (falls back to a non-deterministic
+   *  - "random": for each axis reads mean/standard_deviation and draws 'task_redundant.n_samples' samples,
+   *    optionally seeded deterministically via 'task_redundant.seed' (falls back to a non-deterministic
    *    seed when unset).
    * An axis that is not configured defaults to a single perturbation value of 0 on that axis.
    */
   std::vector<Eigen::Affine3d> IkServicesBase::computeTaskRedundantPerturbations() const
   {
-    std::string what;
     // "task_redundant" is the parameter name. The misspelled "task_reduntant" is still accepted
     // for backward compatibility with existing configuration files.
-    std::string base = config().param_namespace();
-    if (!base.empty() && base.back() != '/')
+    std::string ns = "task_redundant.";
+    if (subParams(config().params(), "task_redundant").empty() && !subParams(config().params(), "task_reduntant").empty())
     {
-      base += "/";
-    }
-    std::string ns = base + "task_redundant/";
-    if (!cnr::param::has(base + "task_redundant", what) && cnr::param::has(base + "task_reduntant", what))
-    {
-      ns = base + "task_reduntant/";
+      ns = "task_reduntant.";
     }
 
     std::string type = "grid";
-    cnr::param::get(ns + "type", type, what);
+    getOptional(config(), ns + "type", type);
 
     static const std::array<std::string, 6> axes = {"x", "y", "z", "roll", "pitch", "yaw"};
 
@@ -244,20 +258,20 @@ namespace ik_solver
       std::array<double, 6> stddev{};
       for (size_t i = 0; i < axes.size(); i++)
       {
-        cnr::param::get(ns + axes.at(i) + "/mean", mean.at(i), what);
-        cnr::param::get(ns + axes.at(i) + "/standard_deviation", stddev.at(i), what);
+        getOptional(config(), ns + axes.at(i) + ".mean", mean.at(i));
+        getOptional(config(), ns + axes.at(i) + ".standard_deviation", stddev.at(i));
       }
 
       int n_samples = 1;
-      cnr::param::get(ns + "n_samples", n_samples, what);
+      getOptional(config(), ns + "n_samples", n_samples);
       n_samples = std::max(n_samples, 1);
 
-      // Optional deterministic seed (task_redundant/seed) for reproducible sampling, e.g. when
+      // Optional deterministic seed (task_redundant.seed) for reproducible sampling, e.g. when
       // comparing Optuna trials that rely on Common Random Numbers. Falls back to a
       // non-deterministic seed, as before, when unset.
       int seed = 0;
       std::mt19937 gen;
-      if (cnr::param::get(ns + "seed", seed, what))
+      if (getOptional(config(), ns + "seed", seed))
       {
         gen.seed(static_cast<std::mt19937::result_type>(seed));
       }
@@ -290,9 +304,9 @@ namespace ik_solver
       for (size_t i = 0; i < axes.size(); i++)
       {
         double min_v = 0.0, max_v = 0.0, step = 1.0;
-        cnr::param::get(ns + axes.at(i) + "/min", min_v, what);
-        cnr::param::get(ns + axes.at(i) + "/max", max_v, what);
-        cnr::param::get(ns + axes.at(i) + "/step", step, what);
+        getOptional(config(), ns + axes.at(i) + ".min", min_v);
+        getOptional(config(), ns + axes.at(i) + ".max", max_v);
+        getOptional(config(), ns + axes.at(i) + ".step", step);
         values.at(i) = gridAxisValues(min_v, max_v, step);
       }
 
@@ -748,8 +762,8 @@ namespace ik_solver
     {
       //    ROS_ERROR("computeFKArray: error on computing TF from tool_name=%s, tip_frame=%s", config().tool_frame().c_str(),
       //              tip_frame.c_str());
-      printf("%s[ERROR] computeFKArray: error on computing TF from tool_name=%s, tip_frame=%s %s", cnr_logger::RED().c_str(), config().tool_frame().c_str(),
-             tip_frame.c_str(), cnr_logger::RESET().c_str());
+      printf("%s[ERROR] computeFKArray: error on computing TF from tool_name=%s, tip_frame=%s %s", ik_solver::color::RED().c_str(), config().tool_frame().c_str(),
+             tip_frame.c_str(), ik_solver::color::RESET().c_str());
       return false;
     }
 
@@ -782,7 +796,7 @@ namespace ik_solver
       if (!found)
       {
         //      ROS_ERROR("computeFKArray joint names are not correct");
-        printf("%s[ERROR] computeFKArray joint names are not correct%s", cnr_logger::RED().c_str(), cnr_logger::RESET().c_str());
+        printf("%s[ERROR] computeFKArray joint names are not correct%s", ik_solver::color::RED().c_str(), ik_solver::color::RESET().c_str());
         return false;
       }
     }
@@ -1005,15 +1019,13 @@ namespace ik_solver
    * @return true
    * @return false
    */
-  bool IkServicesBase::reconfigure(Trigger::Request *req, Trigger::Response *res)
+  bool IkServicesBase::reconfigure(const ParamMap &params, Trigger::Request *req, Trigger::Response *res)
   {
     for (std::size_t i = 0; i < ik_solver::MAX_NUM_PARALLEL_IK_SOLVER; i++)
     {
-      // Reload from the same namespace used at startup
-      if (!ik_solvers_.at(i)->config(ik_solvers_.at(i)->param_namespace()))
+      if (!ik_solvers_.at(i)->config(params))
       {
-        //      ROS_ERROR("Unable to re-configure %s", nh_.getNamespace().c_str());
-        printf("%s[ERROR] Unable to re-configure%s\n", cnr_logger::RED().c_str(), cnr_logger::RESET().c_str());
+        printf("%s[ERROR] Unable to re-configure%s\n", ik_solver::color::RED().c_str(), ik_solver::color::RESET().c_str());
         res->success = false;
         res->message = "unable to re-configure solver " + std::to_string(i);
         return true;
@@ -1041,28 +1053,21 @@ namespace ik_solver
 
   void IkServicesBase::loadTaskRedundantParams()
   {
-    std::string what;
-    std::string ns = config().param_namespace();
-    if (!ns.empty() && ns.back() != '/')
+    if (!getOptional(config(), "filter_duplicates", filter_duplicates_))
     {
-      ns += "/";
-    }
-
-    if (!cnr::param::get(ns + "filter_duplicates", filter_duplicates_, what))
-    {
-      if (!cnr::param::get(ns + "task_redundant/filter_duplicates", filter_duplicates_, what))
+      if (!getOptional(config(), "task_redundant.filter_duplicates", filter_duplicates_))
       {
-        cnr::param::get(ns + "task_reduntant/filter_duplicates", filter_duplicates_, what);
+        getOptional(config(), "task_reduntant.filter_duplicates", filter_duplicates_);
       }
     }
 
     if (!initial_conf_set_manually_)
     {
       std::vector<double> conf;
-      if (cnr::param::get(ns + "initial_conf", conf, what) ||
-          cnr::param::get(ns + "initial_configuration", conf, what) ||
-          cnr::param::get(ns + "task_redundant/initial_conf", conf, what) ||
-          cnr::param::get(ns + "task_reduntant/initial_conf", conf, what))
+      if (getOptional(config(), "initial_conf", conf) ||
+          getOptional(config(), "initial_configuration", conf) ||
+          getOptional(config(), "task_redundant.initial_conf", conf) ||
+          getOptional(config(), "task_reduntant.initial_conf", conf))
       {
         initial_conf_ = conf;
       }
